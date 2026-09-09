@@ -11,6 +11,8 @@ router.get('/dashboard', adminController.dashboard);
 router.get('/users', adminController.users);
 router.post('/users', adminController.createUser);
 router.post('/users/:id/toggle-status', adminController.toggleUserStatus);
+router.post('/users/:id/approve', adminController.approveUser);
+router.post('/users/:id/reject', adminController.rejectUser);
 router.post('/users/:id/reset-password', adminController.resetPassword);
 
 router.get('/settings', adminController.settings);

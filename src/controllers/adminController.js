@@ -49,10 +49,11 @@ async function dashboard(req, res) {
 async function users(req, res) {
     try {
         const selectedRole = req.query.role || 'all';
+        const selectedStatus = req.query.status || 'all';
         const search = req.query.q ? `%${req.query.q.trim()}%` : null;
 
         let sql = `
-            SELECT u.id, u.first_name, u.last_name, u.email, u.role, u.is_active, u.created_at, u.last_login,
+            SELECT u.id, u.first_name, u.last_name, u.email, u.role, u.is_active, u.status, u.created_at, u.last_login,
                    s.id AS student_profile_id, s.student_id AS lrn, s.grade_level, s.section, s.gender,
                    t.id AS teacher_profile_id, t.employee_id, t.department, t.specialization, t.is_adviser, t.advisory_grade, t.advisory_section
             FROM users u
@@ -65,6 +66,11 @@ async function users(req, res) {
         if (selectedRole !== 'all') {
             sql += ' AND u.role = ?';
             params.push(selectedRole);
+        }
+
+        if (selectedStatus !== 'all') {
+            sql += ' AND u.status = ?';
+            params.push(selectedStatus);
         }
 
         if (search) {
@@ -80,6 +86,7 @@ async function users(req, res) {
             title: 'User Management | EduShare 2.0',
             users: userList,
             selectedRole,
+            selectedStatus,
             searchQuery: req.query.q || ''
         });
     } catch (err) {
@@ -187,6 +194,66 @@ async function toggleUserStatus(req, res) {
         console.error('Toggle status error:', err);
         setFlash(req, 'error', 'Failed to update user status.');
         res.redirect('/admin/users');
+    }
+}
+
+async function approveUser(req, res) {
+    try {
+        const targetId = parseInt(req.params.id, 10);
+        const rows = await query('SELECT status, first_name, last_name FROM users WHERE id = ?', [targetId]);
+        if (rows.length === 0) {
+            setFlash(req, 'error', 'User not found.');
+            return res.redirect('/admin/users?status=pending');
+        }
+        if (rows[0].status !== 'pending') {
+            setFlash(req, 'error', 'Only pending registrations can be approved.');
+            return res.redirect('/admin/users?status=pending');
+        }
+
+        await query("UPDATE users SET status = 'active', is_active = 1 WHERE id = ?", [targetId]);
+
+        await query(
+            `INSERT INTO activity_logs (user_id, action, description, category)
+             VALUES (?, 'Registration Approved', ?, 'admin')`,
+            [req.session.user.id, `Approved registration for ${rows[0].first_name} ${rows[0].last_name} (user ID ${targetId})`]
+        );
+
+        setFlash(req, 'success', `Approved registration for ${rows[0].first_name} ${rows[0].last_name}.`);
+        res.redirect('/admin/users?status=pending');
+    } catch (err) {
+        console.error('Approve user error:', err);
+        setFlash(req, 'error', 'Failed to approve registration.');
+        res.redirect('/admin/users?status=pending');
+    }
+}
+
+async function rejectUser(req, res) {
+    try {
+        const targetId = parseInt(req.params.id, 10);
+        const rows = await query('SELECT status, first_name, last_name FROM users WHERE id = ?', [targetId]);
+        if (rows.length === 0) {
+            setFlash(req, 'error', 'User not found.');
+            return res.redirect('/admin/users?status=pending');
+        }
+        if (rows[0].status !== 'pending') {
+            setFlash(req, 'error', 'Only pending registrations can be rejected.');
+            return res.redirect('/admin/users?status=pending');
+        }
+
+        await query("UPDATE users SET status = 'rejected', is_active = 0 WHERE id = ?", [targetId]);
+
+        await query(
+            `INSERT INTO activity_logs (user_id, action, description, category)
+             VALUES (?, 'Registration Rejected', ?, 'admin')`,
+            [req.session.user.id, `Rejected registration for ${rows[0].first_name} ${rows[0].last_name} (user ID ${targetId})`]
+        );
+
+        setFlash(req, 'info', `Rejected registration for ${rows[0].first_name} ${rows[0].last_name}.`);
+        res.redirect('/admin/users?status=pending');
+    } catch (err) {
+        console.error('Reject user error:', err);
+        setFlash(req, 'error', 'Failed to reject registration.');
+        res.redirect('/admin/users?status=pending');
     }
 }
 
@@ -324,6 +391,8 @@ module.exports = {
     users,
     createUser,
     toggleUserStatus,
+    approveUser,
+    rejectUser,
     resetPassword,
     settings,
     updateSettings,

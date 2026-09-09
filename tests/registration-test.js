@@ -1,4 +1,5 @@
 // tests/registration-test.js
+const bcrypt = require('bcrypt');
 const { query } = require('../src/config/database');
 
 async function checkSchema() {
@@ -297,4 +298,105 @@ async function checkOtp() {
     await query("DELETE FROM otp_verifications WHERE email = ?", [email]);
 }
 
-checkSchema().then(() => checkMail()).then(() => checkOtp()).then(() => checkPendingBlocked()).then(() => checkRegisterPage()).then(() => checkRegisterDesign()).then(() => checkTeacherRequest()).then(() => checkWrongCodeVerify()).then(() => checkDuplicateGuard()).then(() => checkCsrfReject()).then(() => checkRateLimit()).then(() => checkRoutes()).then(() => process.exit(0)).catch((e) => { console.error('  ❌ FAIL:', e.message); process.exit(1); });
+async function checkApproval() {
+    const stamp = Date.now();
+    const email = `t8-approve-${stamp}@zahs.edu.ph`;
+    const password = 'ApproveMe123';
+    const hash = await bcrypt.hash(password, 10);
+    const userRes = await query(
+        `INSERT INTO users (first_name, last_name, email, password_hash, role, is_active, status, force_password_change)
+         VALUES ('Task', 'Eight', ?, ?, 'teacher', 0, 'pending', 0)`,
+        [email, hash]
+    );
+    const pendingId = userRes.insertId;
+    await query(
+        `INSERT INTO teachers (user_id, employee_id, department, specialization)
+         VALUES (?, ?, 'Junior High School', 'General Education')`,
+        [pendingId, `T8-${String(stamp).slice(-6)}`]
+    );
+    try {
+        // Pending login shows approval notice after correct password.
+        const before = await loginAs(email, password);
+        if (!(before.status === 401 && before.text.includes('Account pending approval. You will be notified once activated.'))) {
+            throw new Error(`pending user not gated before approval (status ${before.status})`);
+        }
+        console.log('  ✅ PASS: pending teacher blocked before approval');
+
+        // Admin approves via HTTP session (admin routes use session auth, no CSRF token).
+        const sess = await getLoginSession();
+        const res = await fetch('http://localhost:3000/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: sess.cookie },
+            body: new URLSearchParams({ _csrf: sess.token || 'x', credential: 'admin@edushare.com', password: 'Admin123!' }),
+            redirect: 'manual'
+        });
+        await res.text();
+        const adminCookie = (res.headers.get('set-cookie') || '').split(';')[0] || sess.cookie;
+        const probe = await fetch('http://localhost:3000/admin/dashboard', {
+            headers: { Cookie: adminCookie }, redirect: 'manual'
+        });
+        await probe.text();
+        if (probe.status !== 200) {
+            throw new Error(`admin login failed (dashboard status ${probe.status})`);
+        }
+        const usersPage = await fetch('http://localhost:3000/admin/users?status=pending', {
+            headers: { Cookie: adminCookie }, redirect: 'manual'
+        });
+        const usersBody = await usersPage.text();
+        if (usersPage.status !== 200 || !usersBody.includes(email)) {
+            throw new Error(`pending user missing from admin list (status ${usersPage.status})`);
+        }
+        console.log('  ✅ PASS: pending teacher visible in admin pending list');
+        const approve = await fetch(`http://localhost:3000/admin/users/${pendingId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: adminCookie },
+            body: new URLSearchParams({}),
+            redirect: 'manual'
+        });
+        await approve.text();
+        if (approve.status === 404) {
+            throw new Error('POST /admin/users/:id/approve status 404 (no route)');
+        }
+        const rows = await query('SELECT status, is_active FROM users WHERE id = ?', [pendingId]);
+        if (rows.length !== 1 || rows[0].status !== 'active' || Number(rows[0].is_active) !== 1) {
+            throw new Error(`approval did not activate user (status ${approve.status}, db ${JSON.stringify(rows[0] || null)})`);
+        }
+        const after = await loginAs(email, password);
+        if (!(after.status === 302 && String(after.location).includes('/teacher/dashboard'))) {
+            throw new Error(`approved teacher cannot log in (status ${after.status}, location "${after.location}")`);
+        }
+        console.log('  ✅ PASS: pending teacher approved and can log in');
+
+        // Rejection: second pending user ends rejected + blocked.
+        const email2 = `t8-reject-${stamp}@zahs.edu.ph`;
+        const hash2 = await bcrypt.hash(password, 10);
+        const rejRes = await query(
+            `INSERT INTO users (first_name, last_name, email, password_hash, role, is_active, status, force_password_change)
+             VALUES ('Task', 'EightRej', ?, ?, 'teacher', 0, 'pending', 0)`,
+            [email2, hash2]
+        );
+        const reject = await fetch(`http://localhost:3000/admin/users/${rejRes.insertId}/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: adminCookie },
+            body: new URLSearchParams({}),
+            redirect: 'manual'
+        });
+        await reject.text();
+        const rejRows = await query('SELECT status, is_active FROM users WHERE id = ?', [rejRes.insertId]);
+        if (rejRows.length !== 1 || rejRows[0].status !== 'rejected' || Number(rejRows[0].is_active) !== 0) {
+            throw new Error(`rejection did not mark user rejected (status ${reject.status})`);
+        }
+        const rejLogin = await loginAs(email2, password);
+        if (rejLogin.status === 302 && String(rejLogin.location).includes('/teacher/dashboard')) {
+            throw new Error('rejected user logged in');
+        }
+        console.log('  ✅ PASS: rejected teacher stays blocked');
+        await query('DELETE FROM teachers WHERE user_id = ?', [rejRes.insertId]);
+        await query('DELETE FROM users WHERE id = ?', [rejRes.insertId]);
+    } finally {
+        await query('DELETE FROM teachers WHERE user_id = ?', [pendingId]);
+        await query('DELETE FROM users WHERE id = ?', [pendingId]);
+    }
+}
+
+checkSchema().then(() => checkMail()).then(() => checkOtp()).then(() => checkPendingBlocked()).then(() => checkRegisterPage()).then(() => checkRegisterDesign()).then(() => checkTeacherRequest()).then(() => checkWrongCodeVerify()).then(() => checkDuplicateGuard()).then(() => checkCsrfReject()).then(() => checkRateLimit()).then(() => checkRoutes()).then(() => checkApproval()).then(() => process.exit(0)).catch((e) => { console.error('  ❌ FAIL:', e.message); process.exit(1); });

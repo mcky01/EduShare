@@ -25,6 +25,7 @@ router.get('/gradebook', teacherController.gradebook);
 router.get('/gradebook/:classId/export', teacherController.exportGradebook);
 
 router.get('/advisory', teacherController.advisory);
+router.post('/advisory/approve/:id', teacherController.approveStudent);
 router.get('/lesson-generator', teacherController.lessonGenerator);
 router.get('/quiz-maker', teacherController.quizMaker);
 

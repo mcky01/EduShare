@@ -17,20 +17,73 @@
 <div class="glass-card p-3 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
     <!-- Role Tabs -->
     <div class="nav nav-pills gap-1">
-        <a href="/admin/users?role=all" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'all' ? 'active bg-success' : 'text-dark' %>">All</a>
-        <a href="/admin/users?role=teacher" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'teacher' ? 'active bg-success' : 'text-dark' %>">Teachers</a>
-        <a href="/admin/users?role=student" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'student' ? 'active bg-success' : 'text-dark' %>">Students</a>
-        <a href="/admin/users?role=admin" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'admin' ? 'active bg-success' : 'text-dark' %>">Admins</a>
+        <a href="/admin/users?role=all&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'all' ? 'active bg-success' : 'text-dark' %>">All</a>
+        <a href="/admin/users?role=teacher&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'teacher' ? 'active bg-success' : 'text-dark' %>">Teachers</a>
+        <a href="/admin/users?role=student&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'student' ? 'active bg-success' : 'text-dark' %>">Students</a>
+        <a href="/admin/users?role=admin&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'admin' ? 'active bg-success' : 'text-dark' %>">Admins</a>
     </div>
 
     <!-- Search Form -->
     <form action="/admin/users" method="GET" class="d-flex gap-2" style="max-width: 320px; width: 100%;">
         <input type="hidden" name="role" value="<%= selectedRole %>">
+        <input type="hidden" name="status" value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>">
         <input type="text" name="q" class="glass-input py-1 px-3" placeholder="Search name, email, LRN..." value="<%= searchQuery %>">
         <button type="submit" class="btn btn-glass py-1 px-3">
             <i class="bi bi-search"></i>
         </button>
     </form>
+</div>
+
+<!-- Status Filter -->
+<div class="glass-card p-3 mb-4 d-flex gap-2 flex-wrap align-items-center">
+    <span class="small fw-bold text-muted">Status:</span>
+    <a href="/admin/users?role=<%= selectedRole %>&status=all" class="nav-link rounded-pill px-3 py-1 fw-bold <%= (typeof selectedStatus === 'undefined' || selectedStatus === 'all') ? 'active bg-success' : 'text-dark' %>">All</a>
+    <a href="/admin/users?role=<%= selectedRole %>&status=pending" class="nav-link rounded-pill px-3 py-1 fw-bold <%= (typeof selectedStatus !== 'undefined' && selectedStatus === 'pending') ? 'active bg-success' : 'text-dark' %>">Pending</a>
+    <a href="/admin/users?role=<%= selectedRole %>&status=active" class="nav-link rounded-pill px-3 py-1 fw-bold <%= (typeof selectedStatus !== 'undefined' && selectedStatus === 'active') ? 'active bg-success' : 'text-dark' %>">Active</a>
+    <a href="/admin/users?role=<%= selectedRole %>&status=rejected" class="nav-link rounded-pill px-3 py-1 fw-bold <%= (typeof selectedStatus !== 'undefined' && selectedStatus === 'rejected') ? 'active bg-success' : 'text-dark' %>">Rejected</a>
+</div>
+
+<!-- Pending Approvals -->
+<% const pendingUsers = users.filter(u => u.status === 'pending'); %>
+<div class="glass-card p-3 mb-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-hourglass-split text-warning me-2"></i>Pending Approvals (<%= pendingUsers.length %>)</h5>
+    <% if (pendingUsers.length === 0) { %>
+        <p class="text-muted small mb-0">No pending registrations.</p>
+    <% } else { %>
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Registered</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% pendingUsers.forEach(u => { %>
+                        <tr>
+                            <td class="fw-bold text-dark"><%= u.first_name %> <%= u.last_name %></td>
+                            <td class="small text-muted"><%= u.email %></td>
+                            <td><span class="badge badge-gray"><%= u.role.toUpperCase() %></span></td>
+                            <td class="small text-muted font-monospace"><%= u.created_at ? new Date(u.created_at).toLocaleString() : 'N/A' %></td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <form action="/admin/users/<%= u.id %>/approve" method="POST">
+                                        <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                    </form>
+                                    <form action="/admin/users/<%= u.id %>/reject" method="POST" onsubmit="return confirm('Reject this registration?')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    <% } %>
 </div>
 
 <!-- Users Table -->
@@ -98,6 +151,11 @@
                             <span class="<%= u.is_active ? 'badge-emerald' : 'badge-gray' %>">
                                 <%= u.is_active ? 'Active' : 'Inactive' %>
                             </span>
+                            <% if (u.status === 'pending') { %>
+                                <span class="badge bg-warning text-dark ms-1">Pending</span>
+                            <% } else if (u.status === 'rejected') { %>
+                                <span class="badge bg-danger ms-1">Rejected</span>
+                            <% } %>
                         </td>
                         <td>
                             <div class="dropdown">

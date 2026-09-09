@@ -46,6 +46,46 @@
     </div>
 </div>
 
+<!-- Pending Approvals (advisers only) -->
+<% if (teacher.is_adviser) { %>
+<div class="glass-card p-3 mb-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-hourglass-split text-warning me-2"></i>Pending Approvals (<%= (typeof pendingStudents !== 'undefined' ? pendingStudents : []).length %>)</h5>
+    <% const pending = typeof pendingStudents !== 'undefined' ? pendingStudents : []; %>
+    <% if (pending.length === 0) { %>
+        <p class="text-muted small mb-0">No pending students for <%= teacher.advisory_grade %> - <%= teacher.advisory_section %>.</p>
+    <% } else { %>
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th>LRN</th>
+                        <th>Learner Full Name</th>
+                        <th>Email Address</th>
+                        <th>Registered</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% pending.forEach(s => { %>
+                        <tr>
+                            <td class="font-monospace fw-semibold"><%= s.lrn %></td>
+                            <td><div class="fw-bold text-dark"><%= s.last_name %>, <%= s.first_name %></div></td>
+                            <td class="small text-muted"><%= s.email %></td>
+                            <td class="small text-muted font-monospace"><%= s.created_at ? new Date(s.created_at).toLocaleString() : 'N/A' %></td>
+                            <td>
+                                <form action="/teacher/advisory/approve/<%= s.user_id %>" method="POST">
+                                    <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    <% } %>
+</div>
+<% } %>
+
 <!-- Advisory Students Table -->
 <div class="glass-table-container">
     <div class="table-responsive">

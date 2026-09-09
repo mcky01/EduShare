@@ -583,10 +583,20 @@ async function advisory(req, res) {
                     u.id AS user_id, u.first_name, u.last_name, u.email, u.last_login
              FROM students s
              JOIN users u ON s.user_id = u.id
-             WHERE s.grade_level = ? AND s.section = ?
+             WHERE s.grade_level = ? AND s.section = ? AND u.status = 'active'
              ORDER BY s.gender DESC, u.last_name ASC`,
             [teacher.advisory_grade || 'Grade 7', teacher.advisory_section || 'Rizal']
         );
+
+        const pendingStudents = teacher.is_adviser ? await query(
+            `SELECT s.id AS student_profile_id, s.student_id AS lrn, s.gender, s.grade_level, s.section,
+                    u.id AS user_id, u.first_name, u.last_name, u.email, u.created_at
+             FROM students s
+             JOIN users u ON s.user_id = u.id
+             WHERE s.grade_level = ? AND s.section = ? AND u.status = 'pending' AND u.role = 'student'
+             ORDER BY u.created_at ASC`,
+            [teacher.advisory_grade, teacher.advisory_section]
+        ) : [];
 
         const maleCount = students.filter(s => s.gender === 'Male').length;
         const femaleCount = students.filter(s => s.gender === 'Female').length;
@@ -595,6 +605,7 @@ async function advisory(req, res) {
             title: `Advisory Section: ${teacher.advisory_grade} - ${teacher.advisory_section} | EduShare 2.0`,
             teacher,
             students,
+            pendingStudents,
             stats: {
                 total: students.length,
                 male: maleCount,
@@ -604,6 +615,56 @@ async function advisory(req, res) {
     } catch (err) {
         console.error('Advisory error:', err);
         res.status(500).render('errors/500', { error: err });
+    }
+}
+
+async function approveStudent(req, res) {
+    try {
+        const teacherUserId = req.session.user.id;
+        const teacherRows = await query(
+            'SELECT * FROM teachers WHERE user_id = ?',
+            [teacherUserId]
+        );
+        const teacher = teacherRows[0] || {};
+        if (!teacher.is_adviser) {
+            setFlash(req, 'error', 'Only class advisers can approve pending students.');
+            return res.redirect('/teacher/advisory');
+        }
+
+        const targetId = parseInt(req.params.id, 10);
+        const targetRows = await query(
+            `SELECT u.id, u.status, u.first_name, u.last_name, s.grade_level, s.section
+             FROM users u
+             JOIN students s ON s.user_id = u.id
+             WHERE u.id = ? AND u.role = 'student'`,
+            [targetId]
+        );
+        if (targetRows.length === 0) {
+            setFlash(req, 'error', 'Student not found.');
+            return res.redirect('/teacher/advisory');
+        }
+        const target = targetRows[0];
+        if (target.status !== 'pending'
+            || target.grade_level !== teacher.advisory_grade
+            || target.section !== teacher.advisory_section) {
+            setFlash(req, 'error', 'You can only approve pending students in your advisory section.');
+            return res.redirect('/teacher/advisory');
+        }
+
+        await query("UPDATE users SET status = 'active', is_active = 1 WHERE id = ?", [targetId]);
+
+        await query(
+            `INSERT INTO activity_logs (user_id, action, description, category)
+             VALUES (?, 'Registration Approved', ?, 'teacher')`,
+            [teacherUserId, `Adviser approved registration for ${target.first_name} ${target.last_name} (user ID ${targetId})`]
+        );
+
+        setFlash(req, 'success', `Approved registration for ${target.first_name} ${target.last_name}.`);
+        res.redirect('/teacher/advisory');
+    } catch (err) {
+        console.error('Approve student error:', err);
+        setFlash(req, 'error', 'Failed to approve student.');
+        res.redirect('/teacher/advisory');
     }
 }
 
@@ -670,6 +731,7 @@ module.exports = {
     gradebook,
     exportGradebook,
     advisory,
+    approveStudent,
     lessonGenerator,
     quizMaker
 };
