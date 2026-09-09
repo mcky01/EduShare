@@ -43,9 +43,36 @@
         <% if (sentTo && tab === 'teacher') { %>
         <div class="alert alert-success d-flex align-items-start gap-2 py-2 px-3 mb-3" role="status" aria-live="polite">
             <i class="bi bi-envelope-check mt-1"></i>
-            <div>Verification code sent to <strong><%= sentTo %></strong>. Enter it below with your password.</div>
+            <div>Code sent to <strong><%= sentTo %></strong>. Enter it below to finish creating your account.</div>
         </div>
-        <% } %>
+        <div class="auth-step-summary">
+            <span><i class="bi bi-person-check me-1"></i><%= tf.first_name || '' %> <%= tf.last_name || '' %></span>
+            <a href="/auth/register">Use a different email</a>
+        </div>
+        <form action="/auth/register/teacher/verify" method="POST" novalidate>
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+            <input type="hidden" name="first_name" value="<%= tf.first_name || '' %>">
+            <input type="hidden" name="last_name" value="<%= tf.last_name || '' %>">
+            <input type="hidden" name="email" value="<%= sentTo %>">
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-1" for="tPass2">Password (re-enter to confirm)</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" name="password" id="tPass2" class="form-control" placeholder="Same password as above" required autocomplete="new-password" autofocus>
+                </div>
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-1" for="tCode">Verification code</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                    <input type="text" name="code" id="tCode" class="form-control" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
+                <i class="bi bi-person-check me-2"></i>Verify &amp; Create Account
+            </button>
+        </form>
+        <% } else { %>
         <form action="/auth/register/teacher/request-code" method="POST" novalidate>
             <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
             <div class="row g-2">
@@ -87,30 +114,6 @@
                 <i class="bi bi-send me-2"></i>Send code
             </button>
         </form>
-        <% if (sentTo && tab === 'teacher') { %>
-        <form action="/auth/register/teacher/verify" method="POST" class="mt-3" novalidate>
-            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
-            <input type="hidden" name="first_name" value="<%= tf.first_name || '' %>">
-            <input type="hidden" name="last_name" value="<%= tf.last_name || '' %>">
-            <input type="hidden" name="email" value="<%= sentTo %>">
-            <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-1" for="tPass2">Password (re-enter to confirm)</label>
-                <div class="auth-input-group input-group">
-                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                    <input type="password" name="password" id="tPass2" class="form-control" placeholder="Same password as above" required autocomplete="new-password">
-                </div>
-            </div>
-            <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-1" for="tCode">Verification code</label>
-                <div class="auth-input-group input-group">
-                    <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
-                    <input type="text" name="code" id="tCode" class="form-control" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" required>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
-                <i class="bi bi-person-check me-2"></i>Verify &amp; Create Account
-            </button>
-        </form>
         <% } %>
     </div>
 
@@ -119,9 +122,37 @@
         <% if (sentTo && tab === 'student') { %>
         <div class="alert alert-success d-flex align-items-start gap-2 py-2 px-3 mb-3" role="status" aria-live="polite">
             <i class="bi bi-envelope-check mt-1"></i>
-            <div>Verification code sent to <strong><%= sentTo %></strong>. Enter it below with your password.</div>
+            <div>Code sent to <strong><%= sentTo %></strong>. Enter it below to finish creating your account.</div>
         </div>
-        <% } %>
+        <div class="auth-step-summary">
+            <span><i class="bi bi-person-check me-1"></i><%= sf.first_name || '' %> <%= sf.last_name || '' %> &middot; LRN <%= sf.lrn || '' %></span>
+            <a href="/auth/register">Use different details</a>
+        </div>
+        <form action="/auth/register/student/verify" method="POST" novalidate>
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+            <input type="hidden" name="first_name" value="<%= sf.first_name || '' %>">
+            <input type="hidden" name="last_name" value="<%= sf.last_name || '' %>">
+            <input type="hidden" name="lrn" value="<%= sf.lrn || '' %>">
+            <input type="hidden" name="email" value="<%= sentTo %>">
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-1" for="sPass2">Password (re-enter to confirm)</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" name="password" id="sPass2" class="form-control" placeholder="Same password as above" required autocomplete="new-password" autofocus>
+                </div>
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-1" for="sCode">Verification code</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                    <input type="text" name="code" id="sCode" class="form-control" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
+                <i class="bi bi-person-check me-2"></i>Verify &amp; Create Account
+            </button>
+        </form>
+        <% } else { %>
         <form action="/auth/register/student/request-code" method="POST" novalidate>
             <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
             <div class="row g-2">
@@ -167,31 +198,6 @@
             </div>
             <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
                 <i class="bi bi-send me-2"></i>Send code
-            </button>
-        </form>
-        <% if (sentTo && tab === 'student') { %>
-        <form action="/auth/register/student/verify" method="POST" class="mt-3" novalidate>
-            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
-            <input type="hidden" name="first_name" value="<%= sf.first_name || '' %>">
-            <input type="hidden" name="last_name" value="<%= sf.last_name || '' %>">
-            <input type="hidden" name="lrn" value="<%= sf.lrn || '' %>">
-            <input type="hidden" name="email" value="<%= sentTo %>">
-            <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-1" for="sPass2">Password (re-enter to confirm)</label>
-                <div class="auth-input-group input-group">
-                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                    <input type="password" name="password" id="sPass2" class="form-control" placeholder="Same password as above" required autocomplete="new-password">
-                </div>
-            </div>
-            <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-1" for="sCode">Verification code</label>
-                <div class="auth-input-group input-group">
-                    <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
-                    <input type="text" name="code" id="sCode" class="form-control" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" required>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
-                <i class="bi bi-person-check me-2"></i>Verify &amp; Create Account
             </button>
         </form>
         <% } %>
