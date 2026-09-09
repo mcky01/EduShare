@@ -1,5 +1,10 @@
-<%# Minimal register page for Task 5 — Task 6 replaces with full tabbed design. %>
+<%# Register page: tabbed Teacher/Student self-registration with OTP code step. %>
+<% const tab = typeof activeTab !== 'undefined' && activeTab ? activeTab : 'teacher'; %>
+<% const tf = typeof teacherForm !== 'undefined' && teacherForm ? teacherForm : {}; %>
+<% const sf = typeof studentForm !== 'undefined' && studentForm ? studentForm : {}; %>
+<% const sentTo = typeof codeSentTo !== 'undefined' ? codeSentTo : null; %>
 <div class="auth-single-card">
+    <!-- Brand header: big seal left, EduShare + school stacked right -->
     <div class="auth-brand-header">
         <div class="auth-brand-lockup">
             <img src="<%= school.logo || '/images/zahs-logo.png' %>" alt="ZAHS Logo" class="auth-brand-seal">
@@ -12,8 +17,10 @@
 
     <div class="auth-form-heading">
         <h3 class="fw-bold text-dark mb-0">Create Account</h3>
+        <p class="text-muted small mb-0 mt-1">Pick your account type, verify your email, then wait for admin approval.</p>
     </div>
 
+    <!-- Inline Error Notice (mirrors login) -->
     <% if (typeof registerError !== 'undefined' && registerError) { %>
     <div class="alert auth-alert-error d-flex align-items-start gap-2 py-2 px-3 mb-3" role="alert" aria-live="assertive">
         <i class="bi bi-exclamation-triangle-fill mt-1"></i>
@@ -21,104 +28,205 @@
     </div>
     <% } %>
 
-    <% const tab = typeof activeTab !== 'undefined' ? activeTab : 'teacher'; %>
-    <% const tf = typeof teacherForm !== 'undefined' ? teacherForm : {}; %>
-    <% const sf = typeof studentForm !== 'undefined' ? studentForm : {}; %>
-
-    <div class="btn-group w-100 mb-3" role="group" aria-label="Account type">
-        <button type="button" class="btn <%= tab === 'teacher' ? 'btn-success' : 'btn-outline-success' %>" onclick="showTab('teacher')">Teacher</button>
-        <button type="button" class="btn <%= tab === 'student' ? 'btn-success' : 'btn-outline-success' %>" onclick="showTab('student')">Student</button>
+    <!-- Account type tabs: no page reload, just switches visible pane -->
+    <div class="btn-group w-100 mb-3" role="tablist" aria-label="Account type">
+        <button type="button" role="tab" id="tabBtnTeacher" aria-selected="<%= tab === 'teacher' %>" aria-controls="teacherPane" class="btn <%= tab === 'teacher' ? 'btn-success' : 'btn-outline-success' %>" onclick="showRegisterTab('teacher')">
+            <i class="bi bi-briefcase me-1"></i>Teacher
+        </button>
+        <button type="button" role="tab" id="tabBtnStudent" aria-selected="<%= tab === 'student' %>" aria-controls="studentPane" class="btn <%= tab === 'student' ? 'btn-success' : 'btn-outline-success' %>" onclick="showRegisterTab('student')">
+            <i class="bi bi-mortarboard me-1"></i>Student
+        </button>
     </div>
 
-    <div id="teacherPane" style="<%= tab === 'teacher' ? '' : 'display:none' %>">
+    <!-- Teacher pane -->
+    <div id="teacherPane" role="tabpanel" aria-labelledby="tabBtnTeacher" <%= tab === 'teacher' ? '' : 'hidden style="display:none"' %>>
+        <% if (sentTo && tab === 'teacher') { %>
+        <div class="alert alert-success d-flex align-items-start gap-2 py-2 px-3 mb-3" role="status" aria-live="polite">
+            <i class="bi bi-envelope-check mt-1"></i>
+            <div>Verification code sent to <strong><%= sentTo %></strong>. Enter it below with your password.</div>
+        </div>
+        <% } %>
         <form action="/auth/register/teacher/request-code" method="POST" novalidate>
             <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
-            <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="tFirst">First name</label>
-                <input type="text" name="first_name" id="tFirst" class="form-control" required value="<%= tf.first_name || '' %>" autocomplete="given-name">
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="auth-field">
+                        <label class="form-label small fw-bold text-muted mb-1" for="tFirst">First name</label>
+                        <div class="auth-input-group input-group">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            <input type="text" name="first_name" id="tFirst" class="form-control" placeholder="Juan" required autocomplete="given-name" value="<%= tf.first_name || '' %>">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="auth-field">
+                        <label class="form-label small fw-bold text-muted mb-1" for="tLast">Last name</label>
+                        <div class="auth-input-group input-group">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            <input type="text" name="last_name" id="tLast" class="form-control" placeholder="Dela Cruz" required autocomplete="family-name" value="<%= tf.last_name || '' %>">
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="tLast">Last name</label>
-                <input type="text" name="last_name" id="tLast" class="form-control" required value="<%= tf.last_name || '' %>" autocomplete="family-name">
+                <label class="form-label small fw-bold text-muted mb-1" for="tEmail">School email</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                    <input type="email" name="email" id="tEmail" class="form-control" placeholder="you@zahs.edu.ph" required autocomplete="email" value="<%= tf.email || '' %>">
+                </div>
+                <div class="form-text">Must be an @zahs.edu.ph address.</div>
             </div>
             <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="tEmail">School email (@zahs.edu.ph)</label>
-                <input type="email" name="email" id="tEmail" class="form-control" required value="<%= tf.email || '' %>" autocomplete="email">
+                <label class="form-label small fw-bold text-muted mb-1" for="tPass">Password</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" name="password" id="tPass" class="form-control" placeholder="10+ chars, upper + lower + number" required autocomplete="new-password">
+                </div>
             </div>
-            <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="tPass">Password (10+ chars, upper/lower/number)</label>
-                <input type="password" name="password" id="tPass" class="form-control" required autocomplete="new-password">
-            </div>
-            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">Send code</button>
+            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
+                <i class="bi bi-send me-2"></i>Send code
+            </button>
         </form>
+        <% if (sentTo && tab === 'teacher') { %>
         <form action="/auth/register/teacher/verify" method="POST" class="mt-3" novalidate>
             <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
             <input type="hidden" name="first_name" value="<%= tf.first_name || '' %>">
             <input type="hidden" name="last_name" value="<%= tf.last_name || '' %>">
-            <input type="hidden" name="email" value="<%= (typeof codeSentTo !== 'undefined' && codeSentTo && tab === 'teacher') ? codeSentTo : (tf.email || '') %>">
+            <input type="hidden" name="email" value="<%= sentTo %>">
             <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="tPass2">Password (re-enter to confirm)</label>
-                <input type="password" name="password" id="tPass2" class="form-control" required autocomplete="new-password">
+                <label class="form-label small fw-bold text-muted mb-1" for="tPass2">Password (re-enter to confirm)</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" name="password" id="tPass2" class="form-control" placeholder="Same password as above" required autocomplete="new-password">
+                </div>
             </div>
             <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="tCode">Verification code<%= (typeof codeSentTo !== 'undefined' && codeSentTo && tab === 'teacher') ? ' sent to ' + codeSentTo : '' %></label>
-                <input type="text" name="code" id="tCode" class="form-control" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code">
+                <label class="form-label small fw-bold text-muted mb-1" for="tCode">Verification code</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                    <input type="text" name="code" id="tCode" class="form-control" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" required>
+                </div>
             </div>
-            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">Verify &amp; Create Account</button>
+            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
+                <i class="bi bi-person-check me-2"></i>Verify &amp; Create Account
+            </button>
         </form>
+        <% } %>
     </div>
 
-    <div id="studentPane" style="<%= tab === 'student' ? '' : 'display:none' %>">
+    <!-- Student pane -->
+    <div id="studentPane" role="tabpanel" aria-labelledby="tabBtnStudent" <%= tab === 'student' ? '' : 'hidden style="display:none"' %>>
+        <% if (sentTo && tab === 'student') { %>
+        <div class="alert alert-success d-flex align-items-start gap-2 py-2 px-3 mb-3" role="status" aria-live="polite">
+            <i class="bi bi-envelope-check mt-1"></i>
+            <div>Verification code sent to <strong><%= sentTo %></strong>. Enter it below with your password.</div>
+        </div>
+        <% } %>
         <form action="/auth/register/student/request-code" method="POST" novalidate>
             <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
-            <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="sFirst">First name</label>
-                <input type="text" name="first_name" id="sFirst" class="form-control" required value="<%= sf.first_name || '' %>" autocomplete="given-name">
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="auth-field">
+                        <label class="form-label small fw-bold text-muted mb-1" for="sFirst">First name</label>
+                        <div class="auth-input-group input-group">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            <input type="text" name="first_name" id="sFirst" class="form-control" placeholder="Maria" required autocomplete="given-name" value="<%= sf.first_name || '' %>">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="auth-field">
+                        <label class="form-label small fw-bold text-muted mb-1" for="sLast">Last name</label>
+                        <div class="auth-input-group input-group">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            <input type="text" name="last_name" id="sLast" class="form-control" placeholder="Santos" required autocomplete="family-name" value="<%= sf.last_name || '' %>">
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="sLast">Last name</label>
-                <input type="text" name="last_name" id="sLast" class="form-control" required value="<%= sf.last_name || '' %>" autocomplete="family-name">
+                <label class="form-label small fw-bold text-muted mb-1" for="sLrn">LRN (12 digits)</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                    <input type="text" name="lrn" id="sLrn" class="form-control" placeholder="12-digit Learner Reference Number" required inputmode="numeric" pattern="[0-9]{12}" maxlength="12" value="<%= sf.lrn || '' %>">
+                </div>
             </div>
             <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="sLrn">LRN (12 digits)</label>
-                <input type="text" name="lrn" id="sLrn" class="form-control" required value="<%= sf.lrn || '' %>" inputmode="numeric">
+                <label class="form-label small fw-bold text-muted mb-1" for="sEmail">Email</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                    <input type="email" name="email" id="sEmail" class="form-control" placeholder="you@example.com" required autocomplete="email" value="<%= sf.email || '' %>">
+                </div>
             </div>
             <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="sEmail">Email</label>
-                <input type="email" name="email" id="sEmail" class="form-control" required value="<%= sf.email || '' %>" autocomplete="email">
+                <label class="form-label small fw-bold text-muted mb-1" for="sPass">Password</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" name="password" id="sPass" class="form-control" placeholder="10+ chars, upper + lower + number" required autocomplete="new-password">
+                </div>
             </div>
-            <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="sPass">Password (10+ chars, upper/lower/number)</label>
-                <input type="password" name="password" id="sPass" class="form-control" required autocomplete="new-password">
-            </div>
-            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">Send code</button>
+            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
+                <i class="bi bi-send me-2"></i>Send code
+            </button>
         </form>
+        <% if (sentTo && tab === 'student') { %>
         <form action="/auth/register/student/verify" method="POST" class="mt-3" novalidate>
             <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
             <input type="hidden" name="first_name" value="<%= sf.first_name || '' %>">
             <input type="hidden" name="last_name" value="<%= sf.last_name || '' %>">
             <input type="hidden" name="lrn" value="<%= sf.lrn || '' %>">
-            <input type="hidden" name="email" value="<%= (typeof codeSentTo !== 'undefined' && codeSentTo && tab === 'student') ? codeSentTo : (sf.email || '') %>">
+            <input type="hidden" name="email" value="<%= sentTo %>">
             <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="sPass2">Password (re-enter to confirm)</label>
-                <input type="password" name="password" id="sPass2" class="form-control" required autocomplete="new-password">
+                <label class="form-label small fw-bold text-muted mb-1" for="sPass2">Password (re-enter to confirm)</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" name="password" id="sPass2" class="form-control" placeholder="Same password as above" required autocomplete="new-password">
+                </div>
             </div>
             <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-0" for="sCode">Verification code<%= (typeof codeSentTo !== 'undefined' && codeSentTo && tab === 'student') ? ' sent to ' + codeSentTo : '' %></label>
-                <input type="text" name="code" id="sCode" class="form-control" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code">
+                <label class="form-label small fw-bold text-muted mb-1" for="sCode">Verification code</label>
+                <div class="auth-input-group input-group">
+                    <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                    <input type="text" name="code" id="sCode" class="form-control" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" required>
+                </div>
             </div>
-            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">Verify &amp; Create Account</button>
+            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
+                <i class="bi bi-person-check me-2"></i>Verify &amp; Create Account
+            </button>
         </form>
+        <% } %>
     </div>
 
-    <div class="text-center mt-3">
-        <a href="/auth/login">Back to Sign In</a>
+    <p class="text-center small mt-3 mb-0">Already have an account? <a href="/auth/login">Sign in</a></p>
+
+    <!-- Footer: motto + school year -->
+    <div class="auth-single-footer">
+        <span class="auth-single-motto">"<%= school.motto %>"</span>
+        <span class="badge rounded-pill auth-sy-badge">
+            <i class="bi bi-calendar-event me-1"></i> SY <%= school.year %> &bull; <%= school.term %>
+        </span>
     </div>
 </div>
 
 <script>
-function showTab(which) {
-    document.getElementById('teacherPane').style.display = which === 'teacher' ? '' : 'none';
-    document.getElementById('studentPane').style.display = which === 'student' ? '' : 'none';
+// Tab toggle: switches visible pane without a page reload.
+function showRegisterTab(which) {
+    const panes = { teacher: document.getElementById('teacherPane'), student: document.getElementById('studentPane') };
+    const btns = { teacher: document.getElementById('tabBtnTeacher'), student: document.getElementById('tabBtnStudent') };
+    for (const key of ['teacher', 'student']) {
+        const active = key === which;
+        const pane = panes[key];
+        const btn = btns[key];
+        if (pane) {
+            pane.hidden = !active;
+            pane.style.display = active ? '' : 'none';
+        }
+        if (btn) {
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+            btn.classList.toggle('btn-success', active);
+            btn.classList.toggle('btn-outline-success', !active);
+        }
+    }
 }
+window.showRegisterTab = showRegisterTab;
 </script>

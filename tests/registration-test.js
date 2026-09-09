@@ -54,6 +54,46 @@ async function checkRegisterPage() {
     if (!ok) throw new Error('register page is not real (stub or missing forms)');
 }
 
+// --- Task 6: register view design (tabbed card, conditional code step, login link) ---
+async function checkRegisterDesign() {
+    const fail = (msg) => { console.log(`  ❌ FAIL: ${msg}`); throw new Error(msg); };
+    const res = await fetch('http://localhost:3000/auth/register');
+    const text = await res.text();
+    if (res.status !== 200) fail(`register page status ${res.status}`);
+    for (const needle of ['Create Account', 'Teacher', 'Student', 'Send code']) {
+        if (!text.includes(needle)) fail(`register page missing "${needle}"`);
+    }
+    if (/Student123!|Teacher123!/.test(text)) fail('register page leaks seed password');
+    const pwInputs = text.match(/<input[^>]*type="password"[^>]*>/g) || [];
+    if (pwInputs.length === 0) fail('register page has no password inputs');
+    if (pwInputs.some((t) => /value="[^"]*[A-Za-z0-9]/.test(t))) fail('register page prefills a password value');
+    if (/name="code"/.test(text)) fail('code input shown before any code was sent (should appear only when codeSentTo set)');
+    console.log('  ✅ PASS: register page renders both forms, code step hidden, no passwords');
+    // Positive: request-code round trip reveals the code step with codeSentTo echo.
+    const s = await getSession();
+    const email = `t6-design-${Date.now()}@zahs.edu.ph`;
+    const reqRes = await postForm('/auth/register/teacher/request-code', {
+        first_name: 'Design', last_name: 'Check', email, password: 'DesignCheck123'
+    }, s);
+    const reqText = await reqRes.text();
+    if (hotLimiter(reqRes)) {
+        console.log('  ⏭️  SKIP: code-step reveal hit hot limiter window');
+    } else {
+        if (reqRes.status !== 200 || !reqText.includes(email) || !/name="code"/.test(reqText)) {
+            fail(`code step not revealed after request-code (status ${reqRes.status})`);
+        }
+        console.log('  ✅ PASS: code input appears after request-code with codeSentTo echo');
+    }
+    await query("DELETE FROM otp_verifications WHERE email = ?", [email]);
+    // Login page links to registration.
+    const loginRes = await fetch('http://localhost:3000/auth/login');
+    const loginText = await loginRes.text();
+    if (!/href="\/auth\/register"/.test(loginText) || !/Create an account/.test(loginText)) {
+        fail('login page missing "Create an account" link to /auth/register');
+    }
+    console.log('  ✅ PASS: login page links to registration');
+}
+
 async function checkTeacherRequest() {
     const s = await getSession();
     const email = `t5-teacher-${Date.now()}@zahs.edu.ph`;
@@ -205,4 +245,4 @@ async function checkOtp() {
     await query("DELETE FROM otp_verifications WHERE email = ?", [email]);
 }
 
-checkSchema().then(() => checkMail()).then(() => checkOtp()).then(() => checkRegisterPage()).then(() => checkTeacherRequest()).then(() => checkWrongCodeVerify()).then(() => checkDuplicateGuard()).then(() => checkCsrfReject()).then(() => checkRateLimit()).then(() => checkRoutes()).then(() => process.exit(0)).catch((e) => { console.error('  ❌ FAIL:', e.message); process.exit(1); });
+checkSchema().then(() => checkMail()).then(() => checkOtp()).then(() => checkRegisterPage()).then(() => checkRegisterDesign()).then(() => checkTeacherRequest()).then(() => checkWrongCodeVerify()).then(() => checkDuplicateGuard()).then(() => checkCsrfReject()).then(() => checkRateLimit()).then(() => checkRoutes()).then(() => process.exit(0)).catch((e) => { console.error('  ❌ FAIL:', e.message); process.exit(1); });
