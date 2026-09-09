@@ -1,7 +1,8 @@
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const { query } = require('../config/database');
+const { query, withTransaction } = require('../config/database');
 const { setFlash } = require('../middleware/branding');
+const { requestOtp, verifyOtp, RateLimited, InvalidCode, ExpiredOrMissing } = require('../services/otpService');
 
 async function showLogin(req, res) {
     const { ensureToken } = require('../middleware/csrf');
@@ -327,11 +328,315 @@ async function logout(req, res) {
     }
 }
 
+// ---- Task 5: self-registration (OTP) ----
+
+const TEACHER_EMAIL_DOMAIN = '@zahs.edu.ph';
+const GENERIC_REGISTER_ERROR = 'Invalid details. Check your information and try again.';
+const GENERIC_CODE_ERROR = 'Code invalid or expired. Request a new code and try again.';
+const PASSWORD_RULE_MESSAGE = 'Password must be at least 10 characters with upper/lowercase letters and a number.';
+
+function validPassword(raw) {
+    const pw = String(raw || '');
+    return pw.length >= 10 && /[a-z]/.test(pw) && /[A-Z]/.test(pw) && /\d/.test(pw);
+}
+
+function validName(raw) {
+    return typeof raw === 'string' && raw.trim().length >= 1 && raw.trim().length <= 100;
+}
+
+function normalizeLrn(raw) {
+    return String(raw || '').replace(/[\s-]/g, '');
+}
+
+function renderRegisterError(res, status, message, preservedForms, csrfToken) {
+    const teacherForm = { first_name: '', last_name: '', email: '', ...(preservedForms?.teacherForm || {}) };
+    const studentForm = { first_name: '', last_name: '', email: '', lrn: '', ...(preservedForms?.studentForm || {}) };
+    return res.status(status).render('auth/register', {
+        title: 'Create Account | EduShare 2.0',
+        layout: 'layouts/auth',
+        csrfToken: csrfToken || '',
+        teacherForm,
+        studentForm,
+        registerError: message,
+        codeSentTo: preservedForms?.codeSentTo || null,
+        activeTab: preservedForms?.activeTab || 'teacher'
+    });
+}
+
+function renderRegisterPage(req, res, overrides = {}) {
+    const { ensureToken } = require('../middleware/csrf');
+    ensureToken(req);
+    return res.render('auth/register', {
+        title: 'Create Account | EduShare 2.0',
+        layout: 'layouts/auth',
+        csrfToken: req.session.csrfToken,
+        teacherForm: {},
+        studentForm: {},
+        registerError: null,
+        codeSentTo: null,
+        activeTab: 'teacher',
+        ...overrides
+    });
+}
+
+async function showRegister(req, res) {
+    return renderRegisterPage(req, res);
+}
+
+async function requestTeacherCode(req, res) {
+    try {
+        const { ensureToken } = require('../middleware/csrf');
+        ensureToken(req);
+        const csrfToken = req.session.csrfToken;
+        const first_name = String(req.body?.first_name || '').trim();
+        const last_name = String(req.body?.last_name || '').trim();
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const preserved = { teacherForm: { first_name, last_name, email }, studentForm: {}, activeTab: 'teacher' };
+        if (!validName(first_name) || !validName(last_name)) {
+            return renderRegisterError(res, 400, 'Enter your first and last name.', preserved, csrfToken);
+        }
+        if (!email.endsWith(TEACHER_EMAIL_DOMAIN)) {
+            return renderRegisterError(res, 400, `Teacher registration requires a ${TEACHER_EMAIL_DOMAIN} email.`, preserved, csrfToken);
+        }
+        if (!validPassword(req.body?.password)) {
+            return renderRegisterError(res, 400, PASSWORD_RULE_MESSAGE, preserved, csrfToken);
+        }
+        const existing = await query('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [email]);
+        if (existing.length > 0) {
+            return renderRegisterError(res, 400, GENERIC_REGISTER_ERROR, preserved, csrfToken);
+        }
+        try {
+            await requestOtp(email, 'teacher_register');
+        } catch (err) {
+            if (err instanceof RateLimited) {
+                return renderRegisterError(res, 429, 'Too many code requests. Please wait 15 minutes.', preserved, csrfToken);
+            }
+            throw err;
+        }
+        return renderRegisterPage(req, res, {
+            teacherForm: { first_name, last_name, email },
+            codeSentTo: email,
+            activeTab: 'teacher'
+        });
+    } catch (err) {
+        console.error('Teacher request-code error:', err);
+        try {
+            return renderRegisterError(res, 500, GENERIC_REGISTER_ERROR, { activeTab: 'teacher' }, req.session?.csrfToken || '');
+        } catch {
+            setFlash(req, 'error', GENERIC_REGISTER_ERROR);
+            return res.redirect('/auth/register');
+        }
+    }
+}
+
+async function verifyTeacherRegister(req, res) {
+    try {
+        const { ensureToken } = require('../middleware/csrf');
+        ensureToken(req);
+        const csrfToken = req.session.csrfToken;
+        const first_name = String(req.body?.first_name || '').trim();
+        const last_name = String(req.body?.last_name || '').trim();
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const password = String(req.body?.password || '');
+        const code = String(req.body?.code || '').trim();
+        const preserved = { teacherForm: { first_name, last_name, email }, studentForm: {}, activeTab: 'teacher' };
+        if (!validName(first_name) || !validName(last_name)) {
+            return renderRegisterError(res, 400, 'Enter your first and last name.', preserved, csrfToken);
+        }
+        if (!email.endsWith(TEACHER_EMAIL_DOMAIN)) {
+            return renderRegisterError(res, 400, `Teacher registration requires a ${TEACHER_EMAIL_DOMAIN} email.`, preserved, csrfToken);
+        }
+        if (!validPassword(password)) {
+            return renderRegisterError(res, 400, PASSWORD_RULE_MESSAGE, preserved, csrfToken);
+        }
+        if (!/^\d{6}$/.test(code)) {
+            return renderRegisterError(res, 400, GENERIC_CODE_ERROR, preserved, csrfToken);
+        }
+        const existing = await query('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [email]);
+        if (existing.length > 0) {
+            return renderRegisterError(res, 400, GENERIC_REGISTER_ERROR, preserved, csrfToken);
+        }
+        try {
+            await verifyOtp(email, 'teacher_register', code);
+        } catch (err) {
+            if (err instanceof InvalidCode || err instanceof ExpiredOrMissing) {
+                return renderRegisterError(res, 400, GENERIC_CODE_ERROR, preserved, csrfToken);
+            }
+            throw err;
+        }
+        const hash = await bcrypt.hash(password, 10);
+        const newUserId = await withTransaction(async (conn) => {
+            const [userRes] = await conn.query(
+                `INSERT INTO users (first_name, last_name, email, password_hash, role, is_active, status, force_password_change)
+                 VALUES (?, ?, ?, ?, 'teacher', 0, 'pending', 0)`,
+                [first_name, last_name, email, hash]
+            );
+            await conn.query(
+                `INSERT INTO teachers (user_id, employee_id, department, specialization)
+                 VALUES (?, NULL, 'Junior High School', 'General Education')`,
+                [userRes.insertId]
+            );
+            return userRes.insertId;
+        });
+        try {
+            await query(
+                `INSERT INTO activity_logs (user_id, action, description, category, ip_address, user_agent)
+                 VALUES (?, 'Registration Submitted', 'Teacher account submitted for admin approval', 'account', ?, ?)`,
+                [newUserId, req.ip, (req.headers['user-agent'] || '').slice(0, 255)]
+            );
+        } catch {
+            // Never block registration on audit-log failure.
+        }
+        setFlash(req, 'success', 'Account created — wait for admin approval.');
+        return res.redirect('/auth/login');
+    } catch (err) {
+        console.error('Teacher verify error:', err);
+        try {
+            return renderRegisterError(res, 500, GENERIC_REGISTER_ERROR, { activeTab: 'teacher' }, req.session?.csrfToken || '');
+        } catch {
+            setFlash(req, 'error', GENERIC_REGISTER_ERROR);
+            return res.redirect('/auth/register');
+        }
+    }
+}
+
+async function requestStudentCode(req, res) {
+    try {
+        const { ensureToken } = require('../middleware/csrf');
+        ensureToken(req);
+        const csrfToken = req.session.csrfToken;
+        const first_name = String(req.body?.first_name || '').trim();
+        const last_name = String(req.body?.last_name || '').trim();
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const lrn = normalizeLrn(req.body?.lrn);
+        const preserved = { studentForm: { first_name, last_name, email, lrn }, teacherForm: {}, activeTab: 'student' };
+        if (!validName(first_name) || !validName(last_name)) {
+            return renderRegisterError(res, 400, 'Enter your first and last name.', preserved, csrfToken);
+        }
+        if (!/^\d{12}$/.test(lrn)) {
+            return renderRegisterError(res, 400, 'Student LRN must be exactly 12 digits. Check the number and try again.', preserved, csrfToken);
+        }
+        if (!email.includes('@')) {
+            return renderRegisterError(res, 400, GENERIC_REGISTER_ERROR, preserved, csrfToken);
+        }
+        if (!validPassword(req.body?.password)) {
+            return renderRegisterError(res, 400, PASSWORD_RULE_MESSAGE, preserved, csrfToken);
+        }
+        const dupEmail = await query('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [email]);
+        const dupLrn = await query('SELECT id FROM students WHERE student_id = ? LIMIT 1', [lrn]);
+        if (dupEmail.length > 0 || dupLrn.length > 0) {
+            return renderRegisterError(res, 400, GENERIC_REGISTER_ERROR, preserved, csrfToken);
+        }
+        try {
+            await requestOtp(email, 'student_register');
+        } catch (err) {
+            if (err instanceof RateLimited) {
+                return renderRegisterError(res, 429, 'Too many code requests. Please wait 15 minutes.', preserved, csrfToken);
+            }
+            throw err;
+        }
+        return renderRegisterPage(req, res, {
+            studentForm: { first_name, last_name, email, lrn },
+            codeSentTo: email,
+            activeTab: 'student'
+        });
+    } catch (err) {
+        console.error('Student request-code error:', err);
+        try {
+            return renderRegisterError(res, 500, GENERIC_REGISTER_ERROR, { activeTab: 'student' }, req.session?.csrfToken || '');
+        } catch {
+            setFlash(req, 'error', GENERIC_REGISTER_ERROR);
+            return res.redirect('/auth/register');
+        }
+    }
+}
+
+async function verifyStudentRegister(req, res) {
+    try {
+        const { ensureToken } = require('../middleware/csrf');
+        ensureToken(req);
+        const csrfToken = req.session.csrfToken;
+        const first_name = String(req.body?.first_name || '').trim();
+        const last_name = String(req.body?.last_name || '').trim();
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const lrn = normalizeLrn(req.body?.lrn);
+        const password = String(req.body?.password || '');
+        const code = String(req.body?.code || '').trim();
+        const preserved = { studentForm: { first_name, last_name, email, lrn }, teacherForm: {}, activeTab: 'student' };
+        if (!validName(first_name) || !validName(last_name)) {
+            return renderRegisterError(res, 400, 'Enter your first and last name.', preserved, csrfToken);
+        }
+        if (!/^\d{12}$/.test(lrn)) {
+            return renderRegisterError(res, 400, 'Student LRN must be exactly 12 digits. Check the number and try again.', preserved, csrfToken);
+        }
+        if (!email.includes('@')) {
+            return renderRegisterError(res, 400, GENERIC_REGISTER_ERROR, preserved, csrfToken);
+        }
+        if (!validPassword(password)) {
+            return renderRegisterError(res, 400, PASSWORD_RULE_MESSAGE, preserved, csrfToken);
+        }
+        if (!/^\d{6}$/.test(code)) {
+            return renderRegisterError(res, 400, GENERIC_CODE_ERROR, preserved, csrfToken);
+        }
+        const dupEmail = await query('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [email]);
+        const dupLrn = await query('SELECT id FROM students WHERE student_id = ? LIMIT 1', [lrn]);
+        if (dupEmail.length > 0 || dupLrn.length > 0) {
+            return renderRegisterError(res, 400, GENERIC_REGISTER_ERROR, preserved, csrfToken);
+        }
+        try {
+            await verifyOtp(email, 'student_register', code);
+        } catch (err) {
+            if (err instanceof InvalidCode || err instanceof ExpiredOrMissing) {
+                return renderRegisterError(res, 400, GENERIC_CODE_ERROR, preserved, csrfToken);
+            }
+            throw err;
+        }
+        const hash = await bcrypt.hash(password, 10);
+        const newUserId = await withTransaction(async (conn) => {
+            const [userRes] = await conn.query(
+                `INSERT INTO users (first_name, last_name, email, password_hash, role, is_active, status, force_password_change)
+                 VALUES (?, ?, ?, ?, 'student', 0, 'pending', 0)`,
+                [first_name, last_name, email, hash]
+            );
+            await conn.query(
+                `INSERT INTO students (user_id, student_id, grade_level, section, gender)
+                 VALUES (?, ?, 'Grade 7', 'Rizal', 'Other')`,
+                [userRes.insertId, lrn]
+            );
+            return userRes.insertId;
+        });
+        try {
+            await query(
+                `INSERT INTO activity_logs (user_id, action, description, category, ip_address, user_agent)
+                 VALUES (?, 'Registration Submitted', 'Student account submitted for admin approval', 'account', ?, ?)`,
+                [newUserId, req.ip, (req.headers['user-agent'] || '').slice(0, 255)]
+            );
+        } catch {
+            // Never block registration on audit-log failure.
+        }
+        setFlash(req, 'success', 'Account created — wait for admin approval.');
+        return res.redirect('/auth/login');
+    } catch (err) {
+        console.error('Student verify error:', err);
+        try {
+            return renderRegisterError(res, 500, GENERIC_REGISTER_ERROR, { activeTab: 'student' }, req.session?.csrfToken || '');
+        } catch {
+            setFlash(req, 'error', GENERIC_REGISTER_ERROR);
+            return res.redirect('/auth/register');
+        }
+    }
+}
+
 module.exports = {
     showLogin,
     login,
     showChangePassword,
     changePassword,
     updateProfile,
-    logout
+    logout,
+    showRegister,
+    requestTeacherCode,
+    verifyTeacherRegister,
+    requestStudentCode,
+    verifyStudentRegister
 };

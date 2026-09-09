@@ -1,0 +1,124 @@
+<%# Minimal register page for Task 5 — Task 6 replaces with full tabbed design. %>
+<div class="auth-single-card">
+    <div class="auth-brand-header">
+        <div class="auth-brand-lockup">
+            <img src="<%= school.logo || '/images/zahs-logo.png' %>" alt="ZAHS Logo" class="auth-brand-seal">
+            <div class="auth-brand-text">
+                <div class="fw-extrabold auth-brand-name">EduShare</div>
+                <div class="auth-brand-school"><%= school.name %></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="auth-form-heading">
+        <h3 class="fw-bold text-dark mb-0">Create Account</h3>
+    </div>
+
+    <% if (typeof registerError !== 'undefined' && registerError) { %>
+    <div class="alert auth-alert-error d-flex align-items-start gap-2 py-2 px-3 mb-3" role="alert" aria-live="assertive">
+        <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+        <div><%= registerError %></div>
+    </div>
+    <% } %>
+
+    <% const tab = typeof activeTab !== 'undefined' ? activeTab : 'teacher'; %>
+    <% const tf = typeof teacherForm !== 'undefined' ? teacherForm : {}; %>
+    <% const sf = typeof studentForm !== 'undefined' ? studentForm : {}; %>
+
+    <div class="btn-group w-100 mb-3" role="group" aria-label="Account type">
+        <button type="button" class="btn <%= tab === 'teacher' ? 'btn-success' : 'btn-outline-success' %>" onclick="showTab('teacher')">Teacher</button>
+        <button type="button" class="btn <%= tab === 'student' ? 'btn-success' : 'btn-outline-success' %>" onclick="showTab('student')">Student</button>
+    </div>
+
+    <div id="teacherPane" style="<%= tab === 'teacher' ? '' : 'display:none' %>">
+        <form action="/auth/register/teacher/request-code" method="POST" novalidate>
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="tFirst">First name</label>
+                <input type="text" name="first_name" id="tFirst" class="form-control" required value="<%= tf.first_name || '' %>" autocomplete="given-name">
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="tLast">Last name</label>
+                <input type="text" name="last_name" id="tLast" class="form-control" required value="<%= tf.last_name || '' %>" autocomplete="family-name">
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="tEmail">School email (@zahs.edu.ph)</label>
+                <input type="email" name="email" id="tEmail" class="form-control" required value="<%= tf.email || '' %>" autocomplete="email">
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="tPass">Password (10+ chars, upper/lower/number)</label>
+                <input type="password" name="password" id="tPass" class="form-control" required autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">Send code</button>
+        </form>
+        <form action="/auth/register/teacher/verify" method="POST" class="mt-3" novalidate>
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+            <input type="hidden" name="first_name" value="<%= tf.first_name || '' %>">
+            <input type="hidden" name="last_name" value="<%= tf.last_name || '' %>">
+            <input type="hidden" name="email" value="<%= (typeof codeSentTo !== 'undefined' && codeSentTo && tab === 'teacher') ? codeSentTo : (tf.email || '') %>">
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="tPass2">Password (re-enter to confirm)</label>
+                <input type="password" name="password" id="tPass2" class="form-control" required autocomplete="new-password">
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="tCode">Verification code<%= (typeof codeSentTo !== 'undefined' && codeSentTo && tab === 'teacher') ? ' sent to ' + codeSentTo : '' %></label>
+                <input type="text" name="code" id="tCode" class="form-control" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code">
+            </div>
+            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">Verify &amp; Create Account</button>
+        </form>
+    </div>
+
+    <div id="studentPane" style="<%= tab === 'student' ? '' : 'display:none' %>">
+        <form action="/auth/register/student/request-code" method="POST" novalidate>
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="sFirst">First name</label>
+                <input type="text" name="first_name" id="sFirst" class="form-control" required value="<%= sf.first_name || '' %>" autocomplete="given-name">
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="sLast">Last name</label>
+                <input type="text" name="last_name" id="sLast" class="form-control" required value="<%= sf.last_name || '' %>" autocomplete="family-name">
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="sLrn">LRN (12 digits)</label>
+                <input type="text" name="lrn" id="sLrn" class="form-control" required value="<%= sf.lrn || '' %>" inputmode="numeric">
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="sEmail">Email</label>
+                <input type="email" name="email" id="sEmail" class="form-control" required value="<%= sf.email || '' %>" autocomplete="email">
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="sPass">Password (10+ chars, upper/lower/number)</label>
+                <input type="password" name="password" id="sPass" class="form-control" required autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">Send code</button>
+        </form>
+        <form action="/auth/register/student/verify" method="POST" class="mt-3" novalidate>
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+            <input type="hidden" name="first_name" value="<%= sf.first_name || '' %>">
+            <input type="hidden" name="last_name" value="<%= sf.last_name || '' %>">
+            <input type="hidden" name="lrn" value="<%= sf.lrn || '' %>">
+            <input type="hidden" name="email" value="<%= (typeof codeSentTo !== 'undefined' && codeSentTo && tab === 'student') ? codeSentTo : (sf.email || '') %>">
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="sPass2">Password (re-enter to confirm)</label>
+                <input type="password" name="password" id="sPass2" class="form-control" required autocomplete="new-password">
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-0" for="sCode">Verification code<%= (typeof codeSentTo !== 'undefined' && codeSentTo && tab === 'student') ? ' sent to ' + codeSentTo : '' %></label>
+                <input type="text" name="code" id="sCode" class="form-control" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code">
+            </div>
+            <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">Verify &amp; Create Account</button>
+        </form>
+    </div>
+
+    <div class="text-center mt-3">
+        <a href="/auth/login">Back to Sign In</a>
+    </div>
+</div>
+
+<script>
+function showTab(which) {
+    document.getElementById('teacherPane').style.display = which === 'teacher' ? '' : 'none';
+    document.getElementById('studentPane').style.display = which === 'student' ? '' : 'none';
+}
+</script>
