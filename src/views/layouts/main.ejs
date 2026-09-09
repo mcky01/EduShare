@@ -5,7 +5,7 @@
 <div class="main-layout">
     <%- include('../partials/sidebar') %>
 
-    <main class="content-wrapper">
+    <main class="content-wrapper<%= typeof editorial !== 'undefined' && editorial ? ' admin-editorial' : '' %>">
         <%- include('../partials/toast') %>
         <%- body %>
         <%- include('../partials/footer') %>
