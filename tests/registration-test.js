@@ -19,7 +19,28 @@ async function checkMail() {
     await sendMail('nobody@example.com', 'OTP test', 'Your code is 123456');
     console.log('  ✅ PASS: sendMail resolves in dev-log mode');
 }
-checkSchema().then(() => checkMail()).then(() => checkOtp()).then(() => process.exit(0)).catch((e) => { console.error('  ❌ FAIL:', e.message); process.exit(1); });
+checkSchema().then(() => checkMail()).then(() => checkOtp()).then(() => checkRoutes()).then(() => process.exit(0)).catch((e) => { console.error('  ❌ FAIL:', e.message); process.exit(1); });
+
+async function checkRoutes() {
+    const res = await fetch('http://localhost:3000/auth/register', { redirect: 'manual' });
+    console.log(res.status === 200
+        ? '  ✅ PASS: GET /auth/register renders'
+        : `  ❌ FAIL: GET /auth/register status ${res.status}`);
+    if (res.status !== 200) throw new Error(`GET /auth/register status ${res.status}`);
+    const postPaths = [
+        '/auth/register/teacher/request-code',
+        '/auth/register/teacher/verify',
+        '/auth/register/student/request-code',
+        '/auth/register/student/verify'
+    ];
+    for (const p of postPaths) {
+        const r = await fetch(`http://localhost:3000${p}`, { method: 'POST', redirect: 'manual' });
+        console.log(r.status !== 404
+            ? `  ✅ PASS: POST ${p} routed (status ${r.status})`
+            : `  ❌ FAIL: POST ${p} status 404 (no route)`);
+        if (r.status === 404) throw new Error(`POST ${p} status 404 (no route)`);
+    }
+}
 
 async function checkOtp() {
     process.env.OTP_DEV_LOG = 'true';
