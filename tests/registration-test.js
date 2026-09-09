@@ -11,4 +11,11 @@ async function checkSchema() {
         ? '  ✅ PASS: otp_verifications table exists'
         : '  ❌ FAIL: otp_verifications table missing');
 }
-checkSchema().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+const { sendMail } = require('../src/services/mailService');
+
+async function checkMail() {
+    process.env.OTP_DEV_LOG = 'true';
+    await sendMail('nobody@example.com', 'OTP test', 'Your code is 123456');
+    console.log('  ✅ PASS: sendMail resolves in dev-log mode');
+}
+checkSchema().then(() => checkMail()).then(() => process.exit(0)).catch((e) => { console.error('  ❌ FAIL:', e.message); process.exit(1); });

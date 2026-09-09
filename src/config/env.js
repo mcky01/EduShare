@@ -26,7 +26,15 @@ const env = {
     SCHOOL_ABBR: process.env.SCHOOL_ABBR || 'ZAHS',
     SCHOOL_MOTTO: process.env.SCHOOL_MOTTO || 'Basta Zeferinian, Magaling Yan!',
     SCHOOL_YEAR: process.env.SCHOOL_YEAR || '2026-2027',
-    CURRENT_TERM: process.env.CURRENT_TERM || 'Term 1'
+    CURRENT_TERM: process.env.CURRENT_TERM || 'Term 1',
+
+    // Mail (Gmail SMTP)
+    SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
+    SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
+    SMTP_USER: process.env.SMTP_USER || '',
+    SMTP_PASS: process.env.SMTP_PASS || '',
+    MAIL_FROM: process.env.MAIL_FROM || process.env.SMTP_USER || 'EduShare 2.0 <noreply@zahs.edu.ph>',
+    OTP_DEV_LOG: process.env.OTP_DEV_LOG === 'true',
 };
 
 module.exports = env;
