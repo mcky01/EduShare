@@ -1,0 +1,196 @@
+<!-- Class Header Banner -->
+<div class="glass-card p-4 mb-4" style="background: linear-gradient(135deg, rgba(13,82,44,0.1), rgba(245,158,11,0.06)), rgba(255,255,255,0.85);">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge-emerald"><%= cls.subject %></span>
+                <span class="small text-muted font-monospace">Class Code: <%= cls.class_code %></span>
+            </div>
+            <h2 class="fw-bold text-dark mb-1"><%= cls.class_name %></h2>
+            <div class="small text-muted">
+                Teacher <%= cls.teacher_first %> <%= cls.teacher_last %> &bull; <%= cls.grade_level %> - <%= cls.section %> &bull; <%= cls.schedule || 'Regular' %>
+            </div>
+        </div>
+        <div>
+            <a href="/student/chatbot" class="btn btn-liquid-amber">
+                <i class="bi bi-robot me-1"></i> Ask AI Tutor
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation Tabs -->
+<ul class="nav nav-pills gap-2 mb-4 p-2 glass-card" style="background: rgba(255,255,255,0.65);">
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold <%= activeTab === 'materials' ? 'active bg-success' : 'text-dark' %>" href="/student/classes/<%= cls.id %>?tab=materials">
+            <i class="bi bi-folder me-1"></i> Materials (<%= materials.length %>)
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold <%= activeTab === 'activities' ? 'active bg-success' : 'text-dark' %>" href="/student/classes/<%= cls.id %>?tab=activities">
+            <i class="bi bi-pencil-square me-1"></i> Activities (<%= activities.length %>)
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold <%= activeTab === 'quizzes' ? 'active bg-success' : 'text-dark' %>" href="/student/classes/<%= cls.id %>?tab=quizzes">
+            <i class="bi bi-card-checklist me-1"></i> Quizzes (<%= quizzes.length %>)
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold <%= activeTab === 'announcements' ? 'active bg-success' : 'text-dark' %>" href="/student/classes/<%= cls.id %>?tab=announcements">
+            <i class="bi bi-megaphone me-1"></i> Bulletins (<%= announcements.length %>)
+        </a>
+    </li>
+</ul>
+
+<!-- TAB CONTENT -->
+<% if (activeTab === 'materials') { %>
+    <div class="row g-3">
+        <% if (materials.length === 0) { %>
+            <div class="col-12">
+                <div class="glass-card p-5 text-center text-muted">
+                    <i class="bi bi-folder2-open fs-2 text-success d-block mb-2"></i>
+                    <h6>No Learning Materials Posted Yet</h6>
+                    <p class="small">Your teacher has not uploaded materials for this section yet.</p>
+                </div>
+            </div>
+        <% } %>
+
+        <% materials.forEach(m => { %>
+            <div class="col-md-6 col-lg-4">
+                <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge-emerald"><%= m.subject %></span>
+                            <span class="small text-muted font-monospace"><%= m.file_size || '' %></span>
+                        </div>
+                        <h5 class="fw-bold text-dark mb-1"><%= m.title %></h5>
+                        <p class="small text-muted mb-3"><%= m.description || 'Classroom study file.' %></p>
+                    </div>
+                    <div class="border-top pt-3 d-flex justify-content-between align-items-center">
+                        <span class="small text-muted"><%= new Date(m.posted_at).toLocaleDateString() %></span>
+                        <% if (m.file_path) { %>
+                            <a href="<%= m.file_path %>" target="_blank" class="btn btn-sm btn-liquid-primary">
+                                <i class="bi bi-download me-1"></i> View / Download
+                            </a>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        <% }) %>
+    </div>
+
+<% if (quizzes.length === 0) { %>
+<% } %>
+
+<% } else if (activeTab === 'activities') { %>
+    <div class="row g-3">
+        <% if (activities.length === 0) { %>
+            <div class="col-12">
+                <div class="glass-card p-5 text-center text-muted">
+                    <i class="bi bi-clipboard-check fs-2 text-success d-block mb-2"></i>
+                    <h6>No Activities Assigned Yet</h6>
+                    <p class="small">Check back later for class tasks or homework.</p>
+                </div>
+            </div>
+        <% } %>
+
+        <% activities.forEach(act => { %>
+            <div class="col-md-6 col-lg-4">
+                <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge-amber"><%= act.points %> Max Points</span>
+                            <span class="small text-muted">Due: <%= act.due_date ? new Date(act.due_date).toLocaleDateString() : 'None' %></span>
+                        </div>
+                        <h5 class="fw-bold text-dark mb-2"><%= act.title %></h5>
+                        <p class="small text-secondary mb-3"><%= act.instructions || 'Review task details upon submission.' %></p>
+                    </div>
+                    <div class="border-top pt-3 d-flex justify-content-between align-items-center">
+                        <% if (act.submission_status === 'graded') { %>
+                            <span class="badge-emerald"><i class="bi bi-check2-circle me-1"></i>Score: <%= act.score %>/<%= act.points %></span>
+                        <% } else if (act.submission_status === 'submitted') { %>
+                            <span class="badge-amber"><i class="bi bi-clock me-1"></i>Under Review</span>
+                        <% } else { %>
+                            <span class="badge-gray">Not Submitted</span>
+                        <% } %>
+
+                        <a href="/student/activities/<%= act.id %>/classes/<%= cls.id %>/submit" class="btn btn-sm btn-liquid-primary">
+                            <%= act.submission_status ? 'View Work' : 'Submit Work &rarr;' %>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        <% }) %>
+    </div>
+
+<% } else if (activeTab === 'quizzes') { %>
+    <div class="row g-3">
+        <% if (quizzes.length === 0) { %>
+            <div class="col-12">
+                <div class="glass-card p-5 text-center text-muted">
+                    <i class="bi bi-card-checklist fs-2 text-warning d-block mb-2"></i>
+                    <h6>No Online Quizzes Scheduled Yet</h6>
+                    <p class="small">Your teacher has not published active quizzes for this section.</p>
+                </div>
+            </div>
+        <% } %>
+
+        <% quizzes.forEach(q => { %>
+            <div class="col-md-6 col-lg-4">
+                <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge-emerald"><%= q.total_questions %> Questions</span>
+                            <span class="badge-amber"><%= q.time_limit_minutes %> Mins</span>
+                        </div>
+                        <h5 class="fw-bold text-dark mb-1"><%= q.title %></h5>
+                        <p class="small text-muted mb-3"><%= q.description || 'Course assessment.' %></p>
+                    </div>
+                    <div class="border-top pt-3 d-flex justify-content-between align-items-center">
+                        <% if (q.attempt_status === 'submitted' || q.attempt_status === 'graded') { %>
+                            <div>
+                                <div class="fw-bold text-success">Score: <%= q.score %>/<%= q.total_questions %></div>
+                                <span class="<%= q.passed ? 'badge-emerald' : 'badge bg-danger' %>"><%= q.passed ? 'PASSED' : 'NEEDS REVIEW' %></span>
+                            </div>
+                            <a href="/student/quizzes/<%= q.attempt_id %>/result" class="btn btn-sm btn-glass text-success fw-bold">
+                                Review &rarr;
+                            </a>
+                        <% } else { %>
+                            <span class="badge-amber">Ready to Take</span>
+                            <a href="/student/quizzes/<%= q.id %>/take" class="btn btn-sm btn-liquid-primary">
+                                Start Quiz &rarr;
+                            </a>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        <% }) %>
+    </div>
+
+<% } else if (activeTab === 'announcements') { %>
+    <div class="d-flex flex-column gap-3">
+        <% if (announcements.length === 0) { %>
+            <div class="glass-card p-5 text-center text-muted">
+                <i class="bi bi-megaphone fs-2 text-success d-block mb-2"></i>
+                <h6>No Bulletins Posted Yet</h6>
+                <p class="small">Check back later for teacher updates and class notices.</p>
+            </div>
+        <% } %>
+
+        <% announcements.forEach(a => { %>
+            <div class="glass-card p-4 <%= a.is_pinned ? 'border-start border-4 border-warning' : '' %>">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <% if (a.is_pinned) { %>
+                            <span class="badge-amber"><i class="bi bi-pin-angle-fill me-1"></i>PINNED</span>
+                        <% } %>
+                        <h5 class="fw-bold text-dark mb-0"><%= a.title %></h5>
+                    </div>
+                    <span class="small text-muted"><%= new Date(a.created_at).toLocaleString() %></span>
+                </div>
+                <p class="small text-secondary mb-0" style="white-space: pre-wrap;"><%= a.message %></p>
+            </div>
+        <% }) %>
+    </div>
+<% } %>

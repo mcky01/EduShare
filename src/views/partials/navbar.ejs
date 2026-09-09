@@ -1,0 +1,62 @@
+<nav class="liquid-navbar">
+    <div class="d-flex align-items-center gap-3">
+        <button id="sidebarToggle" class="btn btn-sm btn-glass d-lg-none" type="button">
+            <i class="bi bi-list fs-5"></i>
+        </button>
+        <a href="/" class="d-flex align-items-center gap-2 text-decoration-none">
+            <img src="<%= school.logo || '/images/zahs-logo.png' %>" alt="ZAHS Logo" class="brand-logo-img">
+            <div>
+                <h1 class="brand-text-title">EduShare <span style="color: var(--zahs-amber-gold);">2.0</span></h1>
+                <p class="brand-text-sub"><%= school.abbr || 'ZAHS' %> LMS</p>
+            </div>
+        </a>
+    </div>
+
+    <!-- Global Omnisearch Trigger -->
+    <div class="search-trigger-bar d-none d-md-flex" onclick="openOmniSearch()">
+        <i class="bi bi-search text-success"></i>
+        <span>Search classes, materials, quizzes...</span>
+        <span class="search-kbd-hint">Ctrl K</span>
+    </div>
+
+    <!-- User Profile Dropdown -->
+    <div class="dropdown">
+        <button class="btn p-1 d-flex align-items-center gap-2 rounded-pill glass-card" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border: 1px solid rgba(16,185,129,0.3); padding: 4px 12px 4px 6px !important;">
+            <% if (user && user.avatar_url) { %>
+                <img src="<%= user.avatar_url %>" alt="<%= user.first_name %>" class="user-avatar-bubble">
+            <% } else { %>
+                <div class="user-avatar-initials">
+                    <%= (user ? user.first_name[0] + user.last_name[0] : 'U').toUpperCase() %>
+                </div>
+            <% } %>
+            <div class="d-none d-sm-block text-start me-2">
+                <div class="fw-bold small text-dark" style="line-height: 1.2;"><%= user ? user.first_name + ' ' + user.last_name : 'Guest' %></div>
+                <div class="text-uppercase text-muted" style="font-size: 0.68rem; font-weight: 700; color: var(--zahs-emerald-primary) !important;"><%= user ? user.role : 'Guest' %></div>
+            </div>
+            <i class="bi bi-chevron-down text-muted small me-1"></i>
+        </button>
+
+        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 p-2" style="background: rgba(255,255,255,0.95); backdrop-filter: blur(16px); min-width: 210px;">
+            <li class="px-3 py-2 border-bottom mb-1">
+                <div class="small fw-bold text-dark"><%= user ? user.email : '' %></div>
+                <div class="badge-emerald mt-1"><%= school.year %> • <%= school.term %></div>
+            </li>
+            <li>
+                <button class="dropdown-item rounded-3 py-2" data-bs-toggle="modal" data-bs-target="#profileModal">
+                    <i class="bi bi-person me-2 text-success"></i> My Profile
+                </button>
+            </li>
+            <li>
+                <a class="dropdown-item rounded-3 py-2" href="/auth/change-password">
+                    <i class="bi bi-key me-2 text-warning"></i> Change Password
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <button class="dropdown-item rounded-3 py-2 text-danger fw-semibold" data-bs-toggle="modal" data-bs-target="#logoutModal">
+                    <i class="bi bi-box-arrow-right me-2"></i> Sign Out
+                </button>
+            </li>
+        </ul>
+    </div>
+</nav>

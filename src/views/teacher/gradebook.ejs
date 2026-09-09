@@ -1,0 +1,127 @@
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge-emerald"><i class="bi bi-award me-1"></i>DepEd Order 8 s. 2015</span>
+            <span class="badge-amber">MATATAG Transmutation</span>
+        </div>
+        <h2 class="fw-bold mb-0 text-dark">Electronic Class Record (ECR)</h2>
+        <p class="text-muted small mb-0">Live interactive gradebook with automated DepEd transmutation and quiz score synchronization.</p>
+    </div>
+
+    <% if (selectedClass) { %>
+        <div class="d-flex gap-2">
+            <a href="/teacher/gradebook/<%= selectedClass.id %>/export" class="btn btn-glass text-success fw-semibold">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export to CSV
+            </a>
+        </div>
+    <% } %>
+</div>
+
+<!-- Class Selector -->
+<div class="glass-card p-3 mb-4 d-flex align-items-center gap-3 flex-wrap">
+    <span class="fw-bold small text-dark"><i class="bi bi-funnel me-1"></i>Select Class Section:</span>
+    <div class="d-flex gap-2 flex-wrap">
+        <% classes.forEach(c => { %>
+            <a href="/teacher/gradebook?classId=<%= c.id %>" class="btn btn-sm <%= selectedClass && selectedClass.id === c.id ? 'btn-liquid-primary' : 'btn-glass' %>">
+                <%= c.class_name %> (<%= c.section %>)
+            </a>
+        <% }) %>
+    </div>
+</div>
+
+<% if (!gradebookData || gradebookData.studentGrades.length === 0) { %>
+    <div class="glass-card p-5 text-center text-muted">
+        <i class="bi bi-table fs-1 text-success d-block mb-2"></i>
+        <h5>No Students Enrolled in this Section</h5>
+        <p class="small">Students who join this class with code <strong><%= selectedClass ? selectedClass.class_code : '' %></strong> will automatically appear in this E-Class Record.</p>
+    </div>
+<% } else { %>
+    <!-- Interactive E-Class Record Table -->
+    <div class="glass-table-container">
+        <div class="table-responsive">
+            <table class="glass-table table-bordered border-light-subtle text-center align-middle" style="font-size: 0.85rem;">
+                <thead>
+                    <!-- Header Row 1: Major Categories -->
+                    <tr>
+                        <th rowspan="2" class="text-start" style="min-width: 180px;">Student Name</th>
+                        <th rowspan="2" style="min-width: 110px;">LRN</th>
+                        <th rowspan="2" style="min-width: 60px;">Gender</th>
+
+                        <% gradebookData.categories.forEach(cat => { %>
+                            <th colspan="<%= cat.columns.length + 2 %>" class="bg-light-subtle text-center">
+                                <%= cat.category_name %> (<%= cat.weight_percentage %>%)
+                            </th>
+                        <% }) %>
+
+                        <th rowspan="2" class="bg-success-subtle text-success fw-bold" style="min-width: 80px;">Initial Grade</th>
+                        <th rowspan="2" class="bg-success text-white fw-bold" style="min-width: 90px;">Transmuted Grade</th>
+                        <th rowspan="2" style="min-width: 100px;">Remarks</th>
+                    </tr>
+
+                    <!-- Header Row 2: Sub-columns & HPS -->
+                    <tr>
+                        <% gradebookData.categories.forEach(cat => { %>
+                            <% cat.columns.forEach(col => { %>
+                                <th style="min-width: 80px;" title="<%= col.column_name %>">
+                                    <div class="text-truncate" style="max-width: 80px;"><%= col.column_name %></div>
+                                    <span class="badge bg-light text-dark border">HPS: <%= col.max_score %></span>
+                                </th>
+                            <% }) %>
+                            <th style="min-width: 70px;" class="fw-bold">Total</th>
+                            <th style="min-width: 70px;" class="fw-bold text-success">WS</th>
+                        <% }) %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% gradebookData.studentGrades.forEach(sg => { %>
+                        <tr>
+                            <td class="text-start fw-bold text-dark">
+                                <%= sg.student.last_name %>, <%= sg.student.first_name %>
+                            </td>
+                            <td class="font-monospace small text-muted"><%= sg.student.lrn %></td>
+                            <td><%= sg.student.gender %></td>
+
+                            <!-- Category Columns -->
+                            <% gradebookData.categories.forEach(cat => { %>
+                                <% cat.columns.forEach(col => { %>
+                                    <td class="p-1">
+                                        <input type="number" step="0.5" 
+                                               class="form-control form-control-sm text-center border-0 fw-semibold grade-score-cell" 
+                                               style="width: 60px; margin: 0 auto; background: rgba(255,255,255,0.7);"
+                                               value="<%= sg.scores[col.id] != null ? sg.scores[col.id] : 0 %>"
+                                               data-column-id="<%= col.id %>"
+                                               data-student-id="<%= sg.student.id %>"
+                                               data-max-score="<%= col.max_score %>">
+                                    </td>
+                                <% }) %>
+
+                                <!-- Category Totals -->
+                                <td class="fw-bold bg-light-subtle">
+                                    <%= sg.categoryTotals[cat.id] ? sg.categoryTotals[cat.id].totalScore : 0 %>
+                                </td>
+                                <td class="fw-bold text-success bg-light-subtle">
+                                    <%= sg.categoryTotals[cat.id] ? sg.categoryTotals[cat.id].weightedScore : 0 %>
+                                </td>
+                            <% }) %>
+
+                            <!-- Summary Grades -->
+                            <td class="fw-bold text-success font-monospace">
+                                <%= sg.initialGrade.toFixed(2) %>
+                            </td>
+                            <td class="fw-bold fs-6 font-monospace <%= sg.transmutedGrade >= 75 ? 'text-success' : 'text-danger' %>">
+                                <%= sg.transmutedGrade %>
+                            </td>
+                            <td>
+                                <span class="<%= sg.passed ? 'badge-emerald' : 'badge bg-danger' %>">
+                                    <%= sg.passed ? 'PASSED' : 'FAILED' %>
+                                </span>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+<% } %>
+
+<script src="/js/gradebook.js"></script>

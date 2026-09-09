@@ -1,0 +1,88 @@
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="/student/classes/<%= cls.id %>?tab=activities" class="small text-success text-decoration-none fw-bold">&larr; Back to <%= cls.class_name %></a>
+</div>
+
+<div class="row g-4">
+    <!-- Activity Instructions -->
+    <div class="col-lg-6">
+        <div class="glass-card p-4 p-md-5 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge-emerald"><%= cls.subject %></span>
+                <span class="badge-amber"><%= activity.points %> Points</span>
+            </div>
+
+            <h3 class="fw-bold text-dark mb-2"><%= activity.title %></h3>
+            <div class="small text-muted mb-4">
+                Due Date: <strong><%= activity.due_date ? new Date(activity.due_date).toLocaleDateString() : 'No deadline' %></strong>
+            </div>
+
+            <h6 class="fw-bold text-dark">Instructions:</h6>
+            <div class="small text-secondary mb-4" style="line-height: 1.7; white-space: pre-wrap;"><%= activity.instructions || 'Follow classroom guidance.' %></div>
+
+            <% if (activity.file_path) { %>
+                <div class="p-3 rounded-4" style="background: rgba(255,255,255,0.7); border: 1px solid rgba(16,185,129,0.2);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold text-dark small">Teacher Attachment</div>
+                            <div class="small text-muted"><%= activity.file_size || '' %></div>
+                        </div>
+                        <a href="<%= activity.file_path %>" target="_blank" class="btn btn-sm btn-liquid-primary">
+                            <i class="bi bi-download me-1"></i> Download File
+                        </a>
+                    </div>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Student Submission Form & Feedback -->
+    <div class="col-lg-6">
+        <div class="glass-card p-4 p-md-5 h-100 d-flex flex-column justify-content-between">
+            <div>
+                <h4 class="fw-bold mb-3"><i class="bi bi-cloud-arrow-up text-success me-2"></i>Your Submission</h4>
+
+                <% if (submission && submission.status === 'graded') { %>
+                    <!-- Graded Badge and Feedback Banner -->
+                    <div class="p-4 rounded-4 mb-4 text-center" style="background: rgba(16,185,129,0.12); border: 1.5px solid var(--zahs-jade);">
+                        <div class="text-uppercase small fw-bold text-success mb-1">Graded by Teacher</div>
+                        <div class="display-5 fw-bold text-success mb-2 font-monospace"><%= submission.score %> <span class="fs-4 text-muted">/ <%= activity.points %></span></div>
+                        <% if (submission.feedback) { %>
+                            <div class="small text-dark p-2 rounded bg-white mt-2">
+                                <strong class="text-success">Feedback:</strong> "<%= submission.feedback %>"
+                            </div>
+                        <% } %>
+                    </div>
+                <% } else if (submission) { %>
+                    <div class="alert alert-warning rounded-4 small mb-4">
+                        <i class="bi bi-clock-history me-1"></i> Your work was submitted on <strong><%= new Date(submission.submitted_at).toLocaleString() %></strong> and is currently awaiting teacher review. You may re-upload before the deadline.
+                    </div>
+                <% } %>
+
+                <form action="/student/activities/<%= activity.id %>/classes/<%= cls.id %>/submit" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Upload Your File (Document, PDF, Image, ZIP)</label>
+                        <input type="file" name="submission_file" class="glass-input" <%= submission ? '' : 'required' %>>
+                        <% if (submission && submission.file_path) { %>
+                            <div class="small text-muted mt-1">
+                                Current file: <a href="<%= submission.file_path %>" target="_blank" class="text-success fw-bold">View Submitted File</a>
+                            </div>
+                        <% } %>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold">Student Note to Teacher (Optional)</label>
+                        <textarea name="note" class="glass-input" rows="3" placeholder="Add any comments or reflection on your work..."><%= submission ? submission.note || '' : '' %></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-liquid-primary w-100 py-2 fs-6 shadow">
+                        <i class="bi bi-check2-circle me-2"></i> <%= submission ? 'Update Submission' : 'Submit Activity' %>
+                    </button>
+                </form>
+            </div>
+
+            <div class="mt-4 pt-3 border-top text-center text-muted small" style="border-color: rgba(16,185,129,0.15) !important;">
+                <%= school.name %> &bull; "Basta Zeferinian, Magaling Yan!"
+            </div>
+        </div>
+    </div>
+</div>

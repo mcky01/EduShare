@@ -1,0 +1,90 @@
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge-amber"><i class="bi bi-star-fill me-1"></i>Class Adviser</span>
+            <span class="badge-emerald">School Form 1 (SF1)</span>
+        </div>
+        <h2 class="fw-bold mb-0 text-dark">Advisory Section: <%= teacher.advisory_grade || 'Grade 7' %> - <%= teacher.advisory_section || 'Rizal' %></h2>
+        <p class="text-muted small mb-0">Adviser: <%= user.first_name %> <%= user.last_name %> &bull; Zeferino Arroyo High School</p>
+    </div>
+</div>
+
+<!-- Stat Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="glass-card stat-card-glass">
+            <div class="stat-icon-wrapper stat-icon-emerald">
+                <i class="bi bi-people"></i>
+            </div>
+            <div>
+                <div class="stat-value"><%= stats.total %></div>
+                <div class="stat-label">Total Section Roster</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="glass-card stat-card-glass">
+            <div class="stat-icon-wrapper stat-icon-emerald">
+                <i class="bi bi-gender-male"></i>
+            </div>
+            <div>
+                <div class="stat-value"><%= stats.male %></div>
+                <div class="stat-label">Male Learners</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="glass-card stat-card-glass">
+            <div class="stat-icon-wrapper stat-icon-amber">
+                <i class="bi bi-gender-female"></i>
+            </div>
+            <div>
+                <div class="stat-value"><%= stats.female %></div>
+                <div class="stat-label">Female Learners</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Advisory Students Table -->
+<div class="glass-table-container">
+    <div class="table-responsive">
+        <table class="glass-table">
+            <thead>
+                <tr>
+                    <th>LRN</th>
+                    <th>Learner Full Name</th>
+                    <th>Gender</th>
+                    <th>Email Address</th>
+                    <th>Last Active</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% if (students.length === 0) { %>
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            No students registered under <%= teacher.advisory_grade %> - <%= teacher.advisory_section %> yet.
+                        </td>
+                    </tr>
+                <% } %>
+                <% students.forEach(s => { %>
+                    <tr>
+                        <td class="font-monospace fw-semibold"><%= s.lrn %></td>
+                        <td>
+                            <div class="fw-bold text-dark"><%= s.last_name %>, <%= s.first_name %></div>
+                        </td>
+                        <td>
+                            <span class="badge <%= s.gender === 'Male' ? 'bg-primary-subtle text-primary' : 'bg-danger-subtle text-danger' %>">
+                                <%= s.gender %>
+                            </span>
+                        </td>
+                        <td class="small text-muted"><%= s.email %></td>
+                        <td class="small text-muted font-monospace">
+                            <%= s.last_login ? new Date(s.last_login).toLocaleString() : 'Never' %>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>

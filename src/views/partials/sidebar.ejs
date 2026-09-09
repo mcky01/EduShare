@@ -1,0 +1,90 @@
+<aside class="liquid-sidebar">
+    <div>
+        <% if (user && user.role === 'admin') { %>
+            <div class="sidebar-heading">Admin Portal</div>
+            <a href="/admin/dashboard" class="sidebar-nav-item <%= currentPath.startsWith('/admin/dashboard') ? 'active' : '' %>">
+                <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="/admin/users" class="sidebar-nav-item <%= currentPath.startsWith('/admin/users') ? 'active' : '' %>">
+                <i class="bi bi-people"></i>
+                <span>User Management</span>
+            </a>
+            <a href="/admin/settings" class="sidebar-nav-item <%= currentPath.startsWith('/admin/settings') ? 'active' : '' %>">
+                <i class="bi bi-gear"></i>
+                <span>School Settings</span>
+            </a>
+            <a href="/admin/curriculum" class="sidebar-nav-item <%= currentPath.startsWith('/admin/curriculum') ? 'active' : '' %>">
+                <i class="bi bi-journal-bookmark"></i>
+                <span>Curriculum & RAG</span>
+            </a>
+            <a href="/admin/logs" class="sidebar-nav-item <%= currentPath.startsWith('/admin/logs') ? 'active' : '' %>">
+                <i class="bi bi-clock-history"></i>
+                <span>Activity Logs</span>
+            </a>
+
+        <% } else if (user && user.role === 'teacher') { %>
+            <div class="sidebar-heading">Classroom Hub</div>
+            <a href="/teacher/dashboard" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/dashboard') ? 'active' : '' %>">
+                <i class="bi bi-grid-1x2"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="/teacher/classes" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/classes') ? 'active' : '' %>">
+                <i class="bi bi-mortarboard"></i>
+                <span>My Classes</span>
+            </a>
+            <a href="/teacher/library" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/library') ? 'active' : '' %>">
+                <i class="bi bi-folder2-open"></i>
+                <span>Material Library</span>
+            </a>
+            <a href="/teacher/gradebook" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/gradebook') ? 'active' : '' %>">
+                <i class="bi bi-table"></i>
+                <span>E-Class Record</span>
+            </a>
+
+            <div class="sidebar-heading">AI Teacher Tools</div>
+            <a href="/teacher/lesson-generator" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/lesson-generator') ? 'active' : '' %>">
+                <i class="bi bi-stars"></i>
+                <span>AI Lesson Generator</span>
+            </a>
+            <a href="/teacher/quiz-maker" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/quiz-maker') ? 'active' : '' %>">
+                <i class="bi bi-card-checklist"></i>
+                <span>AI Quiz Maker</span>
+            </a>
+
+            <% if (user.is_adviser) { %>
+                <div class="sidebar-heading">Advisory Section</div>
+                <a href="/teacher/advisory" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/advisory') ? 'active' : '' %>">
+                    <i class="bi bi-person-lines-fill"></i>
+                    <span>My Advisory (SF1)</span>
+                </a>
+            <% } %>
+
+        <% } else if (user && user.role === 'student') { %>
+            <div class="sidebar-heading">Student Learning</div>
+            <a href="/student/dashboard" class="sidebar-nav-item <%= currentPath.startsWith('/student/dashboard') ? 'active' : '' %>">
+                <i class="bi bi-speedometer2"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="/student/classes" class="sidebar-nav-item <%= currentPath.startsWith('/student/classes') ? 'active' : '' %>">
+                <i class="bi bi-book"></i>
+                <span>My Classes</span>
+            </a>
+
+            <div class="sidebar-heading">AI Study Companion</div>
+            <a href="/student/chatbot" class="sidebar-nav-item <%= currentPath.startsWith('/student/chatbot') ? 'active' : '' %>">
+                <i class="bi bi-robot"></i>
+                <span>AI Study Tutor</span>
+            </a>
+        <% } %>
+    </div>
+
+    <!-- Sidebar Footer Card -->
+    <div class="mt-4 p-3 rounded-4 glass-card" style="background: rgba(255, 255, 255, 0.08); border-color: rgba(52, 211, 153, 0.2);">
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge-amber" style="padding: 2px 8px; font-size: 0.65rem;">ONLINE</span>
+            <span class="small fw-semibold text-white-50"><%= school.abbr %> 1981</span>
+        </div>
+        <p class="small text-white-50 mb-0 fst-italic" style="font-size: 0.76rem;">"<%= school.motto %>"</p>
+    </div>
+</aside>

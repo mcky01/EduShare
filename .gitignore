@@ -1,0 +1,16 @@
+node_modules/
+.env
+public/uploads/avatars/*
+public/uploads/materials/*
+public/uploads/submissions/*
+!public/uploads/avatars/.gitkeep
+!public/uploads/materials/.gitkeep
+!public/uploads/submissions/.gitkeep
+server-restart.log
+nohup.out
+*.log
+.superpowers/
+login-debug*.html
+inline*.js
+live-*.html
+live-*.js

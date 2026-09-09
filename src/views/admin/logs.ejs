@@ -1,0 +1,55 @@
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--zahs-emerald-deep);">System Audit & Activity Logs</h2>
+        <p class="text-muted small mb-0">Immutable compliance log of user logins, role modifications, and institutional events.</p>
+    </div>
+    <div class="d-flex gap-1">
+        <a href="/admin/logs?category=all" class="btn btn-sm btn-glass <%= selectedCategory === 'all' ? 'active' : '' %>">All</a>
+        <a href="/admin/logs?category=account" class="btn btn-sm btn-glass <%= selectedCategory === 'account' ? 'active' : '' %>">Account</a>
+        <a href="/admin/logs?category=security" class="btn btn-sm btn-glass <%= selectedCategory === 'security' ? 'active' : '' %>">Security</a>
+        <a href="/admin/logs?category=admin" class="btn btn-sm btn-glass <%= selectedCategory === 'admin' ? 'active' : '' %>">Admin</a>
+    </div>
+</div>
+
+<div class="glass-table-container">
+    <div class="table-responsive">
+        <table class="glass-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Details</th>
+                    <th>Category</th>
+                    <th>IP Address</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% if (logs.length === 0) { %>
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            No logs found for this filter.
+                        </td>
+                    </tr>
+                <% } %>
+                <% logs.forEach(log => { %>
+                    <tr>
+                        <td class="small text-muted font-monospace"><%= new Date(log.created_at).toLocaleString() %></td>
+                        <td>
+                            <span class="fw-bold text-dark"><%= log.first_name %> <%= log.last_name %></span>
+                            <div class="small text-muted"><%= log.email %> (<%= log.role %>)</div>
+                        </td>
+                        <td class="fw-bold text-success"><%= log.action %></td>
+                        <td class="small" style="max-width: 320px;"><%= log.description %></td>
+                        <td>
+                            <span class="badge <%= log.category === 'security' ? 'bg-danger text-white' : 'badge-emerald' %>">
+                                <%= log.category %>
+                            </span>
+                        </td>
+                        <td class="small font-monospace text-muted"><%= log.ip_address || '127.0.0.1' %></td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>

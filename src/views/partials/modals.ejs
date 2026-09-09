@@ -1,0 +1,96 @@
+<!-- Global Omnisearch Modal (Ctrl+K) -->
+<div class="modal fade modal-glass" id="omniSearchModal" tabindex="-1" aria-labelledby="omniSearchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <div class="d-flex align-items-center gap-2 w-100">
+                    <i class="bi bi-search text-success fs-4"></i>
+                    <input type="text" id="omniSearchInput" class="form-control border-0 shadow-none fs-5 bg-transparent" placeholder="Type to search classes, materials, quizzes, users..." autofocus>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body pt-2">
+                <hr style="border-color: rgba(16, 185, 129, 0.2);">
+                <div id="omniSearchResults" style="max-height: 380px; overflow-y: auto;">
+                    <div class="text-center text-muted p-4">
+                        <i class="bi bi-keyboard fs-2 d-block mb-2 text-success"></i>
+                        <span class="small fw-semibold">Press <kbd class="px-2 py-1 rounded bg-light border">ESC</kbd> to close &bull; Search indexed content across EduShare 2.0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Profile Settings Modal -->
+<div class="modal fade modal-glass" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="profileModalLabel">
+                    <i class="bi bi-person-circle text-success me-2"></i>My Profile Settings
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/auth/profile" method="POST" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <% if (user && user.avatar_url) { %>
+                            <img src="<%= user.avatar_url %>" alt="<%= user.first_name %>" class="rounded-circle shadow" style="width: 80px; height: 80px; object-fit: cover; border: 3px solid var(--zahs-jade);">
+                        <% } else { %>
+                            <div class="user-avatar-initials mx-auto" style="width: 80px; height: 80px; font-size: 1.75rem;">
+                                <%= (user ? user.first_name[0] + user.last_name[0] : 'U').toUpperCase() %>
+                            </div>
+                        <% } %>
+                        <div class="mt-2">
+                            <label class="btn btn-sm btn-glass">
+                                <i class="bi bi-camera me-1"></i> Change Avatar
+                                <input type="file" name="avatar" class="d-none" accept="image/*">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-muted">First Name</label>
+                            <input type="text" name="first_name" class="glass-input" value="<%= user ? user.first_name : '' %>" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-muted">Last Name</label>
+                            <input type="text" name="last_name" class="glass-input" value="<%= user ? user.last_name : '' %>" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted">Email Address (Read-only)</label>
+                            <input type="email" class="glass-input text-muted" value="<%= user ? user.email : '' %>" readonly>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold text-muted">Role</label>
+                            <input type="text" class="glass-input text-muted text-uppercase fw-bold" value="<%= user ? user.role : '' %>" readonly>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-liquid-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Logout Confirmation Modal -->
+<div class="modal fade modal-glass" id="logoutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content text-center p-3">
+            <div class="modal-body">
+                <i class="bi bi-door-open fs-1 text-danger d-block mb-3"></i>
+                <h5 class="fw-bold mb-2">Sign Out?</h5>
+                <p class="small text-muted mb-4">Are you sure you want to end your current session?</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <a href="/auth/logout" class="btn btn-danger rounded-3 px-3">Sign Out</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

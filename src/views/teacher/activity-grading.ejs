@@ -1,0 +1,86 @@
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <a href="/teacher/classes/<%= cls.id %>?tab=activities" class="small text-success text-decoration-none fw-bold">&larr; Back to Class</a>
+            <span class="text-muted">&bull;</span>
+            <span class="badge-emerald"><%= cls.class_name %></span>
+        </div>
+        <h2 class="fw-bold mb-0 text-dark"><%= activity.title %></h2>
+        <div class="small text-muted">Max Score: <%= activity.points %> Points &bull; Due: <%= activity.due_date ? new Date(activity.due_date).toLocaleDateString() : 'None' %></div>
+    </div>
+</div>
+
+<div class="glass-table-container">
+    <div class="table-responsive">
+        <table class="glass-table">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Status</th>
+                    <th>Submitted File / Note</th>
+                    <th>Submitted Time</th>
+                    <th>Score / Grade</th>
+                    <th>Feedback</th>
+                    <th>Save</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% submissions.forEach(sub => { %>
+                    <tr>
+                        <td>
+                            <div class="fw-bold text-dark"><%= sub.last_name %>, <%= sub.first_name %></div>
+                            <div class="small text-muted">LRN: <%= sub.lrn %></div>
+                        </td>
+                        <td>
+                            <% if (sub.status === 'graded') { %>
+                                <span class="badge-emerald"><i class="bi bi-check2-circle me-1"></i>Graded</span>
+                            <% } else if (sub.submission_id) { %>
+                                <span class="badge-amber"><i class="bi bi-hourglass-split me-1"></i>Submitted</span>
+                            <% } else { %>
+                                <span class="badge-gray">Missing</span>
+                            <% } %>
+                        </td>
+                        <td style="max-width: 250px;">
+                            <% if (sub.file_path) { %>
+                                <div class="mb-1">
+                                    <a href="<%= sub.file_path %>" target="_blank" class="btn btn-sm btn-glass text-success fw-semibold">
+                                        <i class="bi bi-download me-1"></i> View Attachment
+                                    </a>
+                                </div>
+                            <% } %>
+                            <% if (sub.note) { %>
+                                <div class="small text-secondary fst-italic">"<%= sub.note %>"</div>
+                            <% } %>
+                            <% if (!sub.file_path && !sub.note) { %>
+                                <span class="text-muted small">&mdash;</span>
+                            <% } %>
+                        </td>
+                        <td class="small text-muted font-monospace">
+                            <%= sub.submitted_at ? new Date(sub.submitted_at).toLocaleString() : 'Not submitted' %>
+                        </td>
+                        <form action="/teacher/activities/grade" method="POST">
+                            <input type="hidden" name="submission_id" value="<%= sub.submission_id || '' %>">
+                            <input type="hidden" name="activity_id" value="<%= activity.id %>">
+                            <input type="hidden" name="class_id" value="<%= cls.id %>">
+                            <input type="hidden" name="student_id" value="<%= sub.student_profile_id %>">
+                            <td style="width: 130px;">
+                                <div class="input-group input-group-sm">
+                                    <input type="number" step="0.5" name="score" class="glass-input text-center fw-bold text-success py-1" value="<%= sub.score != null ? sub.score : '' %>" max="<%= activity.points %>" min="0" placeholder="0">
+                                    <span class="input-group-text bg-transparent border-0 small text-muted">/ <%= activity.points %></span>
+                                </div>
+                            </td>
+                            <td>
+                                <input type="text" name="feedback" class="glass-input py-1 small" placeholder="Teacher comments..." value="<%= sub.feedback || '' %>">
+                            </td>
+                            <td>
+                                <button type="submit" class="btn btn-sm btn-liquid-primary">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </td>
+                        </form>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,121 @@
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge-emerald"><i class="bi bi-cpu me-1"></i>Ollama Qwen 2.5 7B Grounded</span>
+            <span class="badge-amber">DepEd MATATAG Aligned</span>
+        </div>
+        <h2 class="fw-bold mb-0 text-dark">AI Lesson Plan & Slide Deck Generator</h2>
+        <p class="text-muted small mb-0">Generate curriculum-grounded structured lesson presentations in seconds.</p>
+    </div>
+</div>
+
+<!-- STEP 1: Lesson Configuration Form -->
+<div id="lessonStep1" class="glass-card p-4 p-md-5 mb-4">
+    <h4 class="fw-bold mb-3"><i class="bi bi-sliders text-success me-2"></i>Step 1: Configure Lesson Parameters</h4>
+    <p class="text-muted small mb-4">Choose your target grade, curriculum competency, and topic focus.</p>
+
+    <div class="row g-3" id="lessonSetupForm">
+        <div class="col-md-6">
+            <label class="form-label small fw-bold">Lesson Topic</label>
+            <input type="text" id="lessonTopic" class="glass-input" placeholder="e.g. Narrative Conflict & Value Resolution" value="Elements of Short Stories & Cultural Values">
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label small fw-bold">Subject Area</label>
+            <input type="text" id="lessonSubject" class="glass-input" value="English">
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label small fw-bold">Grade Level</label>
+            <select id="lessonGrade" class="glass-input">
+                <option value="Grade 7">Grade 7</option>
+                <option value="Grade 8">Grade 8</option>
+                <option value="Grade 9">Grade 9</option>
+                <option value="Grade 10">Grade 10</option>
+            </select>
+        </div>
+
+        <div class="col-12">
+            <label class="form-label small fw-bold">DepEd Learning Competency Standard</label>
+            <select id="lessonCompetency" class="glass-input">
+                <% competencies.forEach(comp => { %>
+                    <option value="<%= comp.code %>: <%= comp.description %>">
+                        <%= comp.code %>: <%= comp.description %>
+                    </option>
+                <% }) %>
+                <option value="General Standard">Custom / Unlisted Competency</option>
+            </select>
+        </div>
+
+        <div class="col-12">
+            <label class="form-label small fw-bold">Teacher Custom Pedagogical Instructions</label>
+            <textarea id="lessonInstructions" class="glass-input" rows="3" placeholder="e.g. Emphasize active student recitation, group story mapping, and integration of the school motto 'Basta Zeferinian, Magaling Yan!'"></textarea>
+        </div>
+
+        <div class="col-12 mt-4 pt-3 border-top d-flex justify-content-end">
+            <button type="button" id="btnGenerateLesson" class="btn btn-liquid-primary px-4 py-2 fs-6 shadow">
+                <i class="bi bi-stars me-2"></i> Generate Lesson Plan & Slides
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- STEP 2 & 3: Generated Slides Preview & Save -->
+<div id="lessonStep2" style="display: none;">
+    <div class="glass-card p-4 mb-4" style="background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(245,158,11,0.08)), rgba(255,255,255,0.9);">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <span class="badge-emerald mb-2">Step 2: Interactive Review</span>
+                <h3 class="fw-bold text-dark mb-1" id="displayLessonTopic">Lesson Title</h3>
+                <div class="small text-muted" id="displayLessonComp">Competency</div>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-glass" onclick="window.print()">
+                    <i class="bi bi-printer me-1"></i> Print / PDF
+                </button>
+                <button type="button" class="btn btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#saveToLibraryModal">
+                    <i class="bi bi-cloud-check me-1"></i> Save to My Library
+                </button>
+                <button type="button" class="btn btn-glass text-muted" onclick="document.getElementById('lessonStep2').style.display='none'; document.getElementById('lessonStep1').style.display='block';">
+                    <i class="bi bi-arrow-repeat me-1"></i> Regenerate
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide Cards Grid -->
+    <div class="row" id="slidesPreviewContainer">
+        <!-- Rendered dynamically by lesson-wizard.js -->
+    </div>
+</div>
+
+<!-- Modal: Save to Library and Post to Class -->
+<div class="modal fade modal-glass" id="saveToLibraryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-cloud-arrow-up text-success me-2"></i>Save & Post Lesson</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">This lesson presentation will be stored in your personal Material Library. Optionally check classes to post immediately:</p>
+                <div class="d-flex flex-column gap-2 mb-3">
+                    <% classes.forEach(cls => { %>
+                        <div class="form-check p-2 rounded-3" style="background: rgba(255,255,255,0.7);">
+                            <input class="form-check-input ms-0 me-2 post-class-checkbox" type="checkbox" value="<%= cls.id %>" id="postCls_<%= cls.id %>">
+                            <label class="form-check-label fw-semibold text-dark" for="postCls_<%= cls.id %>">
+                                <%= cls.class_name %> (<%= cls.grade_level %> - <%= cls.section %>)
+                            </label>
+                        </div>
+                    <% }) %>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="btnSaveLessonToLibrary" class="btn btn-liquid-primary">Confirm & Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/lesson-wizard.js"></script>

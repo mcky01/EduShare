@@ -1,0 +1,145 @@
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--zahs-emerald-deep);">Teacher Dashboard</h2>
+        <p class="text-muted small mb-0">Welcome back, Teacher <%= user.first_name %>! Here is your classroom teaching overview.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/teacher/lesson-generator" class="btn btn-liquid-primary">
+            <i class="bi bi-stars me-1"></i> AI Lesson Generator
+        </a>
+        <a href="/teacher/quiz-maker" class="btn btn-liquid-amber">
+            <i class="bi bi-card-checklist me-1"></i> AI Quiz Maker
+        </a>
+    </div>
+</div>
+
+<!-- Stat Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="glass-card stat-card-glass">
+            <div class="stat-icon-wrapper stat-icon-emerald">
+                <i class="bi bi-mortarboard"></i>
+            </div>
+            <div>
+                <div class="stat-value"><%= stats.classes %></div>
+                <div class="stat-label">Assigned Classes</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="glass-card stat-card-glass">
+            <div class="stat-icon-wrapper stat-icon-emerald">
+                <i class="bi bi-people"></i>
+            </div>
+            <div>
+                <div class="stat-value"><%= stats.students %></div>
+                <div class="stat-label">Total Students</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="glass-card stat-card-glass">
+            <div class="stat-icon-wrapper stat-icon-amber">
+                <i class="bi bi-pencil-square"></i>
+            </div>
+            <div>
+                <div class="stat-value"><%= stats.toGrade %></div>
+                <div class="stat-label">Submissions To Grade</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="glass-card stat-card-glass">
+            <div class="stat-icon-wrapper stat-icon-amber">
+                <i class="bi bi-question-diamond"></i>
+            </div>
+            <div>
+                <div class="stat-value"><%= stats.quizzes %></div>
+                <div class="stat-label">Created Quizzes</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Classes Grid Preview -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0">My Active Classes</h5>
+    <a href="/teacher/classes" class="small text-success fw-bold text-decoration-none">Manage All Classes &rarr;</a>
+</div>
+
+<div class="row g-3 mb-4">
+    <% if (classes.length === 0) { %>
+        <div class="col-12">
+            <div class="glass-card p-5 text-center text-muted">
+                <i class="bi bi-journal-plus fs-1 text-success d-block mb-2"></i>
+                <h5>No Classes Created Yet</h5>
+                <p class="small">Click "Create Class" to establish your first section with an auto-generated student join code.</p>
+                <a href="/teacher/classes" class="btn btn-liquid-primary">Create Your First Class</a>
+            </div>
+        </div>
+    <% } %>
+
+    <% classes.forEach(c => { %>
+        <div class="col-md-6 col-lg-4">
+            <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between glass-card-hover">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge-emerald"><%= c.subject %></span>
+                        <span class="badge-amber font-monospace">Code: <%= c.class_code %></span>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1"><%= c.class_name %></h5>
+                    <p class="small text-muted mb-3"><%= c.grade_level %> &bull; Section <%= c.section %></p>
+                    <div class="small text-secondary mb-3">
+                        <i class="bi bi-clock me-1 text-success"></i> <%= c.schedule || 'Flexible' %><br>
+                        <i class="bi bi-geo-alt me-1 text-success"></i> <%= c.room || 'Regular Classroom' %>
+                    </div>
+                </div>
+                <div class="border-top pt-3 d-flex justify-content-between align-items-center" style="border-color: rgba(16,185,129,0.15) !important;">
+                    <a href="/teacher/classes/<%= c.id %>" class="btn btn-sm btn-liquid-primary w-100 text-center">
+                        Open Class Hub &rarr;
+                    </a>
+                </div>
+            </div>
+        </div>
+    <% }) %>
+</div>
+
+<!-- Pending Submissions Queue -->
+<% if (recentSubmissions && recentSubmissions.length > 0) { %>
+    <div class="glass-card p-4">
+        <h5 class="fw-bold mb-3"><i class="bi bi-inbox text-warning me-2"></i>Submissions Awaiting Grading</h5>
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Class Section</th>
+                        <th>Activity Title</th>
+                        <th>Submitted At</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% recentSubmissions.forEach(sub => { %>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark"><%= sub.first_name %> <%= sub.last_name %></div>
+                            </td>
+                            <td><%= sub.class_name %></td>
+                            <td class="fw-semibold text-success"><%= sub.activity_title %></td>
+                            <td class="small text-muted"><%= new Date(sub.submitted_at).toLocaleString() %></td>
+                            <td>
+                                <a href="/teacher/activities/<%= sub.activity_id %>/classes/<%= sub.class_id %>/grading" class="btn btn-sm btn-glass text-success fw-bold">
+                                    Grade &rarr;
+                                </a>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+<% } %>

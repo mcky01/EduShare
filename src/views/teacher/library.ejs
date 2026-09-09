@@ -1,0 +1,138 @@
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--zahs-emerald-deep);">My Material Library</h2>
+        <p class="text-muted small mb-0">Personal instructional repository &bull; Upload presentations, worksheets, and AI-generated lessons.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#uploadMaterialModal">
+            <i class="bi bi-cloud-arrow-up me-1"></i> Upload Material
+        </button>
+        <a href="/teacher/lesson-generator" class="btn btn-liquid-amber">
+            <i class="bi bi-stars me-1"></i> AI Lesson Generator
+        </a>
+    </div>
+</div>
+
+<!-- Material Items Grid -->
+<div class="row g-3">
+    <% if (items.length === 0) { %>
+        <div class="col-12">
+            <div class="glass-card p-5 text-center text-muted">
+                <i class="bi bi-folder2-open fs-1 text-success d-block mb-2"></i>
+                <h5>Your Library is Empty</h5>
+                <p class="small">Upload worksheets, documents, or use the AI Lesson Generator to create study slides.</p>
+                <button type="button" class="btn btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#uploadMaterialModal">
+                    Upload Your First File
+                </button>
+            </div>
+        </div>
+    <% } %>
+
+    <% items.forEach(item => { %>
+        <div class="col-md-6 col-lg-4">
+            <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between glass-card-hover">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge-emerald"><%= item.subject || 'General' %></span>
+                        <span class="badge-amber text-uppercase" style="font-size: 0.7rem;"><%= item.source %></span>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1"><%= item.title %></h5>
+                    <p class="small text-muted mb-3"><%= item.description || 'Instructional resource.' %></p>
+                    <div class="small text-secondary mb-2">
+                        <span><i class="bi bi-file-earmark me-1 text-success"></i> <%= item.file_type || 'Document' %> (<%= item.file_size || 'N/A' %>)</span>
+                    </div>
+                </div>
+
+                <div class="border-top pt-3 d-flex justify-content-between align-items-center" style="border-color: rgba(16,185,129,0.15) !important;">
+                    <button type="button" class="btn btn-sm btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#repostModal<%= item.id %>">
+                        <i class="bi bi-share me-1"></i> Post to Class
+                    </button>
+                    <% if (item.file_path) { %>
+                        <a href="<%= item.file_path %>" target="_blank" class="btn btn-sm btn-glass">
+                            <i class="bi bi-download"></i>
+                        </a>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Repost to Class -->
+        <div class="modal fade modal-glass" id="repostModal<%= item.id %>" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">Post "<%= item.title %>" to Class</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form action="/teacher/library/repost" method="POST">
+                        <input type="hidden" name="item_id" value="<%= item.id %>">
+                        <div class="modal-body">
+                            <label class="form-label small fw-bold mb-2">Select Target Class Sections:</label>
+                            <div class="d-flex flex-column gap-2">
+                                <% classes.forEach(cls => { %>
+                                    <div class="form-check p-2 rounded-3" style="background: rgba(255,255,255,0.6);">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" name="class_ids" value="<%= cls.id %>" id="clsCheck<%= item.id %>_<%= cls.id %>">
+                                        <label class="form-check-label fw-semibold text-dark" for="clsCheck<%= item.id %>_<%= cls.id %>">
+                                            <%= cls.class_name %> (<%= cls.grade_level %> - <%= cls.section %>)
+                                        </label>
+                                    </div>
+                                <% }) %>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-liquid-primary">Post to Selected</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    <% }) %>
+</div>
+
+<!-- Modal: Upload Material -->
+<div class="modal fade modal-glass" id="uploadMaterialModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-cloud-arrow-up text-success me-2"></i>Upload Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/teacher/library/upload" method="POST" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Document Title</label>
+                        <input type="text" name="title" class="glass-input" placeholder="e.g. English 7 Module 1 Reading Packet" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Description / Summary</label>
+                        <textarea name="description" class="glass-input" rows="3" placeholder="Brief summary of file contents..."></textarea>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Subject Area</label>
+                            <input type="text" name="subject" class="glass-input" value="English">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Grade Level</label>
+                            <select name="grade_level" class="glass-input">
+                                <option value="Grade 7">Grade 7</option>
+                                <option value="Grade 8">Grade 8</option>
+                                <option value="Grade 9">Grade 9</option>
+                                <option value="Grade 10">Grade 10</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Select File (PDF, DOCX, PPTX, Images, ZIP)</label>
+                        <input type="file" name="material_file" class="glass-input" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-liquid-primary">Upload & Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,42 @@
+<div class="mb-4">
+    <h2 class="fw-bold mb-1" style="color: var(--zahs-emerald-deep);">Curriculum Standards & Knowledge Base</h2>
+    <p class="text-muted small mb-0">DepEd MATATAG Curriculum Guides (CG), Budgets of Work (BOW), and AI Grounding Competencies.</p>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Seeded Competencies -->
+    <div class="col-12">
+        <div class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0"><i class="bi bi-book text-success me-2"></i>DepEd Learning Competencies</h5>
+                <span class="badge-emerald"><%= competencies.length %> Standards Active</span>
+            </div>
+            <div class="table-responsive">
+                <table class="glass-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Description</th>
+                            <th>Subject</th>
+                            <th>Grade Level</th>
+                            <th>Quarter</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% competencies.forEach(comp => { %>
+                            <tr>
+                                <td class="font-monospace fw-bold text-success"><%= comp.code %></td>
+                                <td class="small" style="max-width: 400px;"><%= comp.description %></td>
+                                <td><%= comp.subject %></td>
+                                <td><%= comp.grade_level %></td>
+                                <td><span class="badge-amber"><%= comp.quarter %></span></td>
+                                <td class="small text-muted"><%= comp.source_version %></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

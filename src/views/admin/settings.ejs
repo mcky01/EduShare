@@ -1,0 +1,69 @@
+<div class="mb-4">
+    <h2 class="fw-bold mb-1" style="color: var(--zahs-emerald-deep);">Institutional Settings</h2>
+    <p class="text-muted small mb-0">Configure school branding, academic calendar, and system policies.</p>
+</div>
+
+<div class="row g-4">
+    <!-- School Profile & Branding -->
+    <div class="col-lg-8">
+        <div class="glass-card p-4">
+            <h5 class="fw-bold mb-3 border-bottom pb-2" style="border-color: rgba(16,185,129,0.15) !important;">
+                <i class="bi bi-bank text-success me-2"></i>School Branding & Identity
+            </h5>
+
+            <form action="/admin/settings" method="POST" enctype="multipart/form-data">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold">Official School Name</label>
+                        <input type="text" name="school_name" class="glass-input" value="<%= settings.school_name || '' %>" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Abbreviation / Acronym</label>
+                        <input type="text" name="school_abbr" class="glass-input" value="<%= settings.school_abbr || '' %>" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">Official School Motto / Tagline</label>
+                        <input type="text" name="school_motto" class="glass-input" value="<%= settings.school_motto || '' %>" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Current Academic School Year</label>
+                        <input type="text" name="school_year" class="glass-input" value="<%= settings.school_year || '2026-2027' %>" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Active Grading Term</label>
+                        <select name="current_term" class="glass-input">
+                            <option value="Term 1" <%= settings.current_term === 'Term 1' ? 'selected' : '' %>>Term 1 (First Quarter)</option>
+                            <option value="Term 2" <%= settings.current_term === 'Term 2' ? 'selected' : '' %>>Term 2 (Second Quarter)</option>
+                            <option value="Term 3" <%= settings.current_term === 'Term 3' ? 'selected' : '' %>>Term 3 (Third Quarter)</option>
+                            <option value="Term 4" <%= settings.current_term === 'Term 4' ? 'selected' : '' %>>Term 4 (Fourth Quarter)</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">Replace Official School Logo Crest</label>
+                        <input type="file" name="school_logo" class="glass-input" accept="image/*">
+                        <div class="form-text small">Recommended: Transparent PNG (min 200x200).</div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-top d-flex justify-content-end gap-2" style="border-color: rgba(16,185,129,0.15) !important;">
+                    <button type="submit" class="btn btn-liquid-primary">
+                        <i class="bi bi-check2-circle me-1"></i> Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Current Crest Preview Card -->
+    <div class="col-lg-4">
+        <div class="glass-card p-4 text-center h-100 d-flex flex-column justify-content-center align-items-center">
+            <h6 class="fw-bold text-muted text-uppercase mb-3" style="letter-spacing: 0.08em;">Active Institutional Crest</h6>
+            <div class="p-3 rounded-circle shadow-sm mb-3" style="background: rgba(255,255,255,0.7); width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--zahs-jade);">
+                <img src="<%= settings.school_logo || '/images/zahs-logo.png' %>" alt="School Crest" style="width: 110px; height: 110px; object-fit: contain;">
+            </div>
+            <h5 class="fw-bold text-dark mb-1"><%= settings.school_name %></h5>
+            <div class="badge-amber mb-2"><%= settings.school_abbr %> &bull; 1981</div>
+            <p class="small text-muted fst-italic mb-0">"<%= settings.school_motto %>"</p>
+        </div>
+    </div>
+</div>

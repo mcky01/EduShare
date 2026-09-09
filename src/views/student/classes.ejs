@@ -1,0 +1,75 @@
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold mb-1" style="color: var(--zahs-emerald-deep);">My Enrolled Classes</h2>
+        <p class="text-muted small mb-0">Browse your active courses, access lesson materials, and submit coursework.</p>
+    </div>
+    <button type="button" class="btn btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#joinClassModal">
+        <i class="bi bi-plus-lg me-1"></i> Join Class by Code
+    </button>
+</div>
+
+<!-- Enrolled Classes Grid -->
+<div class="row g-3">
+    <% if (classes.length === 0) { %>
+        <div class="col-12">
+            <div class="glass-card p-5 text-center text-muted">
+                <i class="bi bi-book fs-1 text-success d-block mb-2"></i>
+                <h5>You Are Not Enrolled in Any Classes Yet</h5>
+                <p class="small">Ask your subject teacher for the 6-character class join code.</p>
+                <button type="button" class="btn btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#joinClassModal">
+                    Join Your First Class
+                </button>
+            </div>
+        </div>
+    <% } %>
+
+    <% classes.forEach(c => { %>
+        <div class="col-md-6 col-lg-4">
+            <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between glass-card-hover">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge-emerald"><%= c.subject %></span>
+                        <span class="small text-muted font-monospace"><%= c.class_code %></span>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1"><%= c.class_name %></h5>
+                    <p class="small text-muted mb-3">Teacher: <%= c.teacher_first %> <%= c.teacher_last %></p>
+                    <div class="small text-secondary mb-3">
+                        <div><i class="bi bi-folder2 me-1 text-success"></i> <%= c.material_count || 0 %> Learning Materials</div>
+                        <div><i class="bi bi-card-checklist me-1 text-warning"></i> <%= c.quiz_count || 0 %> Quizzes</div>
+                        <div><i class="bi bi-clock me-1 text-muted"></i> <%= c.schedule || 'Regular' %></div>
+                    </div>
+                </div>
+                <div class="border-top pt-3" style="border-color: rgba(16,185,129,0.15) !important;">
+                    <a href="/student/classes/<%= c.id %>" class="btn btn-sm btn-liquid-primary w-100 text-center">
+                        Open Class &rarr;
+                    </a>
+                </div>
+            </div>
+        </div>
+    <% }) %>
+</div>
+
+<!-- Modal: Join Class -->
+<div class="modal fade modal-glass" id="joinClassModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-key text-success me-2"></i>Join a Class</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/student/classes/join" method="POST">
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">Enter the 6-character class code provided by your teacher (e.g. <strong>ENG7RZ</strong>):</p>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Class Code</label>
+                        <input type="text" name="class_code" class="glass-input text-center font-monospace fs-4 text-uppercase fw-bold" placeholder="ABC123" maxlength="6" required autofocus>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-liquid-primary">Join Class</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

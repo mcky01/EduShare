@@ -1,0 +1,116 @@
+<div class="glass-card p-4 p-md-5 mb-4" style="background: linear-gradient(135deg, rgba(13,82,44,0.12), rgba(245,158,11,0.08)), rgba(255,255,255,0.85);">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <div class="badge-emerald mb-2">
+                <i class="bi bi-mortarboard-fill me-1"></i> Learner Dashboard &bull; <%= user.grade_level || 'Grade 7' %> - <%= user.section || 'Rizal' %>
+            </div>
+            <h2 class="fw-bold text-dark mb-1">Mabuhay, <%= user.first_name %>!</h2>
+            <p class="text-muted small mb-0">"<%= school.motto %>" &bull; LRN: <strong><%= user.lrn || '109876543210' %></strong></p>
+        </div>
+
+        <div class="d-flex gap-2">
+            <a href="/student/classes" class="btn btn-liquid-primary">
+                <i class="bi bi-plus-lg me-1"></i> Join a Class
+            </a>
+            <a href="/student/chatbot" class="btn btn-liquid-amber">
+                <i class="bi bi-robot me-1"></i> AI Study Tutor
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Pending Quizzes To Take -->
+    <div class="col-lg-6">
+        <div class="glass-card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-card-checklist text-warning me-2"></i>Quizzes To Take</h5>
+                <span class="badge-amber"><%= pendingQuizzes.length %> Pending</span>
+            </div>
+
+            <div class="d-flex flex-column gap-3">
+                <% if (pendingQuizzes.length === 0) { %>
+                    <div class="text-center text-muted p-4">
+                        <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-2"></i>
+                        <p class="small mb-0">All caught up! You have no pending quizzes.</p>
+                    </div>
+                <% } %>
+
+                <% pendingQuizzes.forEach(q => { %>
+                    <div class="p-3 rounded-4" style="background: rgba(255,255,255,0.6); border: 1px solid rgba(16,185,129,0.2);">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <span class="badge-emerald mb-1"><%= q.class_name %></span>
+                                <h6 class="fw-bold text-dark mb-1"><%= q.title %></h6>
+                                <div class="small text-muted"><%= q.total_questions %> Items &bull; <%= q.time_limit_minutes %> Minutes Limit</div>
+                            </div>
+                            <a href="/student/quizzes/<%= q.id %>/take" class="btn btn-sm btn-liquid-primary">
+                                Take Quiz &rarr;
+                            </a>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upcoming Activities -->
+    <div class="col-lg-6">
+        <div class="glass-card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-pencil-square text-success me-2"></i>Activities & Homework</h5>
+                <span class="badge-emerald"><%= upcomingActivities.length %> Total</span>
+            </div>
+
+            <div class="d-flex flex-column gap-3">
+                <% if (upcomingActivities.length === 0) { %>
+                    <div class="text-center text-muted p-4">
+                        <i class="bi bi-emoji-smile fs-1 text-success d-block mb-2"></i>
+                        <p class="small mb-0">No pending assignments at the moment.</p>
+                    </div>
+                <% } %>
+
+                <% upcomingActivities.forEach(act => { %>
+                    <div class="p-3 rounded-4" style="background: rgba(255,255,255,0.6); border: 1px solid rgba(16,185,129,0.2);">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge-emerald"><%= act.class_name %></span>
+                            <span class="small text-muted">Due: <%= act.due_date ? new Date(act.due_date).toLocaleDateString() : 'None' %></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="fw-bold text-dark mb-0"><%= act.title %></h6>
+                                <span class="small text-muted"><%= act.points %> Max Points</span>
+                            </div>
+                            <a href="/student/activities/<%= act.id %>/classes/<%= act.class_id %>/submit" class="btn btn-sm <%= act.submission_status === 'graded' ? 'btn-glass text-success' : 'btn-liquid-primary' %>">
+                                <%= act.submission_status === 'graded' ? 'Graded (' + act.score + ')' : (act.submission_status === 'submitted' ? 'Resubmit' : 'Submit Work &rarr;') %>
+                            </a>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Class Announcements -->
+<div class="glass-card p-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-megaphone text-success me-2"></i>Recent Class Bulletins</h5>
+    <div class="d-flex flex-column gap-3">
+        <% if (announcements.length === 0) { %>
+            <div class="text-center text-muted p-4">
+                <p class="small mb-0">No bulletins posted in your classes yet.</p>
+            </div>
+        <% } %>
+
+        <% announcements.forEach(a => { %>
+            <div class="p-3 rounded-4 <%= a.is_pinned ? 'border-start border-4 border-warning' : '' %>" style="background: rgba(255,255,255,0.6);">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="badge-emerald"><%= a.class_name %> &bull; Teacher <%= a.teacher_last %></span>
+                    <span class="small text-muted"><%= new Date(a.created_at).toLocaleDateString() %></span>
+                </div>
+                <h6 class="fw-bold text-dark mb-1"><%= a.title %></h6>
+                <p class="small text-secondary mb-0" style="white-space: pre-wrap;"><%= a.message %></p>
+            </div>
+        <% }) %>
+    </div>
+</div>

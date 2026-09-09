@@ -1,0 +1,337 @@
+<div class="auth-single-card">
+    <!-- Brand header: big seal left, EduShare + school stacked right -->
+    <div class="auth-brand-header">
+        <div class="auth-brand-lockup">
+            <img src="<%= school.logo || '/images/zahs-logo.png' %>" alt="ZAHS Logo" class="auth-brand-seal">
+            <div class="auth-brand-text">
+                <div class="fw-extrabold auth-brand-name">EduShare</div>
+                <div class="auth-brand-school"><%= school.name %></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="auth-form-heading">
+        <h3 class="fw-bold text-dark mb-0">Welcome Back</h3>
+    </div>
+
+    <!-- Inline Error Notice -->
+    <% if (typeof loginError !== 'undefined' && loginError) { %>
+    <div class="alert auth-alert-error d-flex align-items-start gap-2 py-2 px-3 mb-3" role="alert" aria-live="assertive">
+        <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+        <div><%= loginError %></div>
+    </div>
+    <% } %>
+
+    <!-- Login Form -->
+    <form action="/auth/login" method="POST" id="loginForm" onsubmit="return handleFormSubmit(event)" novalidate>
+        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+        <input type="hidden" name="returnTo" value="<%= typeof returnTo !== 'undefined' ? returnTo : '' %>">
+
+        <!-- Credential Field -->
+        <div class="auth-field">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label small fw-bold text-muted mb-0" id="credentialLabel" for="credentialInput">School ID or Email</label>
+            </div>
+            <div class="auth-input-group input-group">
+                <span class="input-group-text">
+                    <i class="bi bi-person" id="credentialIcon"></i>
+                </span>
+                <input type="text" name="credential" id="credentialInput" class="form-control" placeholder="12-digit LRN, employee ID, or email" required autofocus autocomplete="username" value="<%= typeof credential !== 'undefined' ? credential : '' %>" oninput="handleCredentialInput(this)">
+            </div>
+        </div>
+
+        <!-- Password Field -->
+        <div class="auth-field">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label small fw-bold text-muted mb-0" for="passwordInput">Password</label>
+                <span id="capsWarning" class="caps-warning-pill" aria-live="polite">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Caps Lock is ON
+                </span>
+            </div>
+            <div class="auth-input-group input-group">
+                <span class="input-group-text">
+                    <i class="bi bi-lock"></i>
+                </span>
+                <input type="password" name="password" id="passwordInput" class="form-control" placeholder="Enter your password" required autocomplete="current-password" onkeydown="checkCapsLock(event)" onkeyup="checkCapsLock(event)">
+                <button type="button" class="btn-peek" id="passwordPeekBtn" aria-label="Show password" aria-pressed="false" onclick="togglePasswordVisibility('passwordInput', this)" title="Toggle password visibility">
+                    <i class="bi bi-eye text-muted" id="passwordPeekIcon"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" id="submitBtn" class="btn btn-liquid-primary w-100 fs-6 auth-submit auth-submit-spaced">
+            <span id="btnText">
+                <i class="bi bi-box-arrow-in-right me-2"></i> Sign In to EduShare 2.0
+            </span>
+            <span id="btnSpinner" class="d-none">
+                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Signing in...
+            </span>
+        </button>
+    </form>
+
+    <!-- Footer: motto + school year -->
+    <div class="auth-single-footer">
+        <span class="auth-single-motto">"<%= school.motto %>"</span>
+        <span class="badge rounded-pill auth-sy-badge">
+            <i class="bi bi-calendar-event me-1"></i> SY <%= school.year %> &bull; <%= school.term %>
+        </span>
+    </div>
+</div>
+
+<!-- Floating login guide -->
+<button type="button" class="auth-help-fab" id="loginHelpFab" aria-label="How to sign in" aria-expanded="false" aria-controls="loginHelpPanel" onclick="toggleLoginHelp()">
+    <i class="bi bi-question-lg"></i>
+</button>
+<div class="auth-help-panel d-none" id="loginHelpPanel" role="dialog" aria-label="How to sign in">
+    <div class="auth-help-panel-head">
+        <strong>How to sign in</strong>
+        <button type="button" class="btn-close btn-close-sm" aria-label="Close sign-in help" onclick="toggleLoginHelp(false)"></button>
+    </div>
+    <ol class="auth-help-steps">
+        <li><strong>Type school ID or email.</strong> <span class="text-muted">No role picker — the system detects your portal.</span></li>
+        <li><strong>Students:</strong> <span class="text-muted">use the 12-digit LRN.</span></li>
+        <li><strong>Teachers:</strong> <span class="text-muted">use school email or employee ID.</span></li>
+        <li><strong>Admins:</strong> <span class="text-muted">use the admin email.</span></li>
+        <li><strong>Enter password</strong> <span class="text-muted">and press Sign In.</span></li>
+    </ol>
+    <p class="auth-help-note">Locked out? See <button type="button" class="btn btn-link p-0 align-baseline small fw-semibold text-success text-decoration-none" onclick="toggleLoginHelp(false); openTroubleModal()">Trouble signing in?</button></p>
+</div>
+
+<!-- Trouble Signing In Modal -->
+<div class="modal fade modal-glass" id="troubleModal" tabindex="-1" aria-labelledby="troubleModalLabel" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="stat-icon-wrapper stat-icon-amber" style="width: 42px; height: 42px; font-size: 1.2rem;">
+                        <i class="bi bi-shield-lock"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0 text-dark" id="troubleModalLabel">Need Assistance Signing In?</h5>
+                        <small class="text-muted">Zeferino Arroyo High School ICT Support</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" onclick="closeTroubleModal()" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <ul class="auth-help-list">
+                    <li>
+                        <i class="bi bi-person-fill text-success me-1"></i>
+                        <strong>Students:</strong>
+                        <span class="text-muted">forgot password or LRN trouble — approach Class Adviser or Grade Level Coordinator for reset.</span>
+                    </li>
+                    <li>
+                        <i class="bi bi-briefcase-fill text-warning me-1"></i>
+                        <strong>Teachers & Faculty:</strong>
+                        <span class="text-muted">visit ICT Coordination Office, Room 204, or email <code>ict@zahs.edu.ph</code>.</span>
+                    </li>
+                    <li>
+                        <i class="bi bi-building me-1"></i>
+                        <strong>School:</strong>
+                        <span class="text-muted">Zeferino Arroyo High School (Iriga City) · DepEd ID 302015 · MATATAG / K to 12.</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-liquid-primary px-4" onclick="closeTroubleModal()">
+                    Got it, Back to Sign In
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Floating login guide toggle (replaces inline hints)
+function toggleLoginHelp(force) {
+    const panel = document.getElementById('loginHelpPanel');
+    const fab = document.getElementById('loginHelpFab');
+    if (!panel || !fab) return;
+    const show = typeof force === 'boolean' ? force : panel.classList.contains('d-none');
+    panel.classList.toggle('d-none', !show);
+    fab.setAttribute('aria-expanded', show ? 'true' : 'false');
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') toggleLoginHelp(false);
+});
+document.addEventListener('click', (e) => {
+    const panel = document.getElementById('loginHelpPanel');
+    const fab = document.getElementById('loginHelpFab');
+    if (!panel || panel.classList.contains('d-none')) return;
+    if (panel.contains(e.target) || (fab && fab.contains(e.target))) return;
+    toggleLoginHelp(false);
+});
+
+// Input icon follows identifier shape (server decides routing, never this icon)
+function handleCredentialInput(input) {
+    if (!input) return;
+    const v = String(input.value || '').trim().toLowerCase();
+    const icon = document.getElementById('credentialIcon');
+    if (!icon) return;
+    if (v.includes('admin@')) {
+        icon.className = 'bi bi-shield-lock';
+        input.removeAttribute('inputmode');
+    } else if (v.includes('@zahs.edu.ph') || /^emp-[a-z0-9-]+$/.test(v)) {
+        icon.className = 'bi bi-briefcase';
+        input.removeAttribute('inputmode');
+    } else {
+        icon.className = 'bi bi-person';
+        input.setAttribute('inputmode', 'numeric');
+    }
+}
+
+// Caps Lock Detection
+function checkCapsLock(event) {
+    const warning = document.getElementById('capsWarning');
+    if (!warning) return;
+    if (event && event.getModifierState && event.getModifierState('CapsLock')) {
+        warning.classList.add('show');
+    } else {
+        warning.classList.remove('show');
+    }
+}
+
+// Password Peek Toggle
+function togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const icon = btn.querySelector('i') || document.getElementById('passwordPeekIcon');
+    if (input.type === 'password') {
+        input.type = 'text';
+        btn.setAttribute('aria-pressed', 'true');
+        btn.setAttribute('aria-label', 'Hide password');
+        if (icon) icon.className = 'bi bi-eye-slash text-success';
+    } else {
+        input.type = 'password';
+        btn.setAttribute('aria-pressed', 'false');
+        btn.setAttribute('aria-label', 'Show password');
+        if (icon) icon.className = 'bi bi-eye text-muted';
+    }
+    input.focus();
+}
+
+window.openTroubleModal = openTroubleModal;
+window.closeTroubleModal = closeTroubleModal;
+window.togglePasswordVisibility = togglePasswordVisibility;
+
+// Trouble Signing In Modal Handlers (100% Offline-Safe)
+function openTroubleModal() {
+    const modalEl = document.getElementById('troubleModal');
+    if (!modalEl) return;
+
+    if (window.bootstrap && window.bootstrap.Modal) {
+        try {
+            const m = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            m.show();
+            return;
+        } catch {}
+    }
+
+    // Vanilla JS fallback
+    modalEl.classList.add('show');
+    modalEl.style.display = 'block';
+    document.body.classList.add('modal-open');
+    let backdrop = document.getElementById('customModalBackdrop');
+    if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.id = 'customModalBackdrop';
+        backdrop.className = 'modal-backdrop fade show';
+        document.body.appendChild(backdrop);
+        backdrop.onclick = closeTroubleModal;
+    }
+}
+
+function closeTroubleModal() {
+    const modalEl = document.getElementById('troubleModal');
+    if (!modalEl) return;
+
+    if (window.bootstrap && window.bootstrap.Modal) {
+        try {
+            const m = bootstrap.Modal.getInstance(modalEl);
+            if (m) m.hide();
+        } catch {}
+    }
+
+    // Vanilla JS fallback
+    modalEl.classList.remove('show');
+    modalEl.style.display = 'none';
+    document.body.classList.remove('modal-open');
+    const backdrop = document.getElementById('customModalBackdrop');
+    if (backdrop) backdrop.remove();
+}
+
+// Form Submit Handler (Non-blocking, preserves browser submit pipeline)
+function handleFormSubmit(e) {
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const credInput = document.getElementById('credentialInput');
+    const passInput = document.getElementById('passwordInput');
+
+    if (credInput && !credInput.value.trim()) {
+        credInput.focus();
+        return false;
+    }
+    if (passInput && !passInput.value) {
+        passInput.focus();
+        return false;
+    }
+
+    // Never persist identifiers: purge legacy values from older builds.
+    try {
+        localStorage.removeItem('edushare_saved_credential');
+        localStorage.removeItem('edushare_saved_role');
+    } catch {}
+
+    // Provide visual loading state without disabling the button element (which aborts Chromium submits!)
+    if (btnText && btnSpinner) {
+        btnText.classList.add('d-none');
+        btnSpinner.classList.remove('d-none');
+    }
+    if (submitBtn) {
+        submitBtn.style.pointerEvents = 'none';
+        submitBtn.classList.add('opacity-75');
+    }
+
+    // Auto-reset state if user cancels or navigates back
+    setTimeout(() => {
+        if (submitBtn) {
+            submitBtn.style.pointerEvents = 'auto';
+            submitBtn.classList.remove('opacity-75');
+        }
+        if (btnText && btnSpinner) {
+            btnText.classList.remove('d-none');
+            btnSpinner.classList.add('d-none');
+        }
+    }, 4000);
+
+    return true;
+}
+
+// Page Load Setup
+document.addEventListener('DOMContentLoaded', () => {
+    try {
+        // Purge legacy stored identifiers from older builds.
+        localStorage.removeItem('edushare_saved_credential');
+        localStorage.removeItem('edushare_saved_role');
+    } catch {
+        // Storage unavailable: nothing to purge.
+    }
+
+    const credInput = document.getElementById('credentialInput');
+    const passInput = document.getElementById('passwordInput');
+
+    const hasError = <%= typeof loginError !== 'undefined' && loginError ? 'true' : 'false' %>;
+    if (hasError && passInput && credInput && credInput.value) {
+        passInput.focus();
+    }
+
+    window.addEventListener('blur', () => {
+        const warning = document.getElementById('capsWarning');
+        if (warning) warning.classList.remove('show');
+    });
+});
+</script>
