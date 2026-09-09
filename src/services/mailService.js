@@ -35,10 +35,11 @@ function smtpSend({ host, port, user, pass, from, to, data }) {
                 else if (stage === 7 && code === 250) { send(`RCPT TO:<${to}>`); stage = 8; }
                 else if (stage === 8 && code === 250) { send('DATA'); stage = 9; }
                 else if (stage === 9 && code === 354) { (tlsSocket || socket).write(data + '\r\n.\r\n'); stage = 10; }
-                else if (stage === 10 && code === 250) { send('QUIT'); cleanup(); resolve(); }
+                else if (stage === 10 && code === 250) { send('QUIT'); stage = 11; }
+                else if (stage === 11 && code === 221) { cleanup(); resolve(); }
             }
         };
-        const cleanup = () => { try { socket.destroy(); } catch {} };
+        const cleanup = () => { try { tlsSocket.destroy(); } catch {} try { socket.destroy(); } catch {} };
         socket.on('data', onData);
         socket.on('error', (e) => { cleanup(); reject(e); });
         socket.setTimeout(15000, () => { cleanup(); reject(new Error('SMTP timeout')); });
