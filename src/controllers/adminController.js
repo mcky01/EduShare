@@ -38,8 +38,7 @@ async function dashboard(req, res) {
             },
             recentUsers,
             recentLogs,
-            isAiHealthy,
-            editorial: true
+            isAiHealthy
         });
     } catch (err) {
         console.error('Admin dashboard error:', err);
@@ -92,8 +91,7 @@ async function users(req, res) {
             selectedRole,
             selectedStatus,
             searchQuery: req.query.q || '',
-            csrfToken: req.session.csrfToken,
-            editorial: true
+            csrfToken: req.session.csrfToken
         });
     } catch (err) {
         console.error('Admin users error:', err);
@@ -299,8 +297,7 @@ async function settings(req, res) {
 
         res.render('admin/settings', {
             title: 'School Settings | EduShare 2.0',
-            settings: map,
-            editorial: true
+            settings: map
         });
     } catch (err) {
         console.error('Admin settings error:', err);
@@ -354,8 +351,7 @@ async function curriculum(req, res) {
         res.render('admin/curriculum', {
             title: 'Curriculum & Standards | EduShare 2.0',
             documents: docs,
-            competencies: comps,
-            editorial: true
+            competencies: comps
         });
     } catch (err) {
         console.error('Curriculum view error:', err);
@@ -386,8 +382,7 @@ async function logs(req, res) {
         res.render('admin/logs', {
             title: 'System Activity Logs | EduShare 2.0',
             logs: logRows,
-            selectedCategory: category,
-            editorial: true
+            selectedCategory: category
         });
     } catch (err) {
         console.error('Logs view error:', err);
