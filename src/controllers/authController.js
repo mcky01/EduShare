@@ -59,6 +59,7 @@ function renderLoginError(req, res, status, message, cred, returnTo) {
 }
 
 const GENERIC_LOGIN_ERROR = 'Invalid credentials. Check your school ID or email and password, then try again.';
+const PENDING_LOGIN_NOTICE = 'Account pending approval. You will be notified once activated.';
 
 function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -169,6 +170,16 @@ async function login(req, res) {
             await logLoginAttempt(user.id, req, false);
             await delay(400);
             return renderLoginError(req, res, 401, GENERIC_LOGIN_ERROR, rawCred.trim(), safeReturnTo);
+        }
+
+        // Post-password status gate: correct password proven, so naming the
+        // pending state reveals nothing to an attacker (wrong password stays
+        // generic above). Non-active accounts never get a session.
+        if (user.status !== 'active') {
+            await logLoginAttempt(user.id, req, false);
+            await delay(400);
+            const notice = user.status === 'pending' ? PENDING_LOGIN_NOTICE : GENERIC_LOGIN_ERROR;
+            return renderLoginError(req, res, 401, notice, rawCred.trim(), safeReturnTo);
         }
 
         // Update last login

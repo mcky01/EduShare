@@ -37,6 +37,28 @@ const postForm = (path, body, sess) => fetch(`http://localhost:3000${path}`, {
     redirect: 'manual'
 });
 
+// --- Task 7: shared login helper (cookie/CSRF dance for /auth/login) ---
+async function getLoginSession() {
+    const page = await fetch('http://localhost:3000/auth/login', { redirect: 'manual' });
+    const body = await page.text();
+    const setCookie = page.headers.get('set-cookie');
+    const cookie = setCookie ? setCookie.split(';')[0] : '';
+    const m = body.match(/name="_csrf" value="([a-f0-9]+)"/);
+    return { cookie, token: m ? m[1] : null, status: page.status };
+}
+
+async function loginAs(credential, password) {
+    const sess = await getLoginSession();
+    const res = await fetch('http://localhost:3000/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: sess.cookie },
+        body: new URLSearchParams({ _csrf: sess.token || 'x', credential, password }),
+        redirect: 'manual'
+    });
+    const text = await res.text();
+    return { status: res.status, location: res.headers.get('location') || '', text };
+}
+
 // A 429 here means the 15-min IP window is still hot from an earlier run —
 // the dedicated checkRateLimit step proves the limiter, so other steps skip.
 function hotLimiter(res) {
@@ -229,6 +251,35 @@ async function checkRoutes() {
     }
 }
 
+async function checkPendingBlocked() {
+    const email = 'jan.samaniego@student.edushare.local';
+    // Gap probe: is_active=1 but status pending — pre-fix code only checks
+    // is_active, so this account logs in (test FAILS until the gate lands).
+    await query("UPDATE users SET status = 'pending', is_active = 1 WHERE email = ?", [email]);
+    try {
+        const good = await loginAs(email, 'Student123!');
+        const blocked = good.status === 401
+            && !good.location.includes('/student/dashboard')
+            && good.text.includes('Account pending approval. You will be notified once activated.');
+        console.log(blocked
+            ? '  ✅ PASS: pending account blocked with approval notice'
+            : `  ❌ FAIL: pending user logged in (status ${good.status}, location "${good.location}")`);
+        if (!blocked) throw new Error('pending user logged in');
+        // Wrong password on pending account must stay generic (no enumeration).
+        const bad = await loginAs(email, 'WrongPassword123');
+        const generic = bad.status === 401
+            && !bad.text.includes('Account pending approval')
+            && /invalid credentials/i.test(bad.text);
+        console.log(generic
+            ? '  ✅ PASS: pending account wrong-password stays generic'
+            : `  ❌ FAIL: pending wrong-password leaked status (status ${bad.status})`);
+        if (!generic) throw new Error('pending wrong-password leaked status');
+    } finally {
+        await query("UPDATE users SET status = 'active', is_active = 1 WHERE email = ?", [email]);
+        console.log('  ✅ PASS: pending account blocked, restored after');
+    }
+}
+
 async function checkOtp() {
     process.env.OTP_DEV_LOG = 'true';
     const email = 'otp-test@example.com';
@@ -245,4 +296,4 @@ async function checkOtp() {
     await query("DELETE FROM otp_verifications WHERE email = ?", [email]);
 }
 
-checkSchema().then(() => checkMail()).then(() => checkOtp()).then(() => checkRegisterPage()).then(() => checkRegisterDesign()).then(() => checkTeacherRequest()).then(() => checkWrongCodeVerify()).then(() => checkDuplicateGuard()).then(() => checkCsrfReject()).then(() => checkRateLimit()).then(() => checkRoutes()).then(() => process.exit(0)).catch((e) => { console.error('  ❌ FAIL:', e.message); process.exit(1); });
+checkSchema().then(() => checkMail()).then(() => checkOtp()).then(() => checkPendingBlocked()).then(() => checkRegisterPage()).then(() => checkRegisterDesign()).then(() => checkTeacherRequest()).then(() => checkWrongCodeVerify()).then(() => checkDuplicateGuard()).then(() => checkCsrfReject()).then(() => checkRateLimit()).then(() => checkRoutes()).then(() => process.exit(0)).catch((e) => { console.error('  ❌ FAIL:', e.message); process.exit(1); });
