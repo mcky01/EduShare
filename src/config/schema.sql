@@ -385,3 +385,18 @@ CREATE TABLE IF NOT EXISTS `competencies` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY `unique_comp_code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Self-registration: account lifecycle status (existing rows stay active)
+ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `status` ENUM('pending','active','rejected') NOT NULL DEFAULT 'active' AFTER `is_active`;
+
+CREATE TABLE IF NOT EXISTS `otp_verifications` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `email` VARCHAR(150) NOT NULL,
+  `code_hash` VARCHAR(255) NOT NULL,
+  `purpose` ENUM('teacher_register','student_register') NOT NULL,
+  `attempts` TINYINT NOT NULL DEFAULT 0,
+  `expires_at` DATETIME NOT NULL,
+  `consumed_at` DATETIME DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_otp_email_purpose` (`email`, `purpose`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
