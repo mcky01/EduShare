@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const teacherController = require('../controllers/teacherController');
 const { isAuthenticated, requireRole } = require('../middleware/auth');
+const { validateCsrf } = require('../middleware/csrf');
 const { uploadMaterial } = require('../middleware/upload');
 
 router.use(isAuthenticated);
@@ -25,7 +26,7 @@ router.get('/gradebook', teacherController.gradebook);
 router.get('/gradebook/:classId/export', teacherController.exportGradebook);
 
 router.get('/advisory', teacherController.advisory);
-router.post('/advisory/approve/:id', teacherController.approveStudent);
+router.post('/advisory/approve/:id', validateCsrf, teacherController.approveStudent);
 router.get('/lesson-generator', teacherController.lessonGenerator);
 router.get('/quiz-maker', teacherController.quizMaker);
 

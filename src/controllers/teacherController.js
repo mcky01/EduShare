@@ -601,11 +601,15 @@ async function advisory(req, res) {
         const maleCount = students.filter(s => s.gender === 'Male').length;
         const femaleCount = students.filter(s => s.gender === 'Female').length;
 
+        const { ensureToken } = require('../middleware/csrf');
+        ensureToken(req);
+
         res.render('teacher/advisory', {
             title: `Advisory Section: ${teacher.advisory_grade} - ${teacher.advisory_section} | EduShare 2.0`,
             teacher,
             students,
             pendingStudents,
+            csrfToken: req.session.csrfToken,
             stats: {
                 total: students.length,
                 male: maleCount,

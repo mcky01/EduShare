@@ -82,12 +82,16 @@ async function users(req, res) {
 
         const userList = await query(sql, params);
 
+        const { ensureToken } = require('../middleware/csrf');
+        ensureToken(req);
+
         res.render('admin/users', {
             title: 'User Management | EduShare 2.0',
             users: userList,
             selectedRole,
             selectedStatus,
-            searchQuery: req.query.q || ''
+            searchQuery: req.query.q || '',
+            csrfToken: req.session.csrfToken
         });
     } catch (err) {
         console.error('Admin users error:', err);

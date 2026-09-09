@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 const { isAuthenticated, requireRole } = require('../middleware/auth');
+const { validateCsrf } = require('../middleware/csrf');
 const { uploadLogo } = require('../middleware/upload');
 
 router.use(isAuthenticated);
@@ -11,8 +12,8 @@ router.get('/dashboard', adminController.dashboard);
 router.get('/users', adminController.users);
 router.post('/users', adminController.createUser);
 router.post('/users/:id/toggle-status', adminController.toggleUserStatus);
-router.post('/users/:id/approve', adminController.approveUser);
-router.post('/users/:id/reject', adminController.rejectUser);
+router.post('/users/:id/approve', validateCsrf, adminController.approveUser);
+router.post('/users/:id/reject', validateCsrf, adminController.rejectUser);
 router.post('/users/:id/reset-password', adminController.resetPassword);
 
 router.get('/settings', adminController.settings);

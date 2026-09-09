@@ -74,6 +74,7 @@
                             <td class="small text-muted font-monospace"><%= s.created_at ? new Date(s.created_at).toLocaleString() : 'N/A' %></td>
                             <td>
                                 <form action="/teacher/advisory/approve/<%= s.user_id %>" method="POST">
+                                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                                     <button type="submit" class="btn btn-sm btn-success">Approve</button>
                                 </form>
                             </td>

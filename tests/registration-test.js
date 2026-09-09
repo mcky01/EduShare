@@ -322,7 +322,7 @@ async function checkApproval() {
         }
         console.log('  ✅ PASS: pending teacher blocked before approval');
 
-        // Admin approves via HTTP session (admin routes use session auth, no CSRF token).
+        // Admin approves via HTTP session (CSRF token scraped from users page).
         const sess = await getLoginSession();
         const res = await fetch('http://localhost:3000/auth/login', {
             method: 'POST',
@@ -343,14 +343,31 @@ async function checkApproval() {
             headers: { Cookie: adminCookie }, redirect: 'manual'
         });
         const usersBody = await usersPage.text();
+        const adminCsrf = (usersBody.match(/name="_csrf" value="([a-f0-9]+)"/) || [])[1];
         if (usersPage.status !== 200 || !usersBody.includes(email)) {
             throw new Error(`pending user missing from admin list (status ${usersPage.status})`);
         }
+        if (!adminCsrf) {
+            throw new Error('admin users page carries no CSRF token for approval forms');
+        }
         console.log('  ✅ PASS: pending teacher visible in admin pending list');
+        // CSRF-negative: wrong token must 403 and leave the user pending.
+        const badApprove = await fetch(`http://localhost:3000/admin/users/${pendingId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: adminCookie },
+            body: new URLSearchParams({ _csrf: 'wrong-token' }),
+            redirect: 'manual'
+        });
+        await badApprove.text();
+        const stillPending = await query('SELECT status FROM users WHERE id = ?', [pendingId]);
+        if (badApprove.status !== 403 || stillPending[0].status !== 'pending') {
+            throw new Error(`bad CSRF on approve not rejected (status ${badApprove.status}, db ${stillPending[0].status})`);
+        }
+        console.log('  ✅ PASS: approve with bad CSRF rejected (403), user stays pending');
         const approve = await fetch(`http://localhost:3000/admin/users/${pendingId}/approve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: adminCookie },
-            body: new URLSearchParams({}),
+            body: new URLSearchParams({ _csrf: adminCsrf }),
             redirect: 'manual'
         });
         await approve.text();
@@ -378,7 +395,7 @@ async function checkApproval() {
         const reject = await fetch(`http://localhost:3000/admin/users/${rejRes.insertId}/reject`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: adminCookie },
-            body: new URLSearchParams({}),
+            body: new URLSearchParams({ _csrf: adminCsrf }),
             redirect: 'manual'
         });
         await reject.text();
