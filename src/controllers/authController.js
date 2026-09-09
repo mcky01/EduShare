@@ -159,7 +159,11 @@ async function login(req, res) {
             }
         }
 
-        if (!user || !user.is_active) {
+        // Pre-password generic gate: missing accounts and deactivated
+        // (non-pending) accounts stop here with no enumeration. Pending
+        // accounts pass through to bcrypt + the post-password status gate
+        // below, where a correct password yields the approval notice.
+        if (!user || (!user.is_active && user.status !== 'pending')) {
             if (user && user.id) await logLoginAttempt(user.id, req, false);
             await delay(400);
             return renderLoginError(req, res, 401, GENERIC_LOGIN_ERROR, rawCred.trim(), safeReturnTo);

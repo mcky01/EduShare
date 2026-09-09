@@ -253,9 +253,10 @@ async function checkRoutes() {
 
 async function checkPendingBlocked() {
     const email = 'jan.samaniego@student.edushare.local';
-    // Gap probe: is_active=1 but status pending — pre-fix code only checks
-    // is_active, so this account logs in (test FAILS until the gate lands).
-    await query("UPDATE users SET status = 'pending', is_active = 1 WHERE email = ?", [email]);
+    // Real pending shape: status pending with is_active=0 (as registration
+    // creates them). Must reach bcrypt + status gate: correct password shows
+    // the approval notice, wrong password stays generic.
+    await query("UPDATE users SET status = 'pending', is_active = 0 WHERE email = ?", [email]);
     try {
         const good = await loginAs(email, 'Student123!');
         const blocked = good.status === 401
