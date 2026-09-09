@@ -44,6 +44,9 @@ async function runSmokeTests() {
         const loginPage = await fetchRoute('/auth/login');
         assert(loginPage.status === 200 && loginPage.text.includes('EduShare'), 'GET /auth/login renders liquid glass login card');
 
+        const regPage = await fetchRoute('/auth/register');
+        assert(regPage.status === 200 && regPage.text.includes('Create Account'), 'GET /auth/register renders registration forms');
+
         // 4. Test Student Login via POST
         const studentLoginRes = await fetch(`${BASE_URL}/auth/login`, {
             method: 'POST',
