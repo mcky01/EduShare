@@ -28,21 +28,22 @@
                 <% if (logs.length === 0) { %>
                     <tr>
                         <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="bi bi-journal-text fs-2 d-block mb-2"></i>
                             No logs found for this filter.
                         </td>
                     </tr>
                 <% } %>
                 <% logs.forEach(log => { %>
                     <tr>
-                        <td class="small text-muted font-monospace"><%= new Date(log.created_at).toLocaleString() %></td>
+                        <td class="small text-muted font-monospace text-nowrap"><%= new Date(log.created_at).toLocaleString() %></td>
                         <td>
                             <span class="fw-bold text-dark"><%= log.first_name %> <%= log.last_name %></span>
                             <div class="small text-muted"><%= log.email %> (<%= log.role %>)</div>
                         </td>
-                        <td class="fw-bold text-success"><%= log.action %></td>
-                        <td class="small" style="max-width: 320px;"><%= log.description %></td>
+                        <td class="fw-bold <%= log.category === 'security' ? 'text-danger' : 'text-success' %>"><%= log.action %></td>
+                        <td class="small log-details-cell" title="<%= log.description %>"><%= log.description %></td>
                         <td>
-                            <span class="badge <%= log.category === 'security' ? 'bg-danger text-white' : 'badge-emerald' %>">
+                            <span class="<%= log.category === 'security' ? 'badge-red' : (log.category === 'admin' ? 'badge-amber' : 'badge-emerald') %>">
                                 <%= log.category %>
                             </span>
                         </td>

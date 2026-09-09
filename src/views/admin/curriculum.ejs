@@ -7,9 +7,25 @@
     <!-- Seeded Competencies -->
     <div class="col-12">
         <div class="glass-card p-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h5 class="fw-bold mb-0"><i class="bi bi-book text-success me-2"></i>DepEd Learning Competencies</h5>
-                <span class="badge-emerald"><%= competencies.length %> Standards Active</span>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="badge-emerald"><%= competencies.length %> Standards Active</span>
+                    <label class="small fw-bold text-muted mb-0" for="compSubject">Subject</label>
+                    <select id="compSubject" class="glass-input py-1 px-3" style="width: auto;" onchange="filterCompetencies()">
+                        <option value="">All subjects</option>
+                        <% [...new Set(competencies.map(c => c.subject))].forEach(s => { %>
+                            <option value="<%= s %>"><%= s %></option>
+                        <% }) %>
+                    </select>
+                    <label class="small fw-bold text-muted mb-0" for="compGrade">Grade</label>
+                    <select id="compGrade" class="glass-input py-1 px-3" style="width: auto;" onchange="filterCompetencies()">
+                        <option value="">All grades</option>
+                        <% [...new Set(competencies.map(c => c.grade_level))].forEach(g => { %>
+                            <option value="<%= g %>"><%= g %></option>
+                        <% }) %>
+                    </select>
+                </div>
             </div>
             <div class="table-responsive">
                 <table class="glass-table">
@@ -25,12 +41,12 @@
                     </thead>
                     <tbody>
                         <% competencies.forEach(comp => { %>
-                            <tr>
+                            <tr data-subject="<%= comp.subject %>" data-grade="<%= comp.grade_level %>">
                                 <td class="font-monospace fw-bold text-success"><%= comp.code %></td>
                                 <td class="small" style="max-width: 400px;"><%= comp.description %></td>
                                 <td><%= comp.subject %></td>
                                 <td><%= comp.grade_level %></td>
-                                <td><span class="badge-amber"><%= comp.quarter %></span></td>
+                                <td><span class="badge <%= comp.quarter === 'Q1' ? 'badge-emerald' : (comp.quarter === 'Q2' ? 'badge-jade' : (comp.quarter === 'Q3' ? 'badge-amber' : 'badge-gray')) %>"><%= comp.quarter %></span></td>
                                 <td class="small text-muted"><%= comp.source_version %></td>
                             </tr>
                         <% }) %>
@@ -40,3 +56,16 @@
         </div>
     </div>
 </div>
+
+<script>
+// Client-side competency filter (no reload; server data already rendered)
+function filterCompetencies() {
+    const subject = document.getElementById('compSubject')?.value || '';
+    const grade = document.getElementById('compGrade')?.value || '';
+    document.querySelectorAll('.glass-table tbody tr[data-subject]').forEach(row => {
+        const matchSubject = !subject || row.dataset.subject === subject;
+        const matchGrade = !grade || row.dataset.grade === grade;
+        row.style.display = (matchSubject && matchGrade) ? '' : 'none';
+    });
+}
+</script>

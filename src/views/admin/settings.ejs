@@ -40,12 +40,13 @@
                     </div>
                     <div class="col-12">
                         <label class="form-label small fw-bold">Replace Official School Logo Crest</label>
-                        <input type="file" name="school_logo" class="glass-input" accept="image/*">
+                        <input type="file" name="school_logo" id="logoUpload" class="glass-input" accept="image/*" onchange="previewLogo(this)">
                         <div class="form-text small">Recommended: Transparent PNG (min 200x200).</div>
                     </div>
                 </div>
 
-                <div class="mt-4 pt-3 border-top d-flex justify-content-end gap-2" style="border-color: rgba(16,185,129,0.15) !important;">
+                <div class="mt-4 pt-3 border-top d-flex justify-content-end align-items-center gap-2" style="border-color: rgba(16,185,129,0.15) !important;">
+                    <span id="dirtyBadge" class="badge-amber d-none">Unsaved changes</span>
                     <button type="submit" class="btn btn-liquid-primary">
                         <i class="bi bi-check2-circle me-1"></i> Save Configuration
                     </button>
@@ -67,3 +68,20 @@
         </div>
     </div>
 </div>
+
+<script>
+// Instant logo preview + dirty-state badge (client-side only, no upload until Save)
+function previewLogo(input) {
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const preview = document.querySelector('.glass-card img[alt="School Crest"]');
+    if (preview) preview.src = url;
+    markSettingsDirty();
+}
+function markSettingsDirty() {
+    const badge = document.getElementById('dirtyBadge');
+    if (badge) badge.classList.remove('d-none');
+}
+document.querySelector('form[action="/admin/settings"]')?.addEventListener('input', markSettingsDirty);
+</script>

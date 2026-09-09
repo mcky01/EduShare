@@ -29,7 +29,7 @@
 
     <div class="col-sm-6 col-xl-3">
         <div class="glass-card stat-card-glass">
-            <div class="stat-icon-wrapper stat-icon-emerald">
+            <div class="stat-icon-wrapper stat-icon-jade">
                 <i class="bi bi-backpack4"></i>
             </div>
             <div>
@@ -53,7 +53,7 @@
 
     <div class="col-sm-6 col-xl-3">
         <div class="glass-card stat-card-glass">
-            <div class="stat-icon-wrapper stat-icon-amber">
+            <div class="stat-icon-wrapper stat-icon-gray">
                 <i class="bi bi-shield-check"></i>
             </div>
             <div>
@@ -64,34 +64,23 @@
     </div>
 </div>
 
-<!-- System AI Status Banner -->
-<div class="glass-card p-3 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3" style="background: rgba(255,255,255,0.85); border-left: 5px solid <%= isAiHealthy ? 'var(--zahs-jade)' : 'var(--zahs-amber)' %>;">
-    <div class="d-flex align-items-center gap-3">
-        <div class="user-avatar-initials" style="background: <%= isAiHealthy ? 'var(--zahs-emerald-primary)' : 'var(--zahs-amber-gold)' %>;">
-            <i class="bi bi-cpu"></i>
-        </div>
-        <div>
-            <div class="fw-bold text-dark">Local AI Model Status (Ollama &bull; Qwen 2.5 7B)</div>
-            <div class="small text-muted">
-                <%= isAiHealthy ? 'Ollama server online and model ready for real-time streaming and quiz generation.' : 'Ollama is offline or warming up. The built-in smart educational fallback engine is actively ensuring 100% uptime.' %>
-            </div>
-        </div>
-    </div>
-    <span class="<%= isAiHealthy ? 'badge-emerald' : 'badge-amber' %>">
-        <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> <%= isAiHealthy ? 'AI ONLINE' : 'SMART FALLBACK READY' %>
+<!-- System AI Status (slim pill, below the data) -->
+<div class="d-flex justify-content-end mb-4">
+    <span class="<%= isAiHealthy ? 'badge-emerald' : 'badge-amber' %>" title="<%= isAiHealthy ? 'Ollama server online and model ready for real-time streaming and quiz generation.' : 'Ollama is offline or warming up. The built-in smart educational fallback engine is actively ensuring 100% uptime.' %>">
+        <i class="bi bi-cpu me-1"></i> <%= isAiHealthy ? 'AI ONLINE · Qwen 2.5 7B' : 'SMART FALLBACK READY' %>
     </span>
 </div>
 
-<!-- Tables Row -->
-<div class="row g-4">
+<!-- Tables Row (equal heights keep the row aligned) -->
+<div class="row g-4 align-items-stretch">
     <!-- Recent Users -->
-    <div class="col-lg-7">
-        <div class="glass-card h-100 p-4">
+    <div class="col-lg-7 d-flex">
+        <div class="glass-card h-100 w-100 p-4 d-flex flex-column">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold mb-0">Recent User Registrations</h5>
                 <a href="/admin/users" class="small text-success fw-bold text-decoration-none">View All &rarr;</a>
             </div>
-            <div class="table-responsive">
+            <div class="table-responsive flex-grow-1">
                 <table class="glass-table">
                     <thead>
                         <tr>
@@ -109,7 +98,7 @@
                                     <div class="text-muted small"><%= u.email %></div>
                                 </td>
                                 <td>
-                                    <span class="badge <%= u.role === 'admin' ? 'bg-warning text-dark' : (u.role === 'teacher' ? 'badge-emerald' : 'badge-gray') %>">
+                                    <span class="<%= u.role === 'admin' ? 'badge-amber' : (u.role === 'teacher' ? 'badge-emerald' : 'badge-jade') %>">
                                         <%= u.role.toUpperCase() %>
                                     </span>
                                 </td>
@@ -130,8 +119,8 @@
     </div>
 
     <!-- Audit Logs -->
-    <div class="col-lg-5">
-        <div class="glass-card h-100 p-4">
+    <div class="col-lg-5 d-flex">
+        <div class="glass-card h-100 w-100 p-4 d-flex flex-column">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold mb-0">Recent Activity Logs</h5>
                 <a href="/admin/logs" class="small text-success fw-bold text-decoration-none">View Full Audit &rarr;</a>

@@ -13,34 +13,37 @@
     </div>
 </div>
 
-<!-- Filter Bar -->
+<!-- Unified Filter Bar: role pills + status select + search -->
 <div class="glass-card p-3 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
     <!-- Role Tabs -->
-    <div class="nav nav-pills gap-1">
-        <a href="/admin/users?role=all&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'all' ? 'active bg-success' : 'text-dark' %>">All</a>
-        <a href="/admin/users?role=teacher&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'teacher' ? 'active bg-success' : 'text-dark' %>">Teachers</a>
-        <a href="/admin/users?role=student&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'student' ? 'active bg-success' : 'text-dark' %>">Students</a>
-        <a href="/admin/users?role=admin&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="nav-link rounded-pill px-3 py-1 fw-bold <%= selectedRole === 'admin' ? 'active bg-success' : 'text-dark' %>">Admins</a>
+    <div class="nav gap-1" aria-label="Filter by role">
+        <a href="/admin/users?role=all&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="filter-pill <%= selectedRole === 'all' ? 'active' : '' %>">All</a>
+        <a href="/admin/users?role=teacher&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="filter-pill <%= selectedRole === 'teacher' ? 'active' : '' %>">Teachers</a>
+        <a href="/admin/users?role=student&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="filter-pill <%= selectedRole === 'student' ? 'active' : '' %>">Students</a>
+        <a href="/admin/users?role=admin&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="filter-pill <%= selectedRole === 'admin' ? 'active' : '' %>">Admins</a>
     </div>
 
-    <!-- Search Form -->
-    <form action="/admin/users" method="GET" class="d-flex gap-2" style="max-width: 320px; width: 100%;">
-        <input type="hidden" name="role" value="<%= selectedRole %>">
-        <input type="hidden" name="status" value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>">
-        <input type="text" name="q" class="glass-input py-1 px-3" placeholder="Search name, email, LRN..." value="<%= searchQuery %>">
-        <button type="submit" class="btn btn-glass py-1 px-3">
-            <i class="bi bi-search"></i>
-        </button>
-    </form>
-</div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <!-- Status Select -->
+        <label class="small fw-bold text-muted mb-0" for="statusFilter">Status</label>
+        <select id="statusFilter" class="glass-input py-1 px-3" style="width: auto;" onchange="location.href='/admin/users?role=<%= selectedRole %>&status=' + this.value">
+            <% const st = typeof selectedStatus !== 'undefined' ? selectedStatus : 'all'; %>
+            <option value="all" <%= st === 'all' ? 'selected' : '' %>>All</option>
+            <option value="pending" <%= st === 'pending' ? 'selected' : '' %>>Pending</option>
+            <option value="active" <%= st === 'active' ? 'selected' : '' %>>Active</option>
+            <option value="rejected" <%= st === 'rejected' ? 'selected' : '' %>>Rejected</option>
+        </select>
 
-<!-- Status Filter -->
-<div class="glass-card p-3 mb-4 d-flex gap-2 flex-wrap align-items-center">
-    <span class="small fw-bold text-muted">Status:</span>
-    <a href="/admin/users?role=<%= selectedRole %>&status=all" class="nav-link rounded-pill px-3 py-1 fw-bold <%= (typeof selectedStatus === 'undefined' || selectedStatus === 'all') ? 'active bg-success' : 'text-dark' %>">All</a>
-    <a href="/admin/users?role=<%= selectedRole %>&status=pending" class="nav-link rounded-pill px-3 py-1 fw-bold <%= (typeof selectedStatus !== 'undefined' && selectedStatus === 'pending') ? 'active bg-success' : 'text-dark' %>">Pending</a>
-    <a href="/admin/users?role=<%= selectedRole %>&status=active" class="nav-link rounded-pill px-3 py-1 fw-bold <%= (typeof selectedStatus !== 'undefined' && selectedStatus === 'active') ? 'active bg-success' : 'text-dark' %>">Active</a>
-    <a href="/admin/users?role=<%= selectedRole %>&status=rejected" class="nav-link rounded-pill px-3 py-1 fw-bold <%= (typeof selectedStatus !== 'undefined' && selectedStatus === 'rejected') ? 'active bg-success' : 'text-dark' %>">Rejected</a>
+        <!-- Search Form -->
+        <form action="/admin/users" method="GET" class="d-flex gap-2" style="max-width: 280px; width: 100%;">
+            <input type="hidden" name="role" value="<%= selectedRole %>">
+            <input type="hidden" name="status" value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>">
+            <input type="text" name="q" class="glass-input py-1 px-3" placeholder="Search name, email, LRN..." value="<%= searchQuery %>" aria-label="Search users">
+            <button type="submit" class="btn btn-glass py-1 px-3" aria-label="Search">
+                <i class="bi bi-search"></i>
+            </button>
+        </form>
+    </div>
 </div>
 
 <!-- Pending Approvals -->
@@ -125,7 +128,7 @@
                             </div>
                         </td>
                         <td>
-                            <span class="badge <%= u.role === 'admin' ? 'bg-warning text-dark' : (u.role === 'teacher' ? 'badge-emerald' : 'badge-gray') %>">
+                            <span class="<%= u.role === 'admin' ? 'badge-amber' : (u.role === 'teacher' ? 'badge-emerald' : 'badge-jade') %>">
                                 <%= u.role.toUpperCase() %>
                             </span>
                         </td>
@@ -154,33 +157,23 @@
                                 <%= u.is_active ? 'Active' : 'Inactive' %>
                             </span>
                             <% if (u.status === 'pending') { %>
-                                <span class="badge bg-warning text-dark ms-1">Pending</span>
+                                <span class="badge-amber ms-1">Pending</span>
                             <% } else if (u.status === 'rejected') { %>
-                                <span class="badge bg-danger ms-1">Rejected</span>
+                                <span class="badge-red ms-1">Rejected</span>
                             <% } %>
                         </td>
                         <td>
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-glass dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                    Manage
-                                </button>
-                                <ul class="dropdown-menu shadow border-0 rounded-3 p-1">
-                                    <li>
-                                        <form action="/admin/users/<%= u.id %>/toggle-status" method="POST">
-                                            <button type="submit" class="dropdown-item small py-2">
-                                                <i class="bi <%= u.is_active ? 'bi-slash-circle text-danger' : 'bi-check-circle text-success' %> me-2"></i>
-                                                <%= u.is_active ? 'Deactivate Account' : 'Activate Account' %>
-                                            </button>
-                                        </form>
-                                    </li>
-                                    <li>
-                                        <form action="/admin/users/<%= u.id %>/reset-password" method="POST" onsubmit="return confirm('Reset this user password to default (ChangeMe123!)?')">
-                                            <button type="submit" class="dropdown-item small py-2 text-warning">
-                                                <i class="bi bi-key me-2"></i> Reset Password
-                                            </button>
-                                        </form>
-                                    </li>
-                                </ul>
+                            <div class="d-flex gap-1">
+                                <form action="/admin/users/<%= u.id %>/toggle-status" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-sm <%= u.is_active ? 'btn-glass' : 'btn-liquid-primary' %>" title="<%= u.is_active ? 'Deactivate Account' : 'Activate Account' %>" aria-label="<%= u.is_active ? 'Deactivate' : 'Activate' %> <%= u.first_name %> <%= u.last_name %>">
+                                        <i class="bi <%= u.is_active ? 'bi-slash-circle' : 'bi-check-circle' %>"></i>
+                                    </button>
+                                </form>
+                                <form action="/admin/users/<%= u.id %>/reset-password" method="POST" class="d-inline" onsubmit="return confirm('Reset this user password to default (ChangeMe123!)?')">
+                                    <button type="submit" class="btn btn-sm btn-glass" title="Reset Password" aria-label="Reset password for <%= u.first_name %> <%= u.last_name %>">
+                                        <i class="bi bi-key"></i>
+                                    </button>
+                                </form>
                             </div>
                         </td>
                     </tr>
