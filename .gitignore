@@ -14,3 +14,16 @@ login-debug*.html
 inline*.js
 live-*.html
 live-*.js
+
+# Agent tooling
+.opencode/
+.zcode/
+.superpowers/
+.superpowers
+
+# Local backups (curriculum-only, partial)
+backup_curriculum_*.sql
+
+# Runtime storage
+storage/
+public/uploads/
