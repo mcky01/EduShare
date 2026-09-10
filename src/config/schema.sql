@@ -412,6 +412,15 @@ CREATE TABLE IF NOT EXISTS `competencies` (
   INDEX `idx_competencies_term` (`term`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Phase 7: MySQL session store (mirrors src/config/sessionStore.js CREATE_TABLE_SQL).
+-- Runtime self-creates this via ensureTable(); kept here so schema-only restores stay complete.
+CREATE TABLE IF NOT EXISTS `sessions` (
+  `session_id` VARCHAR(128) NOT NULL PRIMARY KEY,
+  `expires` BIGINT NOT NULL,
+  `data` MEDIUMTEXT,
+  INDEX `idx_sessions_expires` (`expires`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Self-registration: account lifecycle status (existing rows stay active)
 -- MySQL-safe idempotent guard (information_schema check; ALTER ... IF NOT EXISTS is MariaDB-only)
 
