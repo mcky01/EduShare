@@ -14,9 +14,12 @@
 </div>
 
 <!-- Stat Cards -->
+<% const _hasSubs = (typeof recentSubmissions !== 'undefined' && recentSubmissions && recentSubmissions.length > 0); %>
+<% const _gradeHref = _hasSubs ? ('/teacher/activities/' + recentSubmissions[0].activity_id + '/classes/' + recentSubmissions[0].class_id + '/grading') : '/teacher/classes'; %>
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3">
-        <div class="glass-card stat-card-glass">
+        <a href="/teacher/classes" class="text-decoration-none text-reset d-block">
+        <div class="glass-card stat-card-glass glass-card-hover">
             <div class="stat-icon-wrapper stat-icon-emerald">
                 <i class="bi bi-mortarboard"></i>
             </div>
@@ -25,10 +28,12 @@
                 <div class="stat-label">Assigned Classes</div>
             </div>
         </div>
+        </a>
     </div>
 
     <div class="col-sm-6 col-xl-3">
-        <div class="glass-card stat-card-glass">
+        <a href="/teacher/classes?tab=activities" class="text-decoration-none text-reset d-block">
+        <div class="glass-card stat-card-glass glass-card-hover">
             <div class="stat-icon-wrapper stat-icon-emerald">
                 <i class="bi bi-people"></i>
             </div>
@@ -37,10 +42,12 @@
                 <div class="stat-label">Total Students</div>
             </div>
         </div>
+        </a>
     </div>
 
     <div class="col-sm-6 col-xl-3">
-        <div class="glass-card stat-card-glass">
+        <a href="<%= _gradeHref %>" class="text-decoration-none text-reset d-block">
+        <div class="glass-card stat-card-glass glass-card-hover">
             <div class="stat-icon-wrapper stat-icon-amber">
                 <i class="bi bi-pencil-square"></i>
             </div>
@@ -49,10 +56,12 @@
                 <div class="stat-label">Submissions To Grade</div>
             </div>
         </div>
+        </a>
     </div>
 
     <div class="col-sm-6 col-xl-3">
-        <div class="glass-card stat-card-glass">
+        <a href="/teacher/quiz-maker" class="text-decoration-none text-reset d-block">
+        <div class="glass-card stat-card-glass glass-card-hover">
             <div class="stat-icon-wrapper stat-icon-amber">
                 <i class="bi bi-question-diamond"></i>
             </div>
@@ -61,6 +70,7 @@
                 <div class="stat-label">Created Quizzes</div>
             </div>
         </div>
+        </a>
     </div>
 </div>
 
@@ -88,7 +98,9 @@
                 <div>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="badge-emerald"><%= c.subject %></span>
-                        <span class="badge-amber font-monospace">Code: <%= c.class_code %></span>
+                        <span class="badge-amber font-monospace d-inline-flex align-items-center gap-1">Code: <%= c.class_code %>
+                            <button type="button" class="btn btn-sm btn-glass py-0 px-1 copy-code-btn" data-code="<%= c.class_code %>" title="Copy class code" aria-label="Copy class code <%= c.class_code %>"><i class="bi bi-clipboard"></i></button>
+                        </span>
                     </div>
                     <h5 class="fw-bold text-dark mb-1"><%= c.class_name %></h5>
                     <p class="small text-muted mb-3"><%= c.grade_level %> &bull; Section <%= c.section %></p>
@@ -108,8 +120,8 @@
 </div>
 
 <!-- Pending Submissions Queue -->
-<% if (recentSubmissions && recentSubmissions.length > 0) { %>
-    <div class="glass-card p-4">
+<div class="glass-card p-4">
+    <% if (recentSubmissions && recentSubmissions.length > 0) { %>
         <h5 class="fw-bold mb-3"><i class="bi bi-inbox text-warning me-2"></i>Submissions Awaiting Grading</h5>
         <div class="table-responsive">
             <table class="glass-table">
@@ -141,5 +153,47 @@
                 </tbody>
             </table>
         </div>
-    </div>
-<% } %>
+    <% } else { %>
+        <div class="text-center text-muted py-3">
+            <i class="bi bi-inbox fs-2 d-block mb-2 text-success"></i>
+            <h6 class="fw-bold text-dark">All caught up</h6>
+            <p class="small mb-3">No submissions awaiting grading right now.</p>
+            <a href="/teacher/classes?tab=activities" class="btn btn-sm btn-liquid-primary">View Activities</a>
+        </div>
+    <% } %>
+</div>
+<span class="small text-muted copy-feedback" id="copyFeedback" role="status" aria-live="polite"></span>
+<script>
+(function () {
+    function copyFallback(text, done) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        done(ok);
+    }
+    function flash(msg) {
+        var el = document.getElementById('copyFeedback');
+        if (!el) return;
+        el.textContent = msg;
+        setTimeout(function () { if (el.textContent === msg) el.textContent = ''; }, 2000);
+    }
+    document.querySelectorAll('.copy-code-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var code = btn.getAttribute('data-code') || '';
+            var done = function (ok) { flash(ok ? 'Code ' + code + ' copied' : 'Copy failed'); };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(code).then(function () { done(true); }, function () { copyFallback(code, done); });
+            } else { copyFallback(code, done); }
+        });
+    });
+})();
+</script>

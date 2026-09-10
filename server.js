@@ -30,11 +30,7 @@ async function startServer() {
             console.log(`🗄️  Database: MySQL (${env.DB_NAME}) at ${env.DB_HOST}:${env.DB_PORT}`);
             console.log(`🤖 AI Provider: Local Ollama (${env.OLLAMA_MODEL}) at ${env.OLLAMA_BASE_URL}`);
             console.log('');
-            console.log('─────────────────── QUICK DEMO ACCOUNTS ───────────────────');
-            console.log('👑 Admin:   admin@edushare.com / Admin123!');
-            console.log('👩‍🏫 Teacher: maria.reyes@zahs.edu.ph / Teacher123!');
-            console.log('🎒 Student: 109876543210 (or jan.samaniego@student.edushare.local) / Student123!');
-            console.log('───────────────────────────────────────────────────────────');
+            console.log('Demo accounts seeded via initDatabase (see README setup).');
             console.log('');
         });
 

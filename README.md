@@ -94,12 +94,7 @@ Open your browser to: **`http://localhost:3000`**
 
 ## 🔑 Demo Login Accounts
 
-| Role | Identifier / Email | Password |
-|---|---|---|
-| **School Administrator** | `admin@edushare.com` | `Admin123!` |
-| **Teacher** | `maria.reyes@zahs.edu.ph` | `Teacher123!` |
-| **Student** | `109876543210` (or `jan.samaniego@student.edushare.local`) | `Student123!` |
-| **Student (Female)** | `109876543211` (or `alexis.aquilino@student.edushare.local`) | `Student123!` |
+Seeded via initDatabase; change defaults immediately; set SESSION_SECRET.
 
 ---
 

@@ -286,7 +286,20 @@ async function changePassword(req, res) {
             [newHash, userId]
         );
 
-        req.session.user.force_password_change = false;
+        // Phase 7: rotate session ID after password change (fixation defense) and
+        // rotate CSRF token — delete so ensureToken() issues a fresh one next request.
+        const keptUser = { ...req.session.user, force_password_change: false };
+        try {
+            await new Promise((resolve, reject) => {
+                req.session.regenerate((err) => (err ? reject(err) : resolve()));
+            });
+            req.session.user = keptUser;
+        } catch {
+            // Regenerate failed — fall back to in-place session + explicit save.
+            req.session.user = keptUser;
+            await new Promise((resolve) => req.session.save(() => resolve()));
+        }
+        delete req.session.csrfToken;
         setFlash(req, 'success', 'Password updated successfully!');
 
         const role = req.session.user.role;
@@ -312,7 +325,7 @@ async function updateProfile(req, res) {
 
         let avatarUrl = req.session.user.avatar_url;
         if (req.file) {
-            avatarUrl = `/uploads/avatars/${req.file.filename}`;
+            avatarUrl = `/files/avatars/${req.file.filename}`;
         }
 
         await query(
@@ -336,6 +349,7 @@ async function updateProfile(req, res) {
 async function logout(req, res) {
     if (req.session) {
         req.session.destroy(() => {
+            res.clearCookie('connect.sid');
             res.redirect('/auth/login');
         });
     } else {

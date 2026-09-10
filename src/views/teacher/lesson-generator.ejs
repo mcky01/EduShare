@@ -35,21 +35,152 @@
             </select>
         </div>
 
+        <div class="col-md-6">
+            <label class="form-label small fw-bold">Delivery Term <span class="text-muted fw-normal">(select first)</span></label>
+            <select id="lessonTerm" class="glass-input">
+                <option value="T1" selected>Term 1 (Q1-Q2)</option>
+                <option value="T2">Term 2 (Q3)</option>
+                <option value="T3">Term 3 (Q4)</option>
+            </select>
+        </div>
+
+        <div class="col-md-6 d-flex align-items-end">
+            <div id="lessonGroundBadge" class="small fw-semibold text-muted">Sources: not generated yet</div>
+        </div>
+
         <div class="col-12">
-            <label class="form-label small fw-bold">DepEd Learning Competency Standard</label>
+            <label class="form-label small fw-bold">DepEd Learning Competency Standard <span class="text-muted fw-normal" id="lessonCompCount"></span></label>
             <select id="lessonCompetency" class="glass-input">
                 <% competencies.forEach(comp => { %>
-                    <option value="<%= comp.code %>: <%= comp.description %>">
+                    <option value="<%= comp.code %>: <%= comp.description %>" data-code="<%= comp.code %>" data-term="<%= comp.term || '' %>">
                         <%= comp.code %>: <%= comp.description %>
                     </option>
                 <% }) %>
-                <option value="General Standard">Custom / Unlisted Competency</option>
+                <option value="General Standard" data-code="" data-term="">Custom / Unlisted Competency</option>
             </select>
         </div>
 
         <div class="col-12">
             <label class="form-label small fw-bold">Teacher Custom Pedagogical Instructions</label>
             <textarea id="lessonInstructions" class="glass-input" rows="3" placeholder="e.g. Emphasize active student recitation, group story mapping, and integration of the school motto 'Basta Zeferinian, Magaling Yan!'"></textarea>
+        </div>
+
+        <div class="col-12 mt-3 pt-3 border-top">
+            <h6 class="fw-bold mb-1"><i class="bi bi-person-heart text-success me-1"></i>Personalize Output <span class="badge-gray small">optional</span></h6>
+            <p class="text-muted small mb-3">Tick what applies, or use Other. Selected items become hard requirements for the generated slides.</p>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label small fw-bold">Teaching Approach</label>
+            <div class="d-flex flex-column gap-1" id="approachGroup">
+                <% ['Inquiry-based','Collaborative','5E','Problem-based','Explicit teaching'].forEach(a => { %>
+                    <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0 approach-cb" value="<%= a %>"> <%= a %></label>
+                <% }) %>
+                <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0" id="approachOtherCb"> Other:</label>
+                <input type="text" id="approachOther" class="glass-input py-1" placeholder="e.g. Game-based">
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label small fw-bold">Integration</label>
+            <div class="d-flex flex-column gap-1" id="integrationGroup">
+                <% ['Values formation','Technology','Local culture/community','Other subjects'].forEach(a => { %>
+                    <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0 integration-cb" value="<%= a %>"> <%= a %></label>
+                <% }) %>
+                <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0" id="integrationOtherCb"> Other:</label>
+                <input type="text" id="integrationOther" class="glass-input py-1" placeholder="e.g. Environment">
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label small fw-bold">Available Resources / Constraints</label>
+            <div class="d-flex flex-column gap-1" id="resourcesGroup">
+                <% ['Textbook','Digital tools / projector','Low-resource setting','Printed activity sheets'].forEach(a => { %>
+                    <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0 resources-cb" value="<%= a %>"> <%= a %></label>
+                <% }) %>
+                <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0" id="resourcesOtherCb"> Other:</label>
+                <input type="text" id="resourcesOther" class="glass-input py-1" placeholder="e.g. No internet">
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label small fw-bold">Language of Instruction</label>
+            <select id="lessonLanguage" class="glass-input">
+                <option value="">Auto</option>
+                <option value="English">English</option>
+                <option value="Filipino">Filipino</option>
+                <option value="Mother tongue">Mother tongue</option>
+                <option value="Code-switching">Code-switching (English/Filipino)</option>
+            </select>
+            <label class="form-label small fw-bold mt-3">Assessment Preference</label>
+            <div class="d-flex flex-column gap-1" id="assessmentGroup">
+                <% ['Formative checks each phase','Exit ticket','Group performance','Short quiz'].forEach(a => { %>
+                    <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0 assessment-cb" value="<%= a %>"> <%= a %></label>
+                <% }) %>
+                <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0" id="assessmentOtherCb"> Other:</label>
+                <input type="text" id="assessmentOther" class="glass-input py-1" placeholder="e.g. Portfolio">
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label small fw-bold">Class Profile</label>
+            <div class="d-flex flex-column gap-1">
+                <% ['Large class (40+ learners)','Mixed reading levels','Strong in recitation, weak in writing','Limited prior knowledge','Fast learners, need enrichment'].forEach(a => { %>
+                    <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0 profile-cb" value="<%= a %>"> <%= a %></label>
+                <% }) %>
+                <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0" id="profileOtherCb"> Other:</label>
+                <input type="text" id="profileOther" class="glass-input py-1" placeholder="e.g. 45 learners, visual learners">
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label small fw-bold">Inclusion Needs</label>
+            <div class="d-flex flex-column gap-1">
+                <% ['None','Large-print sheets','Extra time','Simplified instructions','Peer buddy support'].forEach(a => { %>
+                    <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0 inclusion-cb" value="<%= a %>"> <%= a %></label>
+                <% }) %>
+                <label class="small d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input mt-0" id="inclusionOtherCb"> Other:</label>
+                <input type="text" id="inclusionOther" class="glass-input py-1" placeholder="e.g. Hearing support">
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label small fw-bold">Sessions / Duration</label>
+            <select id="lessonDuration" class="glass-input">
+                <option value="">Auto (60 mins)</option>
+                <option value="1 session of 45 mins">1 session of 45 mins</option>
+                <option value="1 session of 60 mins">1 session of 60 mins</option>
+                <option value="2 sessions of 60 mins">2 sessions of 60 mins</option>
+                <option value="1 week (4 sessions)">1 week (4 sessions)</option>
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label small fw-bold">Content Standard (optional)</label>
+            <select id="lessonContentStd" class="glass-input">
+                <option value="">Auto (from competency)</option>
+                <option value="Evaluate Philippine literature for clarity of meaning, purpose, and audience">Evaluate Philippine literature</option>
+                <option value="Evaluate informational texts for clarity of meaning, purpose, and audience">Evaluate informational texts</option>
+                <option value="Evaluate academic and transactional texts for clarity of meaning, purpose, and audience">Evaluate academic/transactional texts</option>
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label small fw-bold">Performance Standard (optional)</label>
+            <select id="lessonPerfStd" class="glass-input">
+                <option value="">Auto (from competency)</option>
+                <option value="Publish original literary texts reflecting local and national identity">Publish literary texts</option>
+                <option value="Publish multimodal informational texts for purpose and audience">Publish informational texts</option>
+                <option value="Publish expository essays and formal letters">Publish essays and letters</option>
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label small fw-bold">BOW Week (optional)</label>
+            <select id="lessonBowWeek" class="glass-input">
+                <option value="">Auto</option>
+                <% for (let w = 1; w <= 10; w++) { %><option value="Week <%= w %>">Week <%= w %></option><% } %>
+            </select>
         </div>
 
         <div class="col-12 mt-4 pt-3 border-top d-flex justify-content-end">
@@ -84,6 +215,7 @@
     </div>
 
     <!-- Slide Cards Grid -->
+    <div id="lessonReviewBox" class="mb-3" style="display: none;"></div>
     <div class="row" id="slidesPreviewContainer">
         <!-- Rendered dynamically by lesson-wizard.js -->
     </div>

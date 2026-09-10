@@ -10,6 +10,25 @@
     </div>
 </div>
 
+<% const _graded = submissions.filter(s => s.status === 'graded').length; %>
+<!-- Progress Header + Status Filter -->
+<div class="glass-card p-3 mb-3 d-flex align-items-center gap-3 flex-wrap" data-grading-progress data-total="<%= submissions.length %>" data-graded="<%= _graded %>">
+    <span class="fw-bold small text-dark"><i class="bi bi-clipboard-check text-success me-1"></i>Graded <span id="gradedCount"><%= _graded %></span> / <%= submissions.length %></span>
+    <div class="progress flex-grow-1" style="min-width: 160px; height: 10px;">
+        <div class="progress-bar bg-success" id="gradedBar" role="progressbar" style="width: <%= submissions.length ? Math.round(_graded / submissions.length * 100) : 0 %>%;" aria-valuenow="<%= _graded %>" aria-valuemin="0" aria-valuemax="<%= submissions.length %>"></div>
+    </div>
+    <select id="gradeStatusFilter" class="glass-input py-1 small" style="max-width: 180px;" aria-label="Filter by grading status">
+        <option value="all">All</option>
+        <option value="graded">Graded</option>
+        <option value="submitted">Submitted</option>
+        <option value="missing">Missing</option>
+    </select>
+    <button type="button" class="btn btn-sm btn-liquid-primary" id="bulkSaveBtn" data-bulk-save data-activity-id="<%= activity.id %>" data-class-id="<%= cls.id %>" data-grade-endpoint="/teacher/activities/grade">
+        <i class="bi bi-check-all me-1"></i>Save All Graded
+    </button>
+    <span class="small text-muted" id="bulkSaveStatus" role="status" aria-live="polite"></span>
+</div>
+
 <div class="glass-table-container">
     <div class="table-responsive">
         <table class="glass-table">
@@ -24,9 +43,10 @@
                     <th>Save</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="gradingBody">
                 <% submissions.forEach(sub => { %>
-                    <tr>
+                    <% const _st = sub.status === 'graded' ? 'graded' : (sub.submission_id ? 'submitted' : 'missing'); %>
+                    <tr data-grade-row data-status="<%= _st %>" data-student-id="<%= sub.student_profile_id %>" data-submission-id="<%= sub.submission_id || '' %>">
                         <td>
                             <div class="fw-bold text-dark"><%= sub.last_name %>, <%= sub.first_name %></div>
                             <div class="small text-muted">LRN: <%= sub.lrn %></div>
@@ -58,29 +78,119 @@
                         <td class="small text-muted font-monospace">
                             <%= sub.submitted_at ? new Date(sub.submitted_at).toLocaleString() : 'Not submitted' %>
                         </td>
-                        <form action="/teacher/activities/grade" method="POST">
-                            <input type="hidden" name="submission_id" value="<%= sub.submission_id || '' %>">
-                            <input type="hidden" name="activity_id" value="<%= activity.id %>">
-                            <input type="hidden" name="class_id" value="<%= cls.id %>">
-                            <input type="hidden" name="student_id" value="<%= sub.student_profile_id %>">
-                            <td style="width: 130px;">
+                        <td style="width: 130px;">
                                 <div class="input-group input-group-sm">
-                                    <input type="number" step="0.5" name="score" class="glass-input text-center fw-bold text-success py-1" value="<%= sub.score != null ? sub.score : '' %>" max="<%= activity.points %>" min="0" placeholder="0">
+                                    <input type="number" step="0.5" name="score" form="grade-form-<%= sub.student_profile_id %>" data-grade-score data-max="<%= activity.points %>" class="glass-input text-center fw-bold text-success py-1" value="<%= sub.score != null ? sub.score : '' %>" max="<%= activity.points %>" min="0" placeholder="0">
                                     <span class="input-group-text bg-transparent border-0 small text-muted">/ <%= activity.points %></span>
                                 </div>
                             </td>
                             <td>
-                                <input type="text" name="feedback" class="glass-input py-1 small" placeholder="Teacher comments..." value="<%= sub.feedback || '' %>">
+                                <input type="text" name="feedback" form="grade-form-<%= sub.student_profile_id %>" data-grade-feedback class="glass-input py-1 small" placeholder="Teacher comments..." value="<%= sub.feedback || '' %>">
                             </td>
                             <td>
-                                <button type="submit" class="btn btn-sm btn-liquid-primary">
-                                    <i class="bi bi-check-lg"></i>
-                                </button>
+                                <form id="grade-form-<%= sub.student_profile_id %>" action="/teacher/activities/grade" method="POST">
+                                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                    <input type="hidden" name="submission_id" value="<%= sub.submission_id || '' %>">
+                                    <input type="hidden" name="activity_id" value="<%= activity.id %>">
+                                    <input type="hidden" name="class_id" value="<%= cls.id %>">
+                                    <input type="hidden" name="student_id" value="<%= sub.student_profile_id %>">
+                                    <button type="submit" class="btn btn-sm btn-liquid-primary">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </form>
                             </td>
-                        </form>
                     </tr>
                 <% }) %>
             </tbody>
         </table>
     </div>
 </div>
+
+<script>
+(function () {
+    var filter = document.getElementById('gradeStatusFilter');
+    var rows = Array.prototype.slice.call(document.querySelectorAll('[data-grade-row]'));
+    if (filter) {
+        filter.addEventListener('change', function () {
+            var v = filter.value;
+            rows.forEach(function (r) {
+                r.style.display = (v === 'all' || r.getAttribute('data-status') === v) ? '' : 'none';
+            });
+        });
+    }
+    // Clamp score inputs to max.
+    document.querySelectorAll('[data-grade-score]').forEach(function (inp) {
+        inp.addEventListener('change', function () {
+            var max = parseFloat(inp.getAttribute('data-max')) || 100;
+            var v = parseFloat(inp.value);
+            if (inp.value === '' || isNaN(v)) return;
+            if (v < 0) inp.value = 0;
+            else if (v > max) inp.value = max;
+        });
+    });
+    // Bulk-save: POST each row with a score via XHR, keep single-row forms intact.
+    var bulkBtn = document.querySelector('[data-bulk-save]');
+    var bulkStatus = document.getElementById('bulkSaveStatus');
+    if (bulkBtn) {
+        bulkBtn.addEventListener('click', async function () {
+            var endpoint = bulkBtn.getAttribute('data-grade-endpoint') || '/teacher/activities/grade';
+            var activityId = bulkBtn.getAttribute('data-activity-id');
+            var classId = bulkBtn.getAttribute('data-class-id');
+            var csrfEl = document.querySelector('meta[name="csrf-token"]');
+            var token = (csrfEl && csrfEl.content) || window.CSRF_TOKEN || '';
+            var pending = rows.filter(function (r) {
+                var scoreEl = r.querySelector('[data-grade-score]');
+                return scoreEl && String(scoreEl.value).trim() !== '';
+            });
+            if (pending.length === 0) {
+                if (bulkStatus) bulkStatus.textContent = 'No scores to save.';
+                return;
+            }
+            bulkBtn.disabled = true;
+            var saved = 0, failed = 0;
+            for (var i = 0; i < pending.length; i++) {
+                var row = pending[i];
+                var scoreVal = row.querySelector('[data-grade-score]').value;
+                var fbEl = row.querySelector('[data-grade-feedback]');
+                if (bulkStatus) bulkStatus.textContent = 'Saving ' + (i + 1) + ' / ' + pending.length + '...';
+                try {
+                    var res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'x-csrf-token': token
+                        },
+                        body: new URLSearchParams({
+                            submission_id: row.getAttribute('data-submission-id') || '',
+                            activity_id: activityId,
+                            class_id: classId,
+                            student_id: row.getAttribute('data-student-id') || '',
+                            score: scoreVal,
+                            feedback: fbEl ? fbEl.value : ''
+                        })
+                    });
+                    if (res.ok) { saved++; row.setAttribute('data-status', 'graded'); }
+                    else { failed++; }
+                } catch (e) { failed++; }
+            }
+            bulkBtn.disabled = false;
+            if (bulkStatus) bulkStatus.textContent = 'Saved ' + saved + ' of ' + pending.length + (failed ? ' (' + failed + ' failed)' : '') + '.';
+            var gradedNow = rows.filter(function (r) {
+                var s = r.querySelector('[data-grade-score]');
+                return s && String(s.value).trim() !== '';
+            }).length;
+            var gradedCount = document.getElementById('gradedCount');
+            var gradedBar = document.getElementById('gradedBar');
+            if (gradedCount) gradedCount.textContent = gradedNow;
+            if (gradedBar) {
+                var pct = rows.length ? Math.round(gradedNow / rows.length * 100) : 0;
+                gradedBar.style.width = pct + '%';
+                gradedBar.setAttribute('aria-valuenow', gradedNow);
+                gradedBar.setAttribute('aria-valuemax', rows.length);
+            }
+        });
+    }
+})();
+</script>

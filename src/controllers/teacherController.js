@@ -4,6 +4,13 @@ const gradebookService = require('../services/gradebookService');
 const exportService = require('../services/exportService');
 const aiService = require('../services/aiService');
 
+async function requireOwnClass(teacherUserId, classId) {
+  const id = parseInt(classId, 10);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const rows = await query('SELECT * FROM classes WHERE id = ? AND teacher_id = ?', [id, teacherUserId]);
+  return rows[0] || null;
+}
+
 function generateClassCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
@@ -106,8 +113,12 @@ async function createClass(req, res) {
     try {
         const teacherUserId = req.session.user.id;
         const { class_name, subject, grade_level, section, room, schedule } = req.body;
+        const cn = (class_name || '').trim();
+        const sj = (subject || '').trim();
+        const gl = (grade_level || '').trim();
+        const sc = (section || '').trim();
 
-        if (!class_name || !subject || !grade_level || !section) {
+        if (!cn || !sj || !gl || !sc) {
             setFlash(req, 'error', 'Class name, subject, grade level, and section are required.');
             return res.redirect('/teacher/classes');
         }
@@ -124,7 +135,7 @@ async function createClass(req, res) {
             const [cRes] = await conn.query(
                 `INSERT INTO classes (teacher_id, class_name, subject, grade_level, section, class_code, room, schedule)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [teacherUserId, class_name.trim(), subject.trim(), grade_level, section.trim(), classCode, room || null, schedule || null]
+                [teacherUserId, cn, sj, gl, sc, classCode, room || null, schedule || null]
             );
             const classId = cRes.insertId;
 
@@ -139,7 +150,7 @@ async function createClass(req, res) {
             );
         });
 
-        setFlash(req, 'success', `Class "${class_name}" created with code: ${classCode}`);
+        setFlash(req, 'success', `Class "${cn}" created with code: ${classCode}`);
         res.redirect('/teacher/classes');
     } catch (err) {
         console.error('Create class error:', err);
@@ -247,21 +258,26 @@ async function postAnnouncement(req, res) {
     try {
         const classId = parseInt(req.params.id, 10);
         const teacherUserId = req.session.user.id;
+        const cls = await requireOwnClass(teacherUserId, classId);
+        if (!cls) {
+            setFlash(req, 'error', 'Access forbidden.');
+            return res.redirect('/teacher/classes');
+        }
         const { title, message, category, is_pinned } = req.body;
 
         if (!title || !message) {
             setFlash(req, 'error', 'Title and message are required.');
-            return res.redirect(`/teacher/classes/${classId}?tab=announcements`);
+            return res.redirect(`/teacher/classes/${cls.id}?tab=announcements`);
         }
 
         await query(
             `INSERT INTO announcements (class_id, teacher_id, title, message, category, is_pinned)
              VALUES (?, ?, ?, ?, ?, ?)`,
-            [classId, teacherUserId, title.trim(), message.trim(), category || 'general', is_pinned === '1' ? 1 : 0]
+            [cls.id, teacherUserId, title.trim(), message.trim(), category || 'general', is_pinned === '1' ? 1 : 0]
         );
 
         setFlash(req, 'success', 'Announcement posted successfully!');
-        res.redirect(`/teacher/classes/${classId}?tab=announcements`);
+        res.redirect(`/teacher/classes/${cls.id}?tab=announcements`);
     } catch (err) {
         console.error('Post announcement error:', err);
         setFlash(req, 'error', 'Failed to post announcement.');
@@ -284,7 +300,7 @@ async function createActivity(req, res) {
         let fileSize = null;
 
         if (req.file) {
-            filePath = `/uploads/materials/${req.file.filename}`;
+            filePath = `/files/materials/${req.file.filename}`;
             fileType = req.file.mimetype;
             fileSize = (req.file.size / (1024 * 1024)).toFixed(2) + ' MB';
         }
@@ -292,6 +308,15 @@ async function createActivity(req, res) {
         const targetClassIds = Array.isArray(class_ids) ? class_ids : [class_ids].filter(Boolean);
         if (targetClassIds.length === 0) {
             setFlash(req, 'error', 'Please select at least one class section.');
+            return res.redirect('back');
+        }
+
+        const ownedRows = await query(
+            `SELECT id FROM classes WHERE teacher_id = ? AND id IN (${targetClassIds.map(() => '?').join(',')})`,
+            [teacherUserId, ...targetClassIds.map((v) => parseInt(v, 10))]
+        );
+        if (ownedRows.length !== targetClassIds.length) {
+            setFlash(req, 'error', 'Access forbidden.');
             return res.redirect('back');
         }
 
@@ -328,21 +353,22 @@ async function createActivity(req, res) {
         res.redirect('back');
     } catch (err) {
         console.error('Create activity error:', err);
-        setFlash(req, 'error', 'Failed to create activity: ' + err.message);
+        setFlash(req, 'error', 'Failed to create activity.');
         res.redirect('back');
     }
 }
 
 async function viewActivityGrading(req, res) {
     try {
+        const teacherId = req.session.user.id;
         const activityId = parseInt(req.params.activityId, 10);
         const classId = parseInt(req.params.classId, 10);
 
-        const [activity] = await query('SELECT * FROM class_activities WHERE id = ?', [activityId]);
-        const [cls] = await query('SELECT * FROM classes WHERE id = ?', [classId]);
+        const [activity] = await query('SELECT * FROM class_activities WHERE id = ? AND teacher_id = ?', [activityId, teacherId]);
+        const cls = await requireOwnClass(teacherId, classId);
 
-        if (!activity || !cls) {
-            setFlash(req, 'error', 'Activity or class not found.');
+        if (!activity || activity.teacher_id !== teacherId || !cls) {
+            setFlash(req, 'error', 'Access forbidden.');
             return res.redirect('/teacher/classes');
         }
 
@@ -373,50 +399,102 @@ async function viewActivityGrading(req, res) {
 
 async function gradeSubmission(req, res) {
     try {
+        const teacherId = req.session.user.id;
         const { submission_id, activity_id, class_id, student_id, score, feedback } = req.body;
+        const isXhr = req.xhr || req.headers.accept?.includes('application/json');
+        const deny = () => {
+            if (isXhr) return res.status(403).json({ error: 'Access forbidden.' });
+            setFlash(req, 'error', 'Access forbidden.');
+            return res.redirect('back');
+        };
+        const invalid = () => {
+            if (isXhr) return res.status(400).json({ error: 'Invalid score.' });
+            setFlash(req, 'error', 'Invalid score.');
+            return res.redirect('back');
+        };
 
+        const activityId = parseInt(activity_id, 10);
+        const classId = parseInt(class_id, 10);
+        const studentId = parseInt(student_id, 10);
+        const submissionId = submission_id ? parseInt(submission_id, 10) : null;
         const numScore = parseFloat(score);
 
+        if (!Number.isInteger(activityId) || activityId <= 0
+            || !Number.isInteger(classId) || classId <= 0
+            || !Number.isInteger(studentId) || studentId <= 0
+            || (submission_id && (!Number.isInteger(submissionId) || submissionId <= 0))
+            || !Number.isFinite(numScore)) {
+            return invalid();
+        }
+
+        const [activity] = await query('SELECT * FROM class_activities WHERE id = ?', [activityId]);
+        if (!activity || activity.teacher_id !== teacherId) return deny();
+
+        const cls = await requireOwnClass(teacherId, classId);
+        if (!cls) return deny();
+
+        const enrollRows = await query(
+            "SELECT id FROM enrollments WHERE class_id = ? AND student_id = ? AND status = 'active'",
+            [classId, studentId]
+        );
+        if (enrollRows.length === 0) return deny();
+
+        const colRows = await query(
+            'SELECT id, max_score FROM gradebook_columns WHERE class_id = ? AND activity_id = ? LIMIT 1',
+            [classId, activityId]
+        );
+        const maxScore = colRows[0] ? parseFloat(colRows[0].max_score) : parseFloat(activity.points);
+        const cap = Number.isFinite(maxScore) && maxScore > 0 ? maxScore : 100;
+        const finalScore = Math.min(Math.max(numScore, 0), cap);
+
+        if (submissionId) {
+            const [sub] = await query(
+                'SELECT * FROM activity_submissions WHERE id = ? AND activity_id = ? AND class_id = ? AND student_id = ?',
+                [submissionId, activityId, classId, studentId]
+            );
+            if (!sub) return deny();
+        }
+
         await withTransaction(async (conn) => {
-            if (submission_id) {
+            if (submissionId) {
                 await conn.query(
                     `UPDATE activity_submissions
                      SET score = ?, feedback = ?, status = 'graded', graded_at = NOW()
                      WHERE id = ?`,
-                    [numScore, feedback || null, submission_id]
+                    [finalScore, feedback || null, submissionId]
                 );
             } else {
                 await conn.query(
                     `INSERT INTO activity_submissions (activity_id, class_id, student_id, score, feedback, status, graded_at)
                      VALUES (?, ?, ?, ?, ?, 'graded', NOW())`,
-                    [activity_id, class_id, student_id, numScore, feedback || null]
+                    [activityId, classId, studentId, finalScore, feedback || null]
                 );
             }
 
             // Sync to Gradebook Column
             const [cols] = await conn.query(
                 'SELECT id FROM gradebook_columns WHERE class_id = ? AND activity_id = ? LIMIT 1',
-                [class_id, activity_id]
+                [classId, activityId]
             );
             if (cols.length > 0) {
                 await conn.query(
                     `INSERT INTO gradebook_entries (column_id, student_id, score, manual_override)
                      VALUES (?, ?, ?, 1)
                      ON DUPLICATE KEY UPDATE score = VALUES(score), manual_override = 1`,
-                    [cols[0].id, student_id, numScore]
+                    [cols[0].id, studentId, finalScore]
                 );
             }
         });
 
-        if (req.xhr || req.headers.accept?.includes('application/json')) {
-            return res.json({ success: true, score: numScore });
+        if (isXhr) {
+            return res.json({ success: true, score: finalScore });
         }
 
         setFlash(req, 'success', 'Submission graded successfully!');
         res.redirect('back');
     } catch (err) {
         console.error('Grade submission error:', err);
-        if (req.xhr) return res.status(500).json({ error: err.message });
+        if (req.xhr) return res.status(500).json({ error: 'Failed to grade submission.' });
         setFlash(req, 'error', 'Failed to grade submission.');
         res.redirect('back');
     }
@@ -456,7 +534,7 @@ async function uploadLibraryItem(req, res) {
             return res.redirect('/teacher/library');
         }
 
-        const filePath = `/uploads/materials/${req.file.filename}`;
+        const filePath = `/files/materials/${req.file.filename}`;
         const fileType = req.file.mimetype;
         const fileSize = (req.file.size / (1024 * 1024)).toFixed(2) + ' MB';
 
@@ -470,6 +548,14 @@ async function uploadLibraryItem(req, res) {
         // Repost to selected classes if specified
         if (post_to_classes) {
             const classIds = Array.isArray(post_to_classes) ? post_to_classes : [post_to_classes];
+            const owned = await query(
+                `SELECT id FROM classes WHERE teacher_id = ? AND id IN (${classIds.map(() => '?').join(',')})`,
+                [teacherUserId, ...classIds.map((v) => parseInt(v, 10))]
+            );
+            if (owned.length !== classIds.length) {
+                setFlash(req, 'error', 'Access forbidden.');
+                return res.redirect('/teacher/library');
+            }
             for (const cId of classIds) {
                 await query(
                     `INSERT IGNORE INTO class_materials (library_item_id, class_id) VALUES (?, ?)`,
@@ -489,13 +575,31 @@ async function uploadLibraryItem(req, res) {
 
 async function repostLibraryItem(req, res) {
     try {
+        const teacherUserId = req.session.user.id;
         const { item_id, class_ids } = req.body;
         if (!item_id || !class_ids) {
             setFlash(req, 'error', 'Item and at least one target class are required.');
             return res.redirect('/teacher/library');
         }
 
+        const itemRows = await query(
+            'SELECT id FROM library_items WHERE id = ? AND teacher_id = ?',
+            [parseInt(item_id, 10), teacherUserId]
+        );
+        if (itemRows.length === 0) {
+            setFlash(req, 'error', 'Access forbidden.');
+            return res.redirect('/teacher/library');
+        }
+
         const targetIds = Array.isArray(class_ids) ? class_ids : [class_ids];
+        const owned = await query(
+            `SELECT id FROM classes WHERE teacher_id = ? AND id IN (${targetIds.map(() => '?').join(',')})`,
+            [teacherUserId, ...targetIds.map((v) => parseInt(v, 10))]
+        );
+        if (owned.length !== targetIds.length) {
+            setFlash(req, 'error', 'Access forbidden.');
+            return res.redirect('/teacher/library');
+        }
         for (const cId of targetIds) {
             await query(
                 `INSERT IGNORE INTO class_materials (library_item_id, class_id) VALUES (?, ?)`,
@@ -516,7 +620,7 @@ async function gradebook(req, res) {
     try {
         const teacherUserId = req.session.user.id;
         const classes = await query(
-            'SELECT id, class_name, subject, grade_level, section FROM classes WHERE teacher_id = ? AND is_active = 1',
+            'SELECT id, class_name, subject, grade_level, section, class_code FROM classes WHERE teacher_id = ? AND is_active = 1',
             [teacherUserId]
         );
 
@@ -548,8 +652,9 @@ async function gradebook(req, res) {
 
 async function exportGradebook(req, res) {
     try {
+        const teacherUserId = req.session.user.id;
         const classId = parseInt(req.params.classId, 10);
-        const [cls] = await query('SELECT * FROM classes WHERE id = ?', [classId]);
+        const [cls] = await query('SELECT * FROM classes WHERE id = ? AND teacher_id = ?', [classId, teacherUserId]);
         if (!cls) return res.status(404).send('Class not found');
 
         const gradebookData = await gradebookService.getClassGradebook(classId);
@@ -657,6 +762,26 @@ async function approveStudent(req, res) {
 
         await query("UPDATE users SET status = 'active', is_active = 1 WHERE id = ?", [targetId]);
 
+        // Auto-enroll into advisory-linked class owned by this teacher, if any.
+        try {
+            const stuRows = await query('SELECT id FROM students WHERE user_id = ? LIMIT 1', [targetId]);
+            const studentProfileId = stuRows[0] ? stuRows[0].id : null;
+            if (studentProfileId && teacher.advisory_grade && teacher.advisory_section) {
+                const clsRows = await query(
+                    'SELECT id FROM classes WHERE teacher_id = ? AND grade_level = ? AND section = ? LIMIT 1',
+                    [teacherUserId, teacher.advisory_grade, teacher.advisory_section]
+                );
+                if (clsRows[0]) {
+                    await query(
+                        "INSERT IGNORE INTO enrollments (student_id, class_id, status) VALUES (?, ?, 'active')",
+                        [studentProfileId, clsRows[0].id]
+                    );
+                }
+            }
+        } catch (enrollErr) {
+            console.error('Auto-enroll after approval failed:', enrollErr);
+        }
+
         await query(
             `INSERT INTO activity_logs (user_id, action, description, category)
              VALUES (?, 'Registration Approved', ?, 'teacher')`,
@@ -712,7 +837,8 @@ async function quizMaker(req, res) {
         res.render('teacher/quiz-maker', {
             title: 'AI Quiz Maker | EduShare 2.0',
             classes: teacherClasses,
-            quizzes: myQuizzes
+            quizzes: myQuizzes,
+            competencies: await query('SELECT code, description, term FROM competencies ORDER BY code ASC')
         });
     } catch (err) {
         console.error('Quiz maker view error:', err);

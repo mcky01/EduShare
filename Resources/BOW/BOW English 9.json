@@ -1,0 +1,34 @@
+[
+  {
+    "competency_code": "EN9LIT-I-1",
+    "quarter": "Q1",
+    "content": "Quarter 1. Text Focus: Poetry, Prose, Drama. Evaluate Anglo-American literary texts within structural, biographical, historical, sociocultural, linguistic, and psychological contexts. Analyze maxims and philosophies. Compose, revise, and publish an original script for a one-act play reflecting expanding cultural identity. Pacing: Delivered over the quarter, moving from deep literary analysis to dramatic scriptwriting.",
+    "source_ref": "BOW CG p.165-166 Quarter 1",
+    "subject": "English",
+    "grade_level": "Grade 9"
+  },
+  {
+    "competency_code": "EN9INF-II-1",
+    "quarter": "Q2",
+    "content": "Quarter 2. Text Focus: Argumentative Text. Evaluate non-journalistic informational texts. Examine structures, linguistic features, and visual elements. Analyze evidence, distinguish facts from claims, evaluate arguments, and analyze persuasive techniques. Compose and publish multimodal argumentative texts. Pacing: Taught throughout the quarter, emphasizing logical reasoning and evidence-based writing.",
+    "source_ref": "BOW CG p.167-169 Quarter 2",
+    "subject": "English",
+    "grade_level": "Grade 9"
+  },
+  {
+    "competency_code": "EN9INF-III-1",
+    "quarter": "Q3",
+    "content": "Quarter 3. Text Focus: Argumentative Text, Letter of Complaint. Evaluate argumentative texts and transactional correspondences. Analyze persuasive techniques, evaluate claims, and examine sender's voice and etiquette. Compose, revise, and publish argumentative texts and formal letters of complaint. Pacing: Quarter-long delivery blending advanced argumentation with formal transactional writing.",
+    "source_ref": "BOW CG p.170-172 Quarter 3",
+    "subject": "English",
+    "grade_level": "Grade 9"
+  },
+  {
+    "competency_code": "EN9INF-IV-1",
+    "quarter": "Q4",
+    "content": "Quarter 4. Text Focus: Literature Review. Evaluate academic texts. Examine text structures, linguistic features, and discipline-specific words. Extract information, analyze textual evidence, draw inferences, and synthesize significant information. Compose, revise, and publish a multimodal literature review. Pacing: Delivered over the quarter, focusing on academic research synthesis and formal publishing.",
+    "source_ref": "BOW CG p.173-174 Quarter 4",
+    "subject": "English",
+    "grade_level": "Grade 9"
+  }
+]

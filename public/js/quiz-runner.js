@@ -178,9 +178,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            const csrfToken = document.querySelector('meta[name=csrf-token]')?.content || window.CSRF_TOKEN || '';
             const res = await fetch(`/student/quizzes/${quizId}/submit`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'x-csrf-token': csrfToken },
                 body: JSON.stringify({
                     class_id: classId,
                     answers

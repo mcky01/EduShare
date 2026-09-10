@@ -1,0 +1,34 @@
+[
+  {
+    "competency_code": "EN7LIT-I-1",
+    "quarter": "Q1",
+    "content": "Quarter 1. Text Focus: Poetry. Evaluate Philippine literary texts as expressions of values within structural, biographical, historical, and sociocultural contexts. Analyze maxims and philosophies. Identify purpose, compose, revise, and publish an original multimodal poem reflecting local and national identity. Pacing: Delivered over the quarter, integrating evaluation and publishing skills concurrently.",
+    "source_ref": "BOW CG p.144-145 Quarter 1",
+    "subject": "English",
+    "grade_level": "Grade 7"
+  },
+  {
+    "competency_code": "EN7LIT-II-1",
+    "quarter": "Q2",
+    "content": "Quarter 2. Text Focus: Prose (Short Story). Evaluate Philippine prose for clarity of meaning and purpose within structural, biographical, historical, and sociocultural contexts. Analyze universal truths. Compose, revise, and publish an original multimodal short story reflecting local and national identity. Pacing: Delivered over the quarter, using exemplars to guide learners from text analysis to original prose production.",
+    "source_ref": "BOW CG p.146-147 Quarter 2",
+    "subject": "English",
+    "grade_level": "Grade 7"
+  },
+  {
+    "competency_code": "EN7INF-III-1",
+    "quarter": "Q3",
+    "content": "Quarter 3. Text Focus: Expository Text, News, Press Releases, Features. Evaluate informational texts for clarity, examining text structures, linguistic features, and visual elements. Extract information, distinguish facts from opinions, analyze propaganda, and synthesize data. Compose and publish multimodal journalistic/expository texts. Pacing: Taught throughout the quarter, blending evaluation of media with multimodal publishing.",
+    "source_ref": "BOW CG p.148-150 Quarter 3",
+    "subject": "English",
+    "grade_level": "Grade 7"
+  },
+  {
+    "competency_code": "EN7INF-IV-1",
+    "quarter": "Q4",
+    "content": "Quarter 4. Text Focus: Expository Essay, Letter of Request. Evaluate academic and transactional texts. Examine text structures, linguistic features, discipline-specific words, and sender's voice. Analyze evidence, evaluate claims, and synthesize information. Compose, revise, and publish expository essays and formal letters of request. Pacing: Quarter-long delivery integrating academic writing and formal correspondence.",
+    "source_ref": "BOW CG p.151-153 Quarter 4",
+    "subject": "English",
+    "grade_level": "Grade 7"
+  }
+]

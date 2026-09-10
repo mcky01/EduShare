@@ -3,6 +3,8 @@ const env = require('../config/env');
 
 let cachedSettings = null;
 let lastFetch = 0;
+// Cached session_timeout in minutes (from system_settings). See SETTINGS_KEYS note below.
+let cachedSessionTimeoutMin = null;
 
 async function getBrandingSettings() {
     const now = Date.now();
@@ -25,6 +27,18 @@ async function getBrandingSettings() {
             term: map.current_term || env.CURRENT_TERM,
             logo: map.school_logo || '/images/zahs-logo.png'
         };
+        // SETTINGS_KEYS known in system_settings: school_name, school_abbr, school_motto,
+        // school_year, current_term, school_logo, session_timeout (minutes, default 120,
+        // valid range 5..1440), allow_student_chat, allow_ai_lesson.
+        // Settings load async — session cookie maxAge applied per-request below from cache.
+        if (map.session_timeout !== undefined) {
+            const mins = parseInt(map.session_timeout, 10);
+            cachedSessionTimeoutMin = Number.isFinite(mins)
+                ? Math.min(1440, Math.max(5, mins))
+                : null;
+        } else {
+            cachedSessionTimeoutMin = null;
+        }
         lastFetch = now;
         return cachedSettings;
     } catch {
@@ -40,6 +54,9 @@ async function getBrandingSettings() {
 }
 
 async function brandingMiddleware(req, res, next) {
+    const { ensureToken } = require('./csrf');
+    ensureToken(req);
+    res.locals.csrfToken = req.session?.csrfToken || '';
     res.locals.school = await getBrandingSettings();
     res.locals.user = req.session?.user || null;
     res.locals.currentPath = req.path;
@@ -53,6 +70,11 @@ async function brandingMiddleware(req, res, next) {
         req.session.flashSuccess = null;
         req.session.flashError = null;
         req.session.flashInfo = null;
+        // Phase 7: apply cached session_timeout (minutes, clamped 5..1440) to cookie maxAge.
+        // Default 24h comes from src/app.js; login sets explicit 12h at sign-in.
+        if (cachedSessionTimeoutMin && req.session.cookie) {
+            req.session.cookie.maxAge = cachedSessionTimeoutMin * 60 * 1000;
+        }
     }
 
     next();

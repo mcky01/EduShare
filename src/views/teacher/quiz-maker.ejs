@@ -37,6 +37,28 @@
                     <label class="form-label small fw-bold">Topic / Content Focus</label>
                     <input type="text" id="quizTopic" class="glass-input" value="Simile, Metaphor, Personification, and Hyperbole" required>
                 </div>
+                <div class="col-6">
+                    <label class="form-label small fw-bold">Delivery Term <span class="text-muted fw-normal">(select first)</span></label>
+                    <select id="quizTerm" class="glass-input">
+                        <option value="T1" selected>Term 1 (Q1-Q2)</option>
+                        <option value="T2">Term 2 (Q3)</option>
+                        <option value="T3">Term 3 (Q4)</option>
+                    </select>
+                </div>
+                <div class="col-6 d-flex align-items-end">
+                    <div id="quizGroundBadge" class="small fw-semibold text-muted">Sources: not generated yet</div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small fw-bold">DepEd Competency <span class="text-muted fw-normal" id="quizCompCount"></span></label>
+                    <select id="quizCompetency" class="glass-input">
+                        <% (typeof competencies !== 'undefined' ? competencies : []).forEach(comp => { %>
+                            <option value="<%= comp.code %>: <%= comp.description %>" data-code="<%= comp.code %>" data-term="<%= comp.term || '' %>">
+                                <%= comp.code %>: <%= comp.description %>
+                            </option>
+                        <% }) %>
+                        <option value="General Standard" data-code="" data-term="">Custom / Unlisted Competency</option>
+                    </select>
+                </div>
 
                 <div class="col-4">
                     <label class="form-label small fw-bold">Multiple Choice</label>
@@ -63,9 +85,9 @@
                 <div class="col-12">
                     <label class="form-label small fw-bold">Assign to Class Sections</label>
                     <div class="d-flex flex-column gap-2" id="quizTargetClasses">
-                        <% classes.forEach(cls => { %>
+                        <% classes.forEach((cls, idx) => { %>
                             <div class="form-check p-2 rounded-3" style="background: rgba(255,255,255,0.6);">
-                                <input class="form-check-input ms-0 me-2 quiz-cls-cb" type="checkbox" value="<%= cls.id %>" id="qCls_<%= cls.id %>" checked>
+                                <input class="form-check-input ms-0 me-2 quiz-cls-cb" type="checkbox" value="<%= cls.id %>" id="qCls_<%= cls.id %>"<%= idx === 0 && classes.length > 0 ? ' checked' : '' %>>
                                 <label class="form-check-label small fw-semibold text-dark" for="qCls_<%= cls.id %>">
                                     <%= cls.class_name %> (<%= cls.section %>)
                                 </label>
@@ -92,6 +114,8 @@
                     <span id="questionCountBadge" class="badge-emerald">0 Questions</span>
                 </div>
 
+                <div id="quizReviewBox" class="mb-3" style="display: none;"></div>
+
                 <div id="quizQuestionsContainer" style="max-height: 520px; overflow-y: auto;">
                     <div class="text-center text-muted p-5">
                         <i class="bi bi-card-checklist fs-1 text-warning d-block mb-2"></i>
@@ -101,7 +125,7 @@
                 </div>
             </div>
 
-            <div class="border-top pt-3 mt-3 d-flex justify-content-end gap-2" id="saveQuizActions" style="display: none !important;">
+            <div class="border-top pt-3 mt-3 d-flex justify-content-end gap-2 d-none" id="saveQuizActions" style="display: none;">
                 <button type="button" id="btnSaveQuiz" class="btn btn-liquid-primary px-4 py-2">
                     <i class="bi bi-check2-circle me-1"></i> Finalize & Publish Quiz
                 </button>
@@ -110,124 +134,4 @@
     </div>
 </div>
 
-<script>
-let generatedQuizQuestions = [];
-
-document.getElementById('btnGenerateQuiz').addEventListener('click', async () => {
-    const topic = document.getElementById('quizTopic').value.trim();
-    const grade_level = document.getElementById('quizGrade').value;
-    const subject = document.getElementById('quizSubject').value;
-    const mc_count = document.getElementById('quizMcCount').value;
-    const tf_count = document.getElementById('quizTfCount').value;
-    const id_count = document.getElementById('quizIdCount').value;
-
-    const btn = document.getElementById('btnGenerateQuiz');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Generating Questions...';
-
-    try {
-        const res = await fetch('/api/ai/quiz/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topic, grade_level, subject, mc_count, tf_count, id_count })
-        });
-
-        const data = await res.json();
-        if (data.success && data.questions) {
-            generatedQuizQuestions = data.questions;
-            renderQuizQuestions(data.questions);
-            document.getElementById('saveQuizActions').style.display = 'flex';
-        } else {
-            alert('Failed to generate quiz.');
-        }
-    } catch (err) {
-        console.error('Quiz gen error:', err);
-        alert('Error generating quiz.');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-stars me-2"></i> Generate Questions with AI';
-    }
-});
-
-function renderQuizQuestions(questions) {
-    const container = document.getElementById('quizQuestionsContainer');
-    container.innerHTML = '';
-    document.getElementById('questionCountBadge').textContent = `${questions.length} Questions`;
-
-    questions.forEach((q, idx) => {
-        const qCard = document.createElement('div');
-        qCard.className = 'glass-card p-3 mb-3';
-
-        let optionsHtml = '';
-        if (q.options && q.options.length > 0) {
-            optionsHtml = '<div class="mt-2 ps-2">';
-            q.options.forEach(opt => {
-                optionsHtml += `
-                    <div class="small p-1 d-flex align-items-center gap-2 ${opt.is_correct ? 'fw-bold text-success' : 'text-secondary'}">
-                        <i class="bi ${opt.is_correct ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted'}"></i>
-                        <span>${escapeHtml(opt.option_text)}</span>
-                    </div>
-                `;
-            });
-            optionsHtml += '</div>';
-        }
-
-        qCard.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="badge-emerald">Question ${idx + 1}</span>
-                <span class="badge-amber text-capitalize">${q.question_type.replace('_', ' ')}</span>
-            </div>
-            <div class="fw-bold text-dark mb-1">${escapeHtml(q.question_text)}</div>
-            ${optionsHtml}
-            ${q.explanation ? `<div class="mt-2 small text-muted fst-italic"><i class="bi bi-info-circle me-1"></i>Explanation: ${escapeHtml(q.explanation)}</div>` : ''}
-        `;
-        container.appendChild(qCard);
-    });
-}
-
-document.getElementById('btnSaveQuiz').addEventListener('click', async () => {
-    if (generatedQuizQuestions.length === 0) return;
-
-    const title = document.getElementById('quizTitle').value.trim();
-    const subject = document.getElementById('quizSubject').value;
-    const grade_level = document.getElementById('quizGrade').value;
-    const time_limit = document.getElementById('quizTimeLimit').value;
-    const passing_score = document.getElementById('quizPassingScore').value;
-
-    const selectedClassCheckboxes = document.querySelectorAll('.quiz-cls-cb:checked');
-    const class_ids = Array.from(selectedClassCheckboxes).map(cb => cb.value);
-
-    const btn = document.getElementById('btnSaveQuiz');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Publishing...';
-
-    try {
-        const res = await fetch('/api/ai/quiz/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title,
-                subject,
-                grade_level,
-                time_limit,
-                passing_score,
-                questions: generatedQuizQuestions,
-                class_ids
-            })
-        });
-
-        const data = await res.json();
-        if (data.success) {
-            alert('Quiz successfully published and assigned to your classes!');
-            window.location.href = '/teacher/classes';
-        } else {
-            alert(data.error || 'Failed to publish quiz.');
-            btn.disabled = false;
-        }
-    } catch (err) {
-        console.error('Quiz save error:', err);
-        alert('Error saving quiz.');
-        btn.disabled = false;
-    }
-});
-</script>
+<script src="/js/quiz-maker-teacher.js"></script>

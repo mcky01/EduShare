@@ -58,6 +58,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/student/classes/join" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <div class="modal-body">
                     <p class="small text-muted mb-3">Enter the 6-character class code provided by your teacher (e.g. <strong>ENG7RZ</strong>):</p>
                     <div class="mb-3">

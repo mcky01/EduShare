@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const { query, withTransaction } = require('../config/database');
 const { setFlash, clearBrandingCache } = require('../middleware/branding');
 const aiService = require('../services/aiService');
@@ -99,6 +100,25 @@ async function users(req, res) {
     }
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TEACHER_EMAIL_DOMAIN = '@zahs.edu.ph';
+const GENERIC_DUP_ERROR = 'Account details already in use.';
+const PASSWORD_RULE_MESSAGE = 'Password must be at least 10 characters with upper/lowercase letters and a number.';
+
+function validPassword(raw) {
+    const pw = String(raw || '');
+    return pw.length >= 10 && /[a-z]/.test(pw) && /[A-Z]/.test(pw) && /\d/.test(pw);
+}
+
+function validName(raw) {
+    return typeof raw === 'string' && raw.trim().length >= 1 && raw.trim().length <= 100;
+}
+
+function validEmail(raw) {
+    const email = String(raw || '').trim();
+    return email.length <= 150 && EMAIL_RE.test(email);
+}
+
 async function createUser(req, res) {
     try {
         const { role, first_name, last_name, email, password, employee_id, department, specialization, is_adviser, advisory_grade, advisory_section, student_id, grade_level, section, gender } = req.body;
@@ -108,10 +128,57 @@ async function createUser(req, res) {
             return res.redirect('/admin/users');
         }
 
-        const existing = await query('SELECT id FROM users WHERE email = ?', [email.trim()]);
-        if (existing.length > 0) {
-            setFlash(req, 'error', 'An account with this email already exists.');
+        if (!['teacher', 'student'].includes(role)) {
+            setFlash(req, 'error', 'Invalid role.');
             return res.redirect('/admin/users');
+        }
+
+        const cleanFirst = String(first_name).trim();
+        const cleanLast = String(last_name).trim();
+        const cleanEmail = String(email).trim().toLowerCase();
+
+        if (!validName(cleanFirst) || !validName(cleanLast)) {
+            setFlash(req, 'error', 'First and last name must be 1-100 characters.');
+            return res.redirect('/admin/users');
+        }
+
+        if (!validEmail(cleanEmail)) {
+            setFlash(req, 'error', 'Enter a valid email address.');
+            return res.redirect('/admin/users');
+        }
+
+        if (role === 'teacher' && !cleanEmail.endsWith(TEACHER_EMAIL_DOMAIN)) {
+            setFlash(req, 'error', `Teacher email must end with ${TEACHER_EMAIL_DOMAIN}.`);
+            return res.redirect('/admin/users');
+        }
+
+        if (!validPassword(password)) {
+            setFlash(req, 'error', PASSWORD_RULE_MESSAGE);
+            return res.redirect('/admin/users');
+        }
+
+        const existing = await query('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [cleanEmail]);
+        if (existing.length > 0) {
+            setFlash(req, 'error', GENERIC_DUP_ERROR);
+            return res.redirect('/admin/users');
+        }
+
+        const cleanEmployeeId = employee_id ? String(employee_id).trim() : '';
+        if (role === 'teacher' && cleanEmployeeId) {
+            const empDup = await query('SELECT id FROM teachers WHERE employee_id = ? LIMIT 1', [cleanEmployeeId]);
+            if (empDup.length > 0) {
+                setFlash(req, 'error', GENERIC_DUP_ERROR);
+                return res.redirect('/admin/users');
+            }
+        }
+
+        const cleanStudentId = student_id ? String(student_id).trim() : '';
+        if (role === 'student' && cleanStudentId) {
+            const lrnDup = await query('SELECT id FROM students WHERE student_id = ? LIMIT 1', [cleanStudentId]);
+            if (lrnDup.length > 0) {
+                setFlash(req, 'error', GENERIC_DUP_ERROR);
+                return res.redirect('/admin/users');
+            }
         }
 
         const hash = await bcrypt.hash(password, 10);
@@ -120,7 +187,7 @@ async function createUser(req, res) {
             const [userRes] = await conn.query(
                 `INSERT INTO users (first_name, last_name, email, password_hash, role, is_active, force_password_change)
                  VALUES (?, ?, ?, ?, ?, 1, 1)`,
-                [first_name.trim(), last_name.trim(), email.trim(), hash, role]
+                [cleanFirst, cleanLast, cleanEmail, hash, role]
             );
             const newUserId = userRes.insertId;
 
@@ -130,7 +197,7 @@ async function createUser(req, res) {
                      VALUES (?, ?, ?, ?, ?, ?, ?)`,
                     [
                         newUserId,
-                        employee_id ? employee_id.trim() : `EMP-${Date.now().toString().slice(-4)}`,
+                        cleanEmployeeId || `EMP-${Date.now().toString().slice(-4)}`,
                         department || 'Junior High School',
                         specialization || 'General',
                         is_adviser === '1' ? 1 : 0,
@@ -144,7 +211,7 @@ async function createUser(req, res) {
                      VALUES (?, ?, ?, ?, ?)`,
                     [
                         newUserId,
-                        student_id ? student_id.trim() : Date.now().toString(),
+                        cleanStudentId || Date.now().toString(),
                         grade_level || 'Grade 7',
                         section || 'Rizal',
                         gender || 'Male'
@@ -156,15 +223,19 @@ async function createUser(req, res) {
             await conn.query(
                 `INSERT INTO activity_logs (user_id, action, description, category)
                  VALUES (?, 'Create User', ?, 'admin')`,
-                [req.session.user.id, `Created ${role} account for ${first_name} ${last_name} (${email})`]
+                [req.session.user.id, `Created ${role} account for ${cleanFirst} ${cleanLast} (${cleanEmail})`]
             );
         });
 
-        setFlash(req, 'success', `Successfully created ${role} account for ${first_name} ${last_name}!`);
+        setFlash(req, 'success', `Successfully created ${role} account for ${cleanFirst} ${cleanLast}!`);
         res.redirect(`/admin/users?role=${role}`);
     } catch (err) {
         console.error('Create user error:', err);
-        setFlash(req, 'error', 'Failed to create user: ' + err.message);
+        if (err && (err.code === 'ER_DUP_ENTRY' || err.errno === 1062)) {
+            setFlash(req, 'error', GENERIC_DUP_ERROR);
+        } else {
+            setFlash(req, 'error', 'Failed to create user.');
+        }
         res.redirect('/admin/users');
     }
 }
@@ -177,14 +248,14 @@ async function toggleUserStatus(req, res) {
             return res.redirect('/admin/users');
         }
 
-        const rows = await query('SELECT is_active, first_name, last_name FROM users WHERE id = ?', [targetId]);
+        const rows = await query('SELECT is_active, status, first_name, last_name FROM users WHERE id = ?', [targetId]);
         if (rows.length === 0) {
             setFlash(req, 'error', 'User not found.');
             return res.redirect('/admin/users');
         }
 
         const newStatus = rows[0].is_active ? 0 : 1;
-        await query('UPDATE users SET is_active = ? WHERE id = ?', [newStatus, targetId]);
+        await query("UPDATE users SET is_active = ?, status = IF(? = 1, 'active', status) WHERE id = ?", [newStatus, newStatus, targetId]);
 
         await query(
             `INSERT INTO activity_logs (user_id, action, description, category)
@@ -264,7 +335,18 @@ async function rejectUser(req, res) {
 async function resetPassword(req, res) {
     try {
         const targetId = parseInt(req.params.id, 10);
-        const tempPassword = 'ChangeMe123!';
+        if (targetId === req.session.user.id) {
+            setFlash(req, 'error', 'You cannot reset your own password from here.');
+            return res.redirect('/admin/users');
+        }
+
+        const rows = await query('SELECT id, role FROM users WHERE id = ? LIMIT 1', [targetId]);
+        if (rows.length === 0) {
+            setFlash(req, 'error', 'User not found.');
+            return res.redirect('/admin/users');
+        }
+
+        const tempPassword = crypto.randomBytes(16).toString('base64url');
         const hash = await bcrypt.hash(tempPassword, 10);
 
         await query(
@@ -272,13 +354,23 @@ async function resetPassword(req, res) {
             [hash, targetId]
         );
 
+        // Phase 7 limitation note: other active sessions for the target user are NOT
+        // destroyed here. A LIKE-based DELETE on sessions.data is fragile (JSON shape,
+        // escaping, false positives) and the store has no userId index. Instead,
+        // force_password_change=1 forces a redirect to /auth/change-password on the
+        // target's next request via the isAuthenticated gate (src/middleware/auth.js),
+        // so a compromised password cannot be used to keep working normally.
         await query(
             `INSERT INTO activity_logs (user_id, action, description, category)
              VALUES (?, 'Password Reset', ?, 'security')`,
-            [req.session.user.id, `Reset password for user ID ${targetId} to default temporary password`]
+            [req.session.user.id, `Reset password for user ID ${targetId}`]
         );
 
-        setFlash(req, 'success', `Password successfully reset to temporary password: ${tempPassword}`);
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(`[EduShare 2.0] Password reset hash saved for user ID ${targetId}.`);
+        }
+
+        setFlash(req, 'success', 'Temporary password generated. Share it securely with the user.');
         res.redirect('back');
     } catch (err) {
         console.error('Reset password error:', err);
@@ -319,7 +411,7 @@ async function updateSettings(req, res) {
         ];
 
         if (req.file) {
-            updates.push(['school_logo', `/uploads/${req.file.filename}`]);
+            updates.push(['school_logo', `/files/logos/${req.file.filename}`]);
         }
 
         for (const [k, v] of updates) {

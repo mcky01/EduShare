@@ -1,0 +1,130 @@
+[
+{
+"competency_code": "EN7LIT-I-1",
+"quarter": "Q1",
+"content": "Quarter 1. Text Focus: Poetry. Evaluate Philippine literary texts as expressions of values within structural, biographical, historical, and sociocultural contexts. Analyze maxims and philosophies. Identify purpose, compose, revise, and publish an original multimodal poem reflecting local and national identity. Pacing: Delivered over the quarter, integrating evaluation and publishing skills concurrently.",
+"source_ref": "BOW CG p.144-145 Quarter 1",
+"subject": "English",
+"grade_level": "Grade 7"
+},
+{
+"competency_code": "EN7LIT-II-1",
+"quarter": "Q2",
+"content": "Quarter 2. Text Focus: Prose (Short Story). Evaluate Philippine prose for clarity of meaning and purpose within structural, biographical, historical, and sociocultural contexts. Analyze universal truths. Compose, revise, and publish an original multimodal short story reflecting local and national identity. Pacing: Delivered over the quarter, using exemplars to guide learners from text analysis to original prose production.",
+"source_ref": "BOW CG p.146-147 Quarter 2",
+"subject": "English",
+"grade_level": "Grade 7"
+},
+{
+"competency_code": "EN7INF-III-1",
+"quarter": "Q3",
+"content": "Quarter 3. Text Focus: Expository Text, News, Press Releases, Features. Evaluate informational texts for clarity, examining text structures, linguistic features, and visual elements. Extract information, distinguish facts from opinions, analyze propaganda, and synthesize data. Compose and publish multimodal journalistic/expository texts. Pacing: Taught throughout the quarter, blending evaluation of media with multimodal publishing.",
+"source_ref": "BOW CG p.148-150 Quarter 3",
+"subject": "English",
+"grade_level": "Grade 7"
+},
+{
+"competency_code": "EN7INF-IV-1",
+"quarter": "Q4",
+"content": "Quarter 4. Text Focus: Expository Essay, Letter of Request. Evaluate academic and transactional texts. Examine text structures, linguistic features, discipline-specific words, and sender's voice. Analyze evidence, evaluate claims, and synthesize information. Compose, revise, and publish expository essays and formal letters of request. Pacing: Quarter-long delivery integrating academic writing and formal correspondence.",
+"source_ref": "BOW CG p.151-153 Quarter 4",
+"subject": "English",
+"grade_level": "Grade 7"
+},
+{
+"competency_code": "EN8LIT-I-1",
+"quarter": "Q1",
+"content": "Quarter 1. Text Focus: Poetry and Prose. Evaluate Afro-Asian literary texts within structural, biographical, historical, sociocultural, and linguistic contexts. Analyze maxims and philosophies. Identify purpose, compose, revise, and publish an original poem or prose reflecting expanding cultural identity. Pacing: Delivered over the quarter, integrating evaluation and publishing skills concurrently.",
+"source_ref": "BOW CG p.154-155 Quarter 1",
+"subject": "English",
+"grade_level": "Grade 8"
+},
+{
+"competency_code": "EN8INF-II-1",
+"quarter": "Q2",
+"content": "Quarter 2. Text Focus: Persuasive Text. Evaluate informational texts for clarity, examining structures, linguistic features, and visual elements. Analyze supporting evidence, distinguish facts from opinions, evaluate claims, and analyze persuasive techniques (ethos, pathos, logos). Compose and publish multimodal persuasive texts. Pacing: Taught throughout the quarter, blending critical analysis with persuasive writing.",
+"source_ref": "BOW CG p.156-158 Quarter 2",
+"subject": "English",
+"grade_level": "Grade 8"
+},
+{
+"competency_code": "EN8INF-III-1",
+"quarter": "Q3",
+"content": "Quarter 3. Text Focus: Opinion Editorials, Sports, Science & Tech Articles. Evaluate journalistic texts, examining structures and visual elements like photographs and cartoons. Extract information, determine veracity, assess journalistic quality, and synthesize data. Compose and publish multimodal opinion, sports, or science articles. Pacing: Quarter-long delivery focusing on media literacy and journalistic publishing.",
+"source_ref": "BOW CG p.159-161 Quarter 3",
+"subject": "English",
+"grade_level": "Grade 8"
+},
+{
+"competency_code": "EN8INF-IV-1",
+"quarter": "Q4",
+"content": "Quarter 4. Text Focus: Expository Essay, Letter of Inquiry. Evaluate academic and transactional texts. Examine text structures, discipline-specific words, and sender's voice. Analyze evidence, evaluate claims, and synthesize information. Compose, revise, and publish expository essays and formal letters of inquiry. Pacing: Delivered over the quarter, integrating academic writing and formal correspondence.",
+"source_ref": "BOW CG p.162-164 Quarter 4",
+"subject": "English",
+"grade_level": "Grade 8"
+},
+{
+"competency_code": "EN9LIT-I-1",
+"quarter": "Q1",
+"content": "Quarter 1. Text Focus: Poetry, Prose, Drama. Evaluate Anglo-American literary texts within structural, biographical, historical, sociocultural, linguistic, and psychological contexts. Analyze maxims and philosophies. Compose, revise, and publish an original script for a one-act play reflecting expanding cultural identity. Pacing: Delivered over the quarter, moving from deep literary analysis to dramatic scriptwriting.",
+"source_ref": "BOW CG p.165-166 Quarter 1",
+"subject": "English",
+"grade_level": "Grade 9"
+},
+{
+"competency_code": "EN9INF-II-1",
+"quarter": "Q2",
+"content": "Quarter 2. Text Focus: Argumentative Text. Evaluate non-journalistic informational texts. Examine structures, linguistic features, and visual elements. Analyze evidence, distinguish facts from claims, evaluate arguments, and analyze persuasive techniques. Compose and publish multimodal argumentative texts. Pacing: Taught throughout the quarter, emphasizing logical reasoning and evidence-based writing.",
+"source_ref": "BOW CG p.167-169 Quarter 2",
+"subject": "English",
+"grade_level": "Grade 9"
+},
+{
+"competency_code": "EN9INF-III-1",
+"quarter": "Q3",
+"content": "Quarter 3. Text Focus: Argumentative Text, Letter of Complaint. Evaluate argumentative texts and transactional correspondences. Analyze persuasive techniques, evaluate claims, and examine sender's voice and etiquette. Compose, revise, and publish argumentative texts and formal letters of complaint. Pacing: Quarter-long delivery blending advanced argumentation with formal transactional writing.",
+"source_ref": "BOW CG p.170-172 Quarter 3",
+"subject": "English",
+"grade_level": "Grade 9"
+},
+{
+"competency_code": "EN9INF-IV-1",
+"quarter": "Q4",
+"content": "Quarter 4. Text Focus: Literature Review. Evaluate academic texts. Examine text structures, linguistic features, and discipline-specific words. Extract information, analyze textual evidence, draw inferences, and synthesize significant information. Compose, revise, and publish a multimodal literature review. Pacing: Delivered over the quarter, focusing on academic research synthesis and formal publishing.",
+"source_ref": "BOW CG p.173-174 Quarter 4",
+"subject": "English",
+"grade_level": "Grade 9"
+},
+{
+"competency_code": "EN10LIT-I-1",
+"quarter": "Q1",
+"content": "Quarter 1. Text Focus: Poetry, Prose, Drama (including Film). Evaluate World literature within structural, biographical, historical, sociocultural, linguistic, and psychological contexts. Analyze maxims and philosophies. Compose, revise, and publish an original short film reflecting global cultural identity. Pacing: Delivered over the quarter, transitioning from global literary analysis to multimedia film production.",
+"source_ref": "BOW CG p.175-176 Quarter 1",
+"subject": "English",
+"grade_level": "Grade 10"
+},
+{
+"competency_code": "EN10INF-II-1",
+"quarter": "Q2",
+"content": "Quarter 2. Text Focus: Documentaries and Vlogs. Evaluate journalistic multimedia texts. Examine structures, linguistic features, and visual elements. Extract information, determine veracity, assess journalistic quality, and synthesize data. Compose and publish multimodal documentaries or vlogs. Pacing: Taught throughout the quarter, focusing on digital media literacy and multimedia publishing.",
+"source_ref": "BOW CG p.177-179 Quarter 2",
+"subject": "English",
+"grade_level": "Grade 10"
+},
+{
+"competency_code": "EN10INF-III-1",
+"quarter": "Q3",
+"content": "Quarter 3. Text Focus: Research Report, Letter of Application. Evaluate academic research reports and transactional texts. Examine structures, discipline-specific words, and sender's voice. Analyze evidence, draw inferences, and synthesize information. Compose, revise, and publish research reports and letters of application. Pacing: Quarter-long delivery integrating formal academic research and professional correspondence.",
+"source_ref": "BOW CG p.180-182 Quarter 3",
+"subject": "English",
+"grade_level": "Grade 10"
+},
+{
+"competency_code": "EN10INF-IV-1",
+"quarter": "Q4",
+"content": "Quarter 4. Text Focus: Research Report (Stage 2). Evaluate and produce advanced academic texts. Examine structures, linguistic features, and discipline-specific words. Extract information, analyze evidence, draw inferences, and synthesize data. Compose, revise, edit, and publish a comprehensive multimodal research report. Pacing: Delivered over the quarter, culminating the academic writing progression.",
+"source_ref": "BOW CG p.183-184 Quarter 4",
+"subject": "English",
+"grade_level": "Grade 10"
+}
+]

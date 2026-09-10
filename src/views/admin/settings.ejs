@@ -12,6 +12,7 @@
             </h5>
 
             <form action="/admin/settings" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <div class="row g-3">
                     <div class="col-md-8">
                         <label class="form-label small fw-bold">Official School Name</label>
@@ -40,7 +41,7 @@
                     </div>
                     <div class="col-12">
                         <label class="form-label small fw-bold">Replace Official School Logo Crest</label>
-                        <input type="file" name="school_logo" id="logoUpload" class="glass-input" accept="image/*" onchange="previewLogo(this)">
+                        <input type="file" name="school_logo" id="logoUpload" class="glass-input" accept="image/jpeg,image/png,image/gif,image/webp" onchange="previewLogo(this)">
                         <div class="form-text small">Recommended: Transparent PNG (min 200x200).</div>
                     </div>
                 </div>

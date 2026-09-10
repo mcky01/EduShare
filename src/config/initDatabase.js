@@ -42,7 +42,8 @@ async function initDatabase() {
                     const ignorable = [
                         'ER_TABLE_EXISTS_ERROR',
                         'ER_DUP_KEYNAME',
-                        'ER_MULTIPLE_PRI_KEY'
+                        'ER_MULTIPLE_PRI_KEY',
+                        'ER_DUP_FIELDNAME'
                     ];
                     if (!ignorable.includes(err.code)) {
                         console.warn('⚠️ Schema warning:', err.message);
@@ -50,6 +51,37 @@ async function initDatabase() {
                 }
             }
             console.log('✅ [EduShare 2.0] Database schema applied successfully.');
+        }
+
+        // 2b. Idempotent column upgrades (MySQL-safe; ALTER ... IF NOT EXISTS is MariaDB-only)
+        const [statusCols] = await conn.query(
+            `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'status'`,
+            [env.DB_NAME]
+        );
+        if (statusCols[0].cnt === 0) {
+            await conn.query(
+                `ALTER TABLE \`users\` ADD COLUMN \`status\` ENUM('pending','active','rejected') NOT NULL DEFAULT 'active' AFTER \`is_active\``
+            );
+            console.log('✅ [EduShare 2.0] users.status column added.');
+        }
+
+        // 2c. RAG upgrades: term columns + document_chunks (existing DBs predate Phase 1)
+        const ragUpgrades = [
+            ['curriculum_documents', 'term', `ADD COLUMN \`term\` ENUM('T1','T2','T3') DEFAULT NULL`],
+            ['competencies', 'term', `ADD COLUMN \`term\` ENUM('T1','T2','T3') DEFAULT NULL`],
+            ['library_items', 'lesson_content', `ADD COLUMN \`lesson_content\` MEDIUMTEXT DEFAULT NULL`]
+        ];
+        for (const [tbl, col, ddl] of ragUpgrades) {
+            const [cols] = await conn.query(
+                `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+                [env.DB_NAME, tbl, col]
+            );
+            if (cols[0].cnt === 0) {
+                await conn.query(`ALTER TABLE \`${tbl}\` ${ddl}`);
+                console.log(`✅ [EduShare 2.0] ${tbl}.${col} column added.`);
+            }
         }
 
         // 3. Seed Default System Settings
@@ -86,7 +118,7 @@ async function initDatabase() {
                 [adminHash]
             );
             adminId = adminResult.insertId;
-            console.log('👑 [EduShare 2.0] Default Administrator created: admin@edushare.com / Admin123!');
+            console.log('👑 [EduShare 2.0] Default Administrator account ensured.');
         } else {
             adminId = adminRows[0].id;
         }
@@ -107,7 +139,7 @@ async function initDatabase() {
                  VALUES (?, 'EMP-2024-001', 'Junior High School', 'English & Literature', 1, 'Grade 7', 'Rizal')`,
                 [teacherUserId]
             );
-            console.log('👩‍🏫 [EduShare 2.0] Default Teacher created: maria.reyes@zahs.edu.ph / Teacher123!');
+            console.log('👩‍🏫 [EduShare 2.0] Default Teacher account ensured.');
         } else {
             teacherUserId = teacherRows[0].id;
         }
@@ -152,7 +184,7 @@ async function initDatabase() {
                     [sUserId, s.lrn, s.grade, s.section, s.gender]
                 );
                 studentProfileIds.push(spRes.insertId);
-                console.log(`🎒 [EduShare 2.0] Default Student created: ${s.email} / Student123! (LRN: ${s.lrn})`);
+                console.log(`🎒 [EduShare 2.0] Default Student account ensured: ${s.email}`);
             } else {
                 sUserId = sRows[0].id;
                 const [sp] = await conn.query('SELECT id FROM students WHERE user_id = ?', [sUserId]);
@@ -318,11 +350,12 @@ async function initDatabase() {
         ];
 
         for (const [code, desc, subj, gr, qtr] of compSeeds) {
+            const term = qtr === 'Q3' ? 'T2' : qtr === 'Q4' ? 'T3' : 'T1';
             await conn.query(
-                `INSERT INTO competencies (code, description, subject, grade_level, quarter, source_version)
-                 VALUES (?, ?, ?, ?, ?, 'DepEd MATATAG 2024')
-                 ON DUPLICATE KEY UPDATE description = VALUES(description)`,
-                [code, desc, subj, gr, qtr]
+                `INSERT INTO competencies (code, description, subject, grade_level, quarter, term, source_version)
+                 VALUES (?, ?, ?, ?, ?, ?, 'DepEd MATATAG 2024')
+                 ON DUPLICATE KEY UPDATE description = VALUES(description), term = VALUES(term)`,
+                [code, desc, subj, gr, qtr, term]
             );
         }
         console.log('📚 [EduShare 2.0] DepEd Competencies seeded.');

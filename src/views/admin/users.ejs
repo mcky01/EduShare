@@ -165,11 +165,13 @@
                         <td>
                             <div class="d-flex gap-1">
                                 <form action="/admin/users/<%= u.id %>/toggle-status" method="POST" class="d-inline">
+                                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                                     <button type="submit" class="btn btn-sm <%= u.is_active ? 'btn-glass' : 'btn-liquid-primary' %>" title="<%= u.is_active ? 'Deactivate Account' : 'Activate Account' %>" aria-label="<%= u.is_active ? 'Deactivate' : 'Activate' %> <%= u.first_name %> <%= u.last_name %>">
                                         <i class="bi <%= u.is_active ? 'bi-slash-circle' : 'bi-check-circle' %>"></i>
                                     </button>
                                 </form>
                                 <form action="/admin/users/<%= u.id %>/reset-password" method="POST" class="d-inline" onsubmit="return confirm('Reset this user password to default (ChangeMe123!)?')">
+                                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                                     <button type="submit" class="btn btn-sm btn-glass" title="Reset Password" aria-label="Reset password for <%= u.first_name %> <%= u.last_name %>">
                                         <i class="bi bi-key"></i>
                                     </button>
@@ -192,6 +194,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/admin/users" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <input type="hidden" name="role" value="teacher">
                 <div class="modal-body">
                     <div class="row g-3">
@@ -267,6 +270,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/admin/users" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <input type="hidden" name="role" value="student">
                 <div class="modal-body">
                     <div class="row g-3">

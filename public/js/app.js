@@ -54,17 +54,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await res.json();
 
                     if (!data.results || data.results.length === 0) {
-                        searchResults.innerHTML = `<div class="text-center text-muted p-4"><i class="bi bi-emoji-neutral fs-3 d-block mb-2"></i>No matches found for "${query}".</div>`;
+                        searchResults.innerHTML = `<div class="text-center text-muted p-4"><i class="bi bi-emoji-neutral fs-3 d-block mb-2"></i>No matches found for "${escapeHtml(query)}".</div>`;
                         return;
                     }
 
                     searchResults.innerHTML = data.results.map(item => `
-                        <a href="${item.url}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 border-0 mb-2 rounded-3" style="background: rgba(255,255,255,0.7); backdrop-filter: blur(8px);">
+                        <a href="${sanitizeSearchUrl(item.url)}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 border-0 mb-2 rounded-3" style="background: rgba(255,255,255,0.7); backdrop-filter: blur(8px);">
                             <div>
                                 <div class="fw-bold text-dark">${escapeHtml(item.title)}</div>
                                 <div class="small text-muted">${escapeHtml(item.subtitle)}</div>
                             </div>
-                            <span class="${item.badge}">${item.type}</span>
+                            <span class="${sanitizeSearchBadge(item.badge)}">${escapeHtml(item.type)}</span>
                         </a>
                     `).join('');
                 } catch (err) {
@@ -88,7 +88,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\//g, '&#x2F;').replace(/=/g, '&#x3D;').replace(/`/g, '&#x60;');
+}
+
+function sanitizeSearchUrl(url) {
+    if (typeof url !== 'string' || !url.startsWith('/')) return '#';
+    const segment = url.split('/')[1] || '';
+    const allowed = ['files', 'teacher', 'student', 'admin', 'api', 'auth'];
+    return allowed.includes(segment) ? url : '#';
+}
+
+function sanitizeSearchBadge(badge) {
+    const allowed = ['badge-emerald', 'badge-amber', 'badge-gray', 'badge-jade'];
+    return allowed.includes(badge) ? badge : 'badge-gray';
 }
 
 function togglePasswordVisibility(inputId, btn) {

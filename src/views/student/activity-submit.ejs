@@ -59,9 +59,10 @@
                 <% } %>
 
                 <form action="/student/activities/<%= activity.id %>/classes/<%= cls.id %>/submit" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Upload Your File (Document, PDF, Image, ZIP)</label>
-                        <input type="file" name="submission_file" class="glass-input" <%= submission ? '' : 'required' %>>
+                        <label class="form-label small fw-bold">Upload Your File (PDF, DOCX, PPTX, XLSX, TXT, Image)</label>
+                        <input type="file" name="submission_file" class="glass-input" accept=".pdf,.docx,.pptx,.xlsx,.txt,.jpg,.jpeg,.png" <%= submission ? '' : 'required' %>>
                         <% if (submission && submission.file_path) { %>
                             <div class="small text-muted mt-1">
                                 Current file: <a href="<%= submission.file_path %>" target="_blank" class="text-success fw-bold">View Submitted File</a>

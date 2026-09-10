@@ -9,7 +9,8 @@
     </div>
 
     <% if (selectedClass) { %>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 align-items-center">
+            <span class="small fw-bold grade-save-indicator" id="gradeSaveIndicator" role="status" aria-live="polite"><span class="badge-emerald" id="gradeSaveBadge">Saved</span></span>
             <a href="/teacher/gradebook/<%= selectedClass.id %>/export" class="btn btn-glass text-success fw-semibold">
                 <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export to CSV
             </a>
@@ -17,9 +18,25 @@
     <% } %>
 </div>
 
+<style>
+.gradebook-sticky-col { position: sticky; left: 0; z-index: 5; background: rgba(255,255,255,0.95); box-shadow: 2px 0 4px rgba(0,0,0,0.06); }
+thead .gradebook-sticky-col { z-index: 6; }
+.grade-score-cell.dirty { background: #fef3c7 !important; }
+.grade-score-cell.saving { background: #fde68a !important; }
+.grade-score-cell.saved { background: #d1fae5 !important; }
+.grade-score-cell.error { background: #fee2e2 !important; }
+</style>
+
 <!-- Class Selector -->
 <div class="glass-card p-3 mb-4 d-flex align-items-center gap-3 flex-wrap">
     <span class="fw-bold small text-dark"><i class="bi bi-funnel me-1"></i>Select Class Section:</span>
+    <% if (classes.length > 6) { %>
+        <select id="gradebookClassSelect" class="glass-input py-1 small" style="max-width: 280px;" aria-label="Select class section">
+            <% classes.forEach(c => { %>
+                <option value="<%= c.id %>" <%= selectedClass && selectedClass.id === c.id ? 'selected' : '' %>><%= c.class_name %> (<%= c.section %>)</option>
+            <% }) %>
+        </select>
+    <% } else { %>
     <div class="d-flex gap-2 flex-wrap">
         <% classes.forEach(c => { %>
             <a href="/teacher/gradebook?classId=<%= c.id %>" class="btn btn-sm <%= selectedClass && selectedClass.id === c.id ? 'btn-liquid-primary' : 'btn-glass' %>">
@@ -27,6 +44,7 @@
             </a>
         <% }) %>
     </div>
+    <% } %>
 </div>
 
 <% if (!gradebookData || gradebookData.studentGrades.length === 0) { %>
@@ -43,7 +61,7 @@
                 <thead>
                     <!-- Header Row 1: Major Categories -->
                     <tr>
-                        <th rowspan="2" class="text-start" style="min-width: 180px;">Student Name</th>
+                        <th rowspan="2" class="text-start gradebook-sticky-col" style="min-width: 180px;">Student Name</th>
                         <th rowspan="2" style="min-width: 110px;">LRN</th>
                         <th rowspan="2" style="min-width: 60px;">Gender</th>
 
@@ -75,7 +93,7 @@
                 <tbody>
                     <% gradebookData.studentGrades.forEach(sg => { %>
                         <tr>
-                            <td class="text-start fw-bold text-dark">
+                            <td class="text-start fw-bold text-dark gradebook-sticky-col">
                                 <%= sg.student.last_name %>, <%= sg.student.first_name %>
                             </td>
                             <td class="font-monospace small text-muted"><%= sg.student.lrn %></td>

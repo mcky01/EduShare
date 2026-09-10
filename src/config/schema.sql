@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `password_hash` VARCHAR(255) NOT NULL,
   `role` ENUM('admin', 'teacher', 'student') NOT NULL DEFAULT 'student',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `status` ENUM('pending','active','rejected') NOT NULL DEFAULT 'active',
   `force_password_change` TINYINT(1) NOT NULL DEFAULT 0,
   `avatar_url` VARCHAR(255) DEFAULT NULL,
   `last_login` DATETIME DEFAULT NULL,
@@ -89,6 +90,7 @@ CREATE TABLE IF NOT EXISTS `library_items` (
   `subject` VARCHAR(100) DEFAULT NULL,
   `grade_level` VARCHAR(20) DEFAULT NULL,
   `source` VARCHAR(50) NOT NULL DEFAULT 'upload',
+  `lesson_content` MEDIUMTEXT DEFAULT NULL,
   `in_library` TINYINT(1) NOT NULL DEFAULT 1,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`teacher_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
@@ -368,10 +370,32 @@ CREATE TABLE IF NOT EXISTS `curriculum_documents` (
   `subject` VARCHAR(100) NOT NULL,
   `grade_level` VARCHAR(20) NOT NULL,
   `quarter` ENUM('Q1', 'Q2', 'Q3', 'Q4') DEFAULT NULL,
+  `term` ENUM('T1', 'T2', 'T3') DEFAULT NULL,
   `file_path` VARCHAR(255) DEFAULT NULL,
   `pages` INT DEFAULT 1,
   `status` ENUM('indexed', 'pending', 'error') DEFAULT 'indexed',
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_curriculum_term` (`term`),
+  INDEX `idx_curriculum_subject_grade` (`subject`, `grade_level`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `document_chunks` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `document_id` INT NOT NULL,
+  `chunk_index` INT NOT NULL DEFAULT 0,
+  `content` MEDIUMTEXT NOT NULL,
+  `content_hash` CHAR(64) NOT NULL,
+  `competency_code` VARCHAR(50) DEFAULT NULL,
+  `quarter` ENUM('Q1', 'Q2', 'Q3', 'Q4') DEFAULT NULL,
+  `term` ENUM('T1', 'T2', 'T3') DEFAULT NULL,
+  `page_ref` VARCHAR(50) DEFAULT NULL,
+  `embedding` MEDIUMTEXT DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_doc_chunk` (`document_id`, `chunk_index`),
+  INDEX `idx_chunks_term` (`term`),
+  INDEX `idx_chunks_competency` (`competency_code`),
+  FULLTEXT KEY `ft_chunks_content` (`content`),
+  FOREIGN KEY (`document_id`) REFERENCES `curriculum_documents` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `competencies` (
@@ -381,13 +405,15 @@ CREATE TABLE IF NOT EXISTS `competencies` (
   `subject` VARCHAR(100) NOT NULL,
   `grade_level` VARCHAR(20) NOT NULL,
   `quarter` VARCHAR(10) DEFAULT 'Q1',
+  `term` ENUM('T1', 'T2', 'T3') DEFAULT NULL,
   `source_version` VARCHAR(100) DEFAULT 'DepEd MATATAG 2024',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY `unique_comp_code` (`code`)
+  UNIQUE KEY `unique_comp_code` (`code`),
+  INDEX `idx_competencies_term` (`term`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Self-registration: account lifecycle status (existing rows stay active)
-ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `status` ENUM('pending','active','rejected') NOT NULL DEFAULT 'active' AFTER `is_active`;
+-- MySQL-safe idempotent guard (information_schema check; ALTER ... IF NOT EXISTS is MariaDB-only)
 
 CREATE TABLE IF NOT EXISTS `otp_verifications` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,

@@ -7,7 +7,16 @@ const env = {
     PORT: parseInt(process.env.PORT, 10) || 3000,
     NODE_ENV: process.env.NODE_ENV || 'development',
     IS_DEV: (process.env.NODE_ENV || 'development') === 'development',
-    SESSION_SECRET: process.env.SESSION_SECRET || 'edushare2_super_secure_session_secret_zeferino_arroyo_2026',
+    SESSION_SECRET: (() => {
+        if (!process.env.SESSION_SECRET && process.env.NODE_ENV === 'production') {
+            throw new Error('SESSION_SECRET missing. Set SESSION_SECRET env var in production.');
+        }
+        if (!process.env.SESSION_SECRET) {
+            console.warn('[EduShare 2.0] SESSION_SECRET not set. Using dev-only fallback. Do not use in production.');
+            return 'dev-only-session-secret-change-me';
+        }
+        return process.env.SESSION_SECRET;
+    })(),
 
     // Database
     DB_HOST: process.env.DB_HOST || '127.0.0.1',
@@ -20,6 +29,12 @@ const env = {
     OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
     OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'qwen2.5:7b',
     AI_TIMEOUT_MS: parseInt(process.env.AI_TIMEOUT_MS, 10) || 120000,
+
+    // RAG (zero-cost local: Ollama embeddings + MySQL FULLTEXT + Node cosine rerank)
+    OLLAMA_EMBED_MODEL: process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text',
+    RAG_TOPK: parseInt(process.env.RAG_TOPK, 10) || 6,
+    RAG_PREFILTER_LIMIT: parseInt(process.env.RAG_PREFILTER_LIMIT, 10) || 50,
+    RAG_MIN_SCORE: (() => { const v = parseFloat(process.env.RAG_MIN_SCORE); return Number.isNaN(v) ? 0.35 : v; })(),
 
     // School Info
     SCHOOL_NAME: process.env.SCHOOL_NAME || 'Zeferino Arroyo High School',

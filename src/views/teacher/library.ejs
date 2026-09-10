@@ -13,8 +13,21 @@
     </div>
 </div>
 
+<!-- Filter Bar -->
+<% const _subjects = [...new Set((items || []).map(i => (i.subject || 'General')))]; %>
+<div class="glass-card p-3 mb-3 d-flex align-items-center gap-2 flex-wrap">
+    <input type="search" id="librarySearch" class="glass-input py-1 small" style="max-width: 260px;" placeholder="Filter by title or description..." aria-label="Filter library by text">
+    <select id="librarySubject" class="glass-input py-1 small" style="max-width: 200px;" aria-label="Filter library by subject">
+        <option value="">All subjects</option>
+        <% _subjects.forEach(s => { %>
+            <option value="<%= s %>"><%= s %></option>
+        <% }) %>
+    </select>
+    <span class="small text-muted ms-auto"><span id="libraryCount"><%= items.length %></span> items</span>
+</div>
+
 <!-- Material Items Grid -->
-<div class="row g-3">
+<div class="row g-3" id="libraryGrid">
     <% if (items.length === 0) { %>
         <div class="col-12">
             <div class="glass-card p-5 text-center text-muted">
@@ -29,7 +42,7 @@
     <% } %>
 
     <% items.forEach(item => { %>
-        <div class="col-md-6 col-lg-4">
+        <div class="col-md-6 col-lg-4 library-card" data-search="<%= ((item.title || '') + ' ' + (item.description || '')).toLowerCase() %>" data-subject="<%= item.subject || 'General' %>">
             <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between glass-card-hover">
                 <div>
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -38,15 +51,24 @@
                     </div>
                     <h5 class="fw-bold text-dark mb-1"><%= item.title %></h5>
                     <p class="small text-muted mb-3"><%= item.description || 'Instructional resource.' %></p>
-                    <div class="small text-secondary mb-2">
-                        <span><i class="bi bi-file-earmark me-1 text-success"></i> <%= item.file_type || 'Document' %> (<%= item.file_size || 'N/A' %>)</span>
+                    <div class="d-flex flex-wrap gap-1 mb-2">
+                        <span class="badge-emerald" style="font-size: 0.7rem;"><i class="bi bi-file-earmark me-1"></i><%= item.file_type || 'Document' %></span>
+                        <span class="badge-amber" style="font-size: 0.7rem;"><%= item.file_size || 'N/A' %></span>
+                        <% if (item.created_at) { %><span class="badge-gray small">Posted <%= new Date(item.created_at).toLocaleDateString() %></span><% } %>
                     </div>
                 </div>
 
                 <div class="border-top pt-3 d-flex justify-content-between align-items-center" style="border-color: rgba(16,185,129,0.15) !important;">
-                    <button type="button" class="btn btn-sm btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#repostModal<%= item.id %>">
-                        <i class="bi bi-share me-1"></i> Post to Class
-                    </button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-liquid-primary repost-picker" data-item-id="<%= item.id %>" data-item-title="<%= item.title %>" data-bs-toggle="modal" data-bs-target="#repostSharedModal">
+                            <i class="bi bi-share me-1"></i> Post to Class
+                        </button>
+                        <% if (item.source === 'ai_lesson' && item.lesson_content) { %>
+                            <button type="button" class="btn btn-sm btn-glass lesson-viewer" data-lesson="<%= encodeURIComponent(item.lesson_content) %>" data-lesson-title="<%= item.title %>" data-bs-toggle="modal" data-bs-target="#lessonViewModal">
+                                <i class="bi bi-eye me-1"></i> View Slides
+                            </button>
+                        <% } %>
+                    </div>
                     <% if (item.file_path) { %>
                         <a href="<%= item.file_path %>" target="_blank" class="btn btn-sm btn-glass">
                             <i class="bi bi-download"></i>
@@ -55,40 +77,61 @@
                 </div>
             </div>
         </div>
-
-        <!-- Modal: Repost to Class -->
-        <div class="modal fade modal-glass" id="repostModal<%= item.id %>" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title fw-bold">Post "<%= item.title %>" to Class</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <form action="/teacher/library/repost" method="POST">
-                        <input type="hidden" name="item_id" value="<%= item.id %>">
-                        <div class="modal-body">
-                            <label class="form-label small fw-bold mb-2">Select Target Class Sections:</label>
-                            <div class="d-flex flex-column gap-2">
-                                <% classes.forEach(cls => { %>
-                                    <div class="form-check p-2 rounded-3" style="background: rgba(255,255,255,0.6);">
-                                        <input class="form-check-input ms-0 me-2" type="checkbox" name="class_ids" value="<%= cls.id %>" id="clsCheck<%= item.id %>_<%= cls.id %>">
-                                        <label class="form-check-label fw-semibold text-dark" for="clsCheck<%= item.id %>_<%= cls.id %>">
-                                            <%= cls.class_name %> (<%= cls.grade_level %> - <%= cls.section %>)
-                                        </label>
-                                    </div>
-                                <% }) %>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-liquid-primary">Post to Selected</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
     <% }) %>
 </div>
+
+<!-- Modal: Repost to Class (shared) -->
+<div class="modal fade modal-glass" id="repostSharedModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Post "<span id="repostItemTitle"></span>" to Class</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/teacher/library/repost" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                <input type="hidden" name="item_id" id="repostItemId" value="">
+                <div class="modal-body">
+                    <label class="form-label small fw-bold mb-2">Select Target Class Sections:</label>
+                    <div class="d-flex flex-column gap-2">
+                        <% classes.forEach(cls => { %>
+                            <div class="form-check p-2 rounded-3" style="background: rgba(255,255,255,0.6);">
+                                <input class="form-check-input ms-0 me-2" type="checkbox" name="class_ids" value="<%= cls.id %>" id="clsShared_<%= cls.id %>">
+                                <label class="form-check-label fw-semibold text-dark" for="clsShared_<%= cls.id %>">
+                                    <%= cls.class_name %> (<%= cls.grade_level %> - <%= cls.section %>)
+                                </label>
+                            </div>
+                        <% }) %>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-liquid-primary">Post to Selected</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Lesson Slide Viewer -->
+<div class="modal fade modal-glass" id="lessonViewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-easel text-success me-2"></i><span id="lessonViewTitle">Lesson Slides</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="lessonViewSlides" class="d-flex flex-column gap-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/library-viewer.js"></script>
 
 <!-- Modal: Upload Material -->
 <div class="modal fade modal-glass" id="uploadMaterialModal" tabindex="-1" aria-hidden="true">
@@ -99,6 +142,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/teacher/library/upload" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Document Title</label>
@@ -120,12 +164,14 @@
                                 <option value="Grade 8">Grade 8</option>
                                 <option value="Grade 9">Grade 9</option>
                                 <option value="Grade 10">Grade 10</option>
+                                <option value="Grade 11">Grade 11</option>
+                                <option value="Grade 12">Grade 12</option>
                             </select>
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Select File (PDF, DOCX, PPTX, Images, ZIP)</label>
-                        <input type="file" name="material_file" class="glass-input" required>
+                        <label class="form-label small fw-bold">Select File (PDF, DOCX, PPTX, XLSX, TXT, JPG, PNG)</label>
+                        <input type="file" name="material_file" class="glass-input" accept=".pdf,.docx,.pptx,.xlsx,.txt,.jpg,.jpeg,.png" required>
                     </div>
                 </div>
                 <div class="modal-footer">

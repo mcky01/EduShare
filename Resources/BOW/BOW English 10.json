@@ -1,0 +1,34 @@
+[
+  {
+    "competency_code": "EN10LIT-I-1",
+    "quarter": "Q1",
+    "content": "Quarter 1. Text Focus: Poetry, Prose, Drama (including Film). Evaluate World literature within structural, biographical, historical, sociocultural, linguistic, and psychological contexts. Analyze maxims and philosophies. Compose, revise, and publish an original short film reflecting global cultural identity. Pacing: Delivered over the quarter, transitioning from global literary analysis to multimedia film production.",
+    "source_ref": "BOW CG p.175-176 Quarter 1",
+    "subject": "English",
+    "grade_level": "Grade 10"
+  },
+  {
+    "competency_code": "EN10INF-II-1",
+    "quarter": "Q2",
+    "content": "Quarter 2. Text Focus: Documentaries and Vlogs. Evaluate journalistic multimedia texts. Examine structures, linguistic features, and visual elements. Extract information, determine veracity, assess journalistic quality, and synthesize data. Compose and publish multimodal documentaries or vlogs. Pacing: Taught throughout the quarter, focusing on digital media literacy and multimedia publishing.",
+    "source_ref": "BOW CG p.177-179 Quarter 2",
+    "subject": "English",
+    "grade_level": "Grade 10"
+  },
+  {
+    "competency_code": "EN10INF-III-1",
+    "quarter": "Q3",
+    "content": "Quarter 3. Text Focus: Research Report, Letter of Application. Evaluate academic research reports and transactional texts. Examine structures, discipline-specific words, and sender's voice. Analyze evidence, draw inferences, and synthesize information. Compose, revise, and publish research reports and letters of application. Pacing: Quarter-long delivery integrating formal academic research and professional correspondence.",
+    "source_ref": "BOW CG p.180-182 Quarter 3",
+    "subject": "English",
+    "grade_level": "Grade 10"
+  },
+  {
+    "competency_code": "EN10INF-IV-1",
+    "quarter": "Q4",
+    "content": "Quarter 4. Text Focus: Research Report (Stage 2). Evaluate and produce advanced academic texts. Examine structures, linguistic features, and discipline-specific words. Extract information, analyze evidence, draw inferences, and synthesize data. Compose, revise, edit, and publish a comprehensive multimodal research report. Pacing: Delivered over the quarter, culminating the academic writing progression.",
+    "source_ref": "BOW CG p.183-184 Quarter 4",
+    "subject": "English",
+    "grade_level": "Grade 10"
+  }
+]

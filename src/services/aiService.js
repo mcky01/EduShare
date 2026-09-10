@@ -17,8 +17,9 @@ async function isHealthy() {
     }
 }
 
-// Non-streaming chat completion
-async function chat(messages, { json = false, temperature = 0.7, maxTokens = 4096, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+// Non-streaming chat completion (topP/repeatPenalty forwarded only when set;
+// chatbot + quiz callers keep existing defaults)
+async function chat(messages, { json = false, temperature = 0.7, maxTokens = 4096, timeoutMs = DEFAULT_TIMEOUT_MS, topP = null, repeatPenalty = null } = {}) {
     const healthy = await isHealthy();
     if (!healthy) {
         return null; // Will trigger graceful fallback
@@ -28,14 +29,17 @@ async function chat(messages, { json = false, temperature = 0.7, maxTokens = 409
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
+        const options = {
+            num_predict: maxTokens,
+            temperature
+        };
+        if (topP !== null && topP !== undefined) options.top_p = topP;
+        if (repeatPenalty !== null && repeatPenalty !== undefined) options.repeat_penalty = repeatPenalty;
         const body = {
             model: env.OLLAMA_MODEL,
             messages,
             stream: false,
-            options: {
-                num_predict: maxTokens,
-                temperature
-            }
+            options
         };
         if (json) body.format = 'json';
 
@@ -57,9 +61,13 @@ async function chat(messages, { json = false, temperature = 0.7, maxTokens = 409
     }
 }
 
-// Single prompt wrapper
+// Single prompt wrapper (supports optional { system } for system-role priming)
 async function complete(prompt, options = {}) {
-    return chat([{ role: 'user', content: prompt }], options);
+    const { system, ...rest } = options || {};
+    const messages = [];
+    if (system) messages.push({ role: 'system', content: system });
+    messages.push({ role: 'user', content: prompt });
+    return chat(messages, rest);
 }
 
 // Async generator yielding chunks for real-time streaming
@@ -224,73 +232,51 @@ function getFallbackChatResponse(messages) {
 }
 
 function getFallbackLesson(topic, gradeLevel, subject, competencyCode) {
+    const t = topic || 'Elements of Literary Texts & Value Integration';
+    const g = gradeLevel || 'Grade 7';
+    const s = subject || 'English';
+    const c = String(competencyCode || 'EN7LIT-I-1').split(':')[0].slice(0, 20);
+    const B = (id, title, lines, notes = '') => ({ id, title, content: lines, notes });
     return {
-        topic: topic || 'Elements of Literary Texts & Value Integration',
-        gradeLevel: gradeLevel || 'Grade 7',
-        subject: subject || 'English',
-        competency: competencyCode || 'EN7LIT-I-1: Analyze literary texts as expressions of values',
+        meta: { subject: s, grade_level: g, topic: t, competency: c, term: '', duration: '60 minutes', language: '', approach: '' },
+        topic: t,
+        gradeLevel: g,
+        subject: s,
+        competency: c,
         duration: '60 minutes',
         slides: [
-            {
-                slideNumber: 1,
-                title: 'Introduction & Learning Objectives',
-                type: 'intro',
-                content: `Welcome students! Today's lesson focuses on **${topic || 'Literary Elements'}**.\n\n` +
-                    `* **Learning Target**: Identify key literary elements and analyze how characters resolve ethical dilemmas.\n` +
-                    `* **School Value**: Integrity, Perseverance, and Excellence (*Basta Zeferinian, Magaling Yan!*).\n` +
-                    `* **DepEd Standard**: Aligned with MATATAG Curriculum Guide.`
-            },
-            {
-                slideNumber: 2,
-                title: 'Hook & Motivational Activity',
-                type: 'hook',
-                content: `### Think-Pair-Share\n\n` +
-                    `Consider this scenario: You found a wallet inside the school gymnasium containing ₱500 and a student ID.\n\n` +
-                    `1. What is your immediate reaction?\n` +
-                    `2. How do communal expectations and family upbringing guide your next decision?\n` +
-                    `3. Share your thoughts with your seatmate for 3 minutes.`
-            },
-            {
-                slideNumber: 3,
-                title: 'Core Concept Presentation',
-                type: 'concept',
-                content: `### The 5 Core Narrative Elements\n\n` +
-                    `* **Character**: The individuals whose desires and motives propel the narrative.\n` +
-                    `* **Setting**: The geographical, temporal, and social backdrop of the events.\n` +
-                    `* **Conflict**: The driving obstacle — Internal (*Man vs. Self*) or External (*Man vs. Society/Nature*).\n` +
-                    `* **Plot**: The structured progression: Exposition ➔ Rising Action ➔ Climax ➔ Falling Action ➔ Resolution.\n` +
-                    `* **Theme**: The underlying universal truth or value articulated by the work.`
-            },
-            {
-                slideNumber: 4,
-                title: 'Exemplar Text Deep Dive',
-                type: 'analysis',
-                content: `### Close Reading: Local Folktale Excerpt\n\n` +
-                    `*"The elder brother chose the humble bamboo staff, knowing that humility bends but never breaks in the storm."*\n\n` +
-                    `* **Analysis**:\n` +
-                    `  - The bamboo staff symbolizes cultural resilience (*Katatagan*).\n` +
-                    `  - Contrast with the iron rod representing rigid arrogance.\n` +
-                    `  - Reflect on how Philippine literature reflects communal solidarity.`
-            },
-            {
-                slideNumber: 5,
-                title: 'Guided Practice & Formative Task',
-                type: 'practice',
-                content: `### Collaborative Group Activity (4 Members per group)\n\n` +
-                    `Complete the **Story Map Graphic Organizer**:\n` +
-                    `1. Identify the protagonist and antagonist.\n` +
-                    `2. Pinpoint the turning point (climax).\n` +
-                    `3. State the moral resolution in one concise sentence.`
-            },
-            {
-                slideNumber: 6,
-                title: 'Summary & Value Reflection',
-                type: 'reflection',
-                content: `### Exit Ticket\n\n` +
-                    `Write your answer on a 1/4 sheet of paper:\n\n` +
-                    `> *"Which character action resonated most with your personal values, and why?"*\n\n` +
-                    `**Assignment**: Read Chapter 2 of the assigned reader for tomorrow's recitation.`
-            }
+            B('intro', 'Introduction & Learning Objectives', [
+                `Today: ${t}`,
+                'Target: identify literary elements in text',
+                'Value: integrity, perseverance, excellence'
+            ], 'Offline fallback — review before class.'),
+            B('hook', 'Hook & Motivational Activity', [
+                'Scenario: wallet with P500 found in gym',
+                'What is your immediate reaction?',
+                'Share with seatmate for 3 minutes'
+            ]),
+            B('concept', 'Core Concept Presentation', [
+                'Character: who drives the narrative',
+                'Setting: where and when events happen',
+                'Conflict: internal vs external obstacle',
+                'Plot: exposition to resolution',
+                'Theme: universal truth of the work'
+            ]),
+            B('analysis', 'Exemplar Text Deep Dive', [
+                'Read the bamboo staff folktale excerpt',
+                'What does bamboo symbolize?',
+                'Contrast humility vs arrogance'
+            ]),
+            B('practice', 'Guided Practice & Formative Task', [
+                'Groups of 4: complete story map',
+                'Identify protagonist and antagonist',
+                'Pinpoint the climax in one sentence'
+            ]),
+            B('reflection', 'Summary & Value Reflection', [
+                'Which action reflects your values? Why?',
+                'Exit ticket on 1/4 sheet',
+                'Read Chapter 2 for recitation'
+            ])
         ]
     };
 }

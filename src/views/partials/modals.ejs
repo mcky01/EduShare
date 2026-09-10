@@ -33,6 +33,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="/auth/profile" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <div class="modal-body">
                     <div class="text-center mb-4">
                         <% if (user && user.avatar_url) { %>
@@ -45,7 +46,7 @@
                         <div class="mt-2">
                             <label class="btn btn-sm btn-glass">
                                 <i class="bi bi-camera me-1"></i> Change Avatar
-                                <input type="file" name="avatar" class="d-none" accept="image/*">
+                                <input type="file" name="avatar" class="d-none" accept="image/jpeg,image/png,image/gif,image/webp">
                             </label>
                         </div>
                     </div>
@@ -88,7 +89,10 @@
                 <p class="small text-muted mb-4">Are you sure you want to end your current session?</p>
                 <div class="d-flex justify-content-center gap-2">
                     <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
-                    <a href="/auth/logout" class="btn btn-danger rounded-3 px-3">Sign Out</a>
+                    <form action="/auth/logout" method="POST" class="d-inline">
+                        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                        <button type="submit" class="btn btn-danger rounded-3 px-3">Sign Out</button>
+                    </form>
                 </div>
             </div>
         </div>

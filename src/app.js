@@ -8,16 +8,19 @@ const expressLayouts = require('express-ejs-layouts');
 const rateLimit = require('express-rate-limit');
 
 const env = require('./config/env');
+const sessionStore = require('./config/sessionStore');
 const { brandingMiddleware } = require('./middleware/branding');
-const { notFoundHandler, globalErrorHandler } = require('./middleware/errorHandler');
+const { multerErrorHandler, notFoundHandler, globalErrorHandler } = require('./middleware/errorHandler');
 
 // Route modules
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const teacherRoutes = require('./routes/teacherRoutes');
 const studentRoutes = require('./routes/studentRoutes');
+const filesRoutes = require('./routes/filesRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const apiRoutes = require('./routes/apiRoutes');
+const curriculumRoutes = require('./routes/curriculumRoutes');
 
 const app = express();
 
@@ -25,12 +28,24 @@ const app = express();
 // Security & Parsers
 // ==========================================
 app.use(helmet({
-    contentSecurityPolicy: false, // Allows CDN scripts, styles, and font imports
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net"],
+            imgSrc: ["'self'", "data:", "blob:"],
+            connectSrc: ["'self'"],
+            frameSrc: ["'none'"],
+            objectSrc: ["'none'"]
+        }
+    },
     crossOriginEmbedderPolicy: false
 }));
 
+const allowedOrigins = (process.env.FRONTEND_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors({
-    origin: true,
+    origin: allowedOrigins.length ? allowedOrigins : false,
     credentials: true
 }));
 
@@ -55,17 +70,19 @@ const loginLimiter = rateLimit({
 });
 app.use('/auth/login', loginLimiter);
 
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(cookieParser());
 
 // ==========================================
 // Session Configuration
 // ==========================================
 app.use(session({
+    store: sessionStore,
     secret: env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    rolling: true,
     cookie: {
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
         httpOnly: true,
@@ -125,12 +142,15 @@ app.use('/auth', authRoutes);
 app.use('/admin', adminRoutes);
 app.use('/teacher', teacherRoutes);
 app.use('/student', studentRoutes);
+app.use('/files', filesRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/curriculum', curriculumRoutes);
 app.use('/api', apiRoutes);
 
 // ==========================================
 // Error Handlers
 // ==========================================
+app.use(multerErrorHandler);
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 

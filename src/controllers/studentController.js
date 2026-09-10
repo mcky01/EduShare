@@ -1,4 +1,5 @@
 const { query, withTransaction } = require('../config/database');
+const { ensureToken } = require('../middleware/csrf');
 const { setFlash } = require('../middleware/branding');
 const gradebookService = require('../services/gradebookService');
 
@@ -243,6 +244,19 @@ async function viewActivitySubmit(req, res) {
             return res.redirect('/student/classes');
         }
 
+        const enrollRows = await query(
+            'SELECT 1 FROM enrollments WHERE class_id = ? AND student_id = ? AND status = ?',
+            [classId, studentProfileId, 'active']
+        );
+        const postRows = await query(
+            'SELECT 1 FROM activity_posts WHERE activity_id = ? AND class_id = ?',
+            [activityId, classId]
+        );
+        if (enrollRows.length === 0 || postRows.length === 0) {
+            setFlash(req, 'error', 'You are not enrolled in this class.');
+            return res.redirect('/student/classes');
+        }
+
         const [submission] = await query(
             'SELECT * FROM activity_submissions WHERE activity_id = ? AND class_id = ? AND student_id = ?',
             [activityId, classId, studentProfileId]
@@ -267,11 +281,24 @@ async function submitActivity(req, res) {
         const studentProfileId = req.session.user.student_profile_id;
         const { note } = req.body;
 
+        const enrollRows = await query(
+            'SELECT 1 FROM enrollments WHERE class_id = ? AND student_id = ? AND status = ?',
+            [classId, studentProfileId, 'active']
+        );
+        const postRows = await query(
+            'SELECT 1 FROM activity_posts WHERE activity_id = ? AND class_id = ?',
+            [activityId, classId]
+        );
+        if (enrollRows.length === 0 || postRows.length === 0) {
+            setFlash(req, 'error', 'You are not enrolled in this class.');
+            return res.redirect('/student/classes');
+        }
+
         let filePath = null;
         let fileType = null;
 
         if (req.file) {
-            filePath = `/uploads/submissions/${req.file.filename}`;
+            filePath = `/files/submissions/${req.file.filename}`;
             fileType = req.file.mimetype;
         }
 
@@ -360,6 +387,7 @@ async function takeQuiz(req, res) {
             quiz,
             classInfo: sq,
             questions,
+            csrfToken: ensureToken(req),
             layout: false // Standalone distraction-free runner
         });
     } catch (err) {
@@ -372,10 +400,17 @@ async function submitQuiz(req, res) {
     try {
         const quizId = parseInt(req.params.quizId, 10);
         const studentProfileId = req.session.user.student_profile_id;
-        const { class_id, answers } = req.body;
+        const { answers } = req.body;
 
         const [quiz] = await query('SELECT * FROM quizzes WHERE id = ?', [quizId]);
         if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
+
+        const [sqRow] = await query(
+            `SELECT sq.class_id FROM section_quizzes sq JOIN enrollments e ON e.class_id = sq.class_id WHERE sq.quiz_id = ? AND e.student_id = ? AND e.status = 'active' LIMIT 1`,
+            [quizId, studentProfileId]
+        );
+        if (!sqRow) return res.status(403).json({ error: 'Access forbidden.' });
+        const class_id = sqRow.class_id;
 
         const questions = await query('SELECT * FROM quiz_questions WHERE quiz_id = ?', [quizId]);
 
@@ -473,7 +508,7 @@ async function submitQuiz(req, res) {
         });
     } catch (err) {
         console.error('Submit quiz error:', err);
-        return res.status(500).json({ error: 'Quiz submission failed: ' + err.message });
+        return res.status(500).json({ error: 'Quiz submission failed.' });
     }
 }
 

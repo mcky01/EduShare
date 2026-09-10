@@ -4,7 +4,9 @@
         <div>
             <div class="d-flex align-items-center gap-2 mb-2">
                 <span class="badge-emerald"><%= cls.subject %></span>
-                <span class="badge-amber font-monospace fs-6 px-3 py-1">Student Join Code: <strong><%= cls.class_code %></strong></span>
+                <span class="badge-amber font-monospace fs-6 px-3 py-1 d-inline-flex align-items-center gap-2">Student Join Code: <strong><%= cls.class_code %></strong>
+                    <button type="button" class="btn btn-sm btn-glass py-0 px-1 copy-code-btn" data-code="<%= cls.class_code %>" title="Copy class code" aria-label="Copy class code"><i class="bi bi-clipboard"></i></button>
+                </span>
             </div>
             <h2 class="fw-bold text-dark mb-1"><%= cls.class_name %></h2>
             <div class="small text-muted">
@@ -13,9 +15,6 @@
         </div>
 
         <div class="d-flex gap-2">
-            <button type="button" class="btn btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#createActivityModal">
-                <i class="bi bi-file-earmark-plus me-1"></i> Add Activity
-            </button>
             <button type="button" class="btn btn-liquid-amber" data-bs-toggle="modal" data-bs-target="#postAnnouncementModal">
                 <i class="bi bi-megaphone me-1"></i> Announce
             </button>
@@ -24,6 +23,19 @@
             </a>
         </div>
     </div>
+</div>
+
+<!-- Sticky Class Context Bar -->
+<div class="glass-card px-3 py-2 mb-4 d-flex align-items-center gap-2 flex-wrap" style="position: sticky; top: 12px; z-index: 1020;">
+    <span class="fw-bold small text-dark"><i class="bi bi-mortarboard text-success me-1"></i><%= cls.class_name %></span>
+    <span class="badge-amber font-monospace d-inline-flex align-items-center gap-1"><%= cls.class_code %>
+        <button type="button" class="btn btn-sm btn-glass py-0 px-1 copy-code-btn" data-code="<%= cls.class_code %>" title="Copy class code" aria-label="Copy class code"><i class="bi bi-clipboard"></i></button>
+    </span>
+    <span class="small text-muted copy-feedback" id="classCodeFeedback" role="status" aria-live="polite"></span>
+    <span class="ms-auto d-flex gap-2">
+        <a href="/teacher/gradebook?classId=<%= cls.id %>" class="btn btn-sm btn-liquid-primary"><i class="bi bi-table me-1"></i>Gradebook</a>
+        <a href="/teacher/classes/<%= cls.id %>?tab=students" class="btn btn-sm btn-glass"><i class="bi bi-people me-1"></i>Students (<%= students.length %>)</a>
+    </span>
 </div>
 
 <!-- Navigation Tabs -->
@@ -170,9 +182,20 @@
                         <h5 class="fw-bold text-dark mb-1"><%= q.title %></h5>
                         <p class="small text-muted mb-3"><%= q.description || 'Curriculum-aligned quiz assessment.' %></p>
                     </div>
-                    <div class="border-top pt-3 d-flex justify-content-between align-items-center">
-                        <span class="small text-muted"><%= q.attempt_count %> Students Taken</span>
-                        <span class="badge-emerald">Published</span>
+                    <div class="border-top pt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span class="small text-muted"><%= q.attempt_count || 0 %> Students Taken</span>
+                        <span class="d-flex align-items-center gap-2 flex-wrap">
+                            <% if (q.start_time || q.end_time) { %>
+                                <span class="small text-muted font-monospace">
+                                    <%= q.start_time ? new Date(q.start_time).toLocaleString() : 'Open' %> &ndash; <%= q.end_time ? new Date(q.end_time).toLocaleString() : 'No close' %>
+                                </span>
+                            <% } %>
+                            <% if (q.is_published == 1) { %>
+                                <span class="badge-emerald">Published</span>
+                            <% } else { %>
+                                <span class="badge-gray">Draft</span>
+                            <% } %>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -208,14 +231,21 @@
                     <span class="small text-muted"><%= new Date(a.created_at).toLocaleString() %></span>
                 </div>
                 <p class="small text-secondary mb-2" style="white-space: pre-wrap;"><%= a.message %></p>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge-emerald" title="Students who opened this announcement"><i class="bi bi-eye me-1"></i><%= typeof a.read_count !== 'undefined' ? a.read_count : 0 %> read</span>
+                    <% if (a.category) { %><span class="small text-muted"><%= a.category %></span><% } %>
+                </div>
             </div>
         <% }) %>
     </div>
 
 <% } else if (activeTab === 'students') { %>
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h5 class="fw-bold mb-0">Enrolled Student Roster</h5>
-        <span class="badge-emerald"><%= students.length %> Enrolled</span>
+        <div class="d-flex align-items-center gap-2">
+            <input type="search" id="studentSearch" class="glass-input py-1 small" style="max-width: 240px;" placeholder="Search LRN or name..." aria-label="Search students by LRN or name">
+            <span class="badge-emerald"><span id="studentCount"><%= students.length %></span> Enrolled</span>
+        </div>
     </div>
 
     <div class="glass-table-container">
@@ -230,7 +260,7 @@
                         <th>Enrolled Date</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="studentRosterBody">
                     <% if (students.length === 0) { %>
                         <tr>
                             <td colspan="5" class="text-center py-5 text-muted">
@@ -239,7 +269,7 @@
                         </tr>
                     <% } %>
                     <% students.forEach(s => { %>
-                        <tr>
+                        <tr data-search="<%= ((s.last_name || '') + ' ' + (s.first_name || '') + ' ' + (s.lrn || '') + ' ' + (s.email || '')).toLowerCase() %>">
                             <td>
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="user-avatar-initials" style="width: 34px; height: 34px; font-size: 0.8rem;">
@@ -272,6 +302,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/teacher/classes/<%= cls.id %>/announcements" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Title</label>
@@ -317,6 +348,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/teacher/activities" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <input type="hidden" name="class_ids" value="<%= cls.id %>">
                 <div class="modal-body">
                     <div class="mb-3">
@@ -339,7 +371,7 @@
                     </div>
                     <div class="mb-2">
                         <label class="form-label small fw-bold">Attach Worksheet / Guide (Optional)</label>
-                        <input type="file" name="activity_file" class="glass-input">
+                        <input type="file" name="activity_file" class="glass-input" accept=".pdf,.docx,.pptx,.xlsx,.txt,.jpg,.jpeg,.png">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -360,6 +392,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/teacher/library/repost" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                 <input type="hidden" name="class_ids" value="<%= cls.id %>">
                 <div class="modal-body">
                     <% if (availableLibrary.length === 0) { %>
@@ -383,3 +416,52 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    function copyFallback(text, done) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        done(ok);
+    }
+    function flash(msg) {
+        var el = document.getElementById('classCodeFeedback');
+        if (!el) return;
+        el.textContent = msg;
+        setTimeout(function () { if (el.textContent === msg) el.textContent = ''; }, 2000);
+    }
+    document.querySelectorAll('.copy-code-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            var code = btn.getAttribute('data-code') || '';
+            var done = function (ok) { flash(ok ? 'Code ' + code + ' copied' : 'Copy failed'); };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(code).then(function () { done(true); }, function () { copyFallback(code, done); });
+            } else { copyFallback(code, done); }
+        });
+    });
+    var search = document.getElementById('studentSearch');
+    if (search) {
+        var rows = Array.prototype.slice.call(document.querySelectorAll('#studentRosterBody tr[data-search]'));
+        var count = document.getElementById('studentCount');
+        search.addEventListener('input', function () {
+            var q = search.value.trim().toLowerCase();
+            var visible = 0;
+            rows.forEach(function (r) {
+                var hit = !q || (r.getAttribute('data-search') || '').indexOf(q) !== -1;
+                r.style.display = hit ? '' : 'none';
+                if (hit) visible++;
+            });
+            if (count) count.textContent = visible;
+        });
+    }
+})();
+</script>

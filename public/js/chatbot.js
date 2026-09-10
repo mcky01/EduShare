@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const suggestionChips = document.querySelectorAll('.suggestion-chip');
 
     let isStreaming = false;
+    const csrfToken = () => document.querySelector('meta[name=csrf-token]')?.content || window.CSRF_TOKEN || '';
 
     // Load initial history
     loadChatHistory();
@@ -28,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearHistoryBtn.addEventListener('click', async () => {
             if (!confirm('Are you sure you want to clear your chat history?')) return;
             try {
-                await fetch('/api/ai/chat/history', { method: 'DELETE' });
+                await fetch('/api/ai/chat/history', { method: 'DELETE', headers: { 'X-Requested-With': 'XMLHttpRequest', 'x-csrf-token': csrfToken() } });
                 chatMessages.innerHTML = `
                     <div class="text-center text-muted p-4">
                         <i class="bi bi-robot fs-1 text-success d-block mb-2"></i>
@@ -62,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch('/api/ai/chat/stream', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'x-csrf-token': csrfToken() },
                     body: JSON.stringify({ message, subject })
                 });
 
