@@ -1,5 +1,5 @@
 -- ========================================================
--- EduShare 2.0 Unified Database Schema
+-- EduShare Unified Database Schema
 -- Zeferino Arroyo High School (Iriga City, 1981)
 -- ========================================================
 
@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS `teachers` (
   `employee_id` VARCHAR(50) DEFAULT NULL UNIQUE,
   `department` VARCHAR(100) DEFAULT 'Junior High School',
   `specialization` VARCHAR(100) DEFAULT 'General Education',
+  `grade_level` VARCHAR(20) DEFAULT NULL,
+  `section` VARCHAR(50) DEFAULT NULL,
   `is_adviser` TINYINT(1) NOT NULL DEFAULT 0,
   `advisory_grade` VARCHAR(20) DEFAULT NULL,
   `advisory_section` VARCHAR(50) DEFAULT NULL,
@@ -263,6 +265,32 @@ CREATE TABLE IF NOT EXISTS `announcement_reads` (
   FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+-- Student notifications: per-student alert rows fanned out from teacher actions
+-- (announcement posted, activity/material/quiz published, submission graded).
+-- Writers live in src/services/notificationService.js; readers at /api/notifications.
+-- link_url is the deep link the bell dropdown / notifications page redirects to.
+-- ref_type+ref_id (+class_id for class-scoped events) dedupe re-posts/retries.
+CREATE TABLE IF NOT EXISTS `notifications` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `student_id` INT NOT NULL,
+  `class_id` INT DEFAULT NULL,
+  `type` ENUM('announcement','activity','material','quiz','grade','enrollment','reminder','system') NOT NULL DEFAULT 'announcement',
+  `title` VARCHAR(255) NOT NULL,
+  `message` VARCHAR(500) DEFAULT NULL,
+  `link_url` VARCHAR(500) DEFAULT NULL,
+  `ref_type` VARCHAR(50) NOT NULL DEFAULT '',
+  `ref_id` INT NOT NULL DEFAULT 0,
+  `is_read` TINYINT(1) NOT NULL DEFAULT 0,
+  `read_at` DATETIME DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_student_ref` (`student_id`, `ref_type`, `ref_id`, `class_id`),
+  INDEX `idx_notifications_student` (`student_id`, `is_read`, `created_at`),
+  INDEX `idx_notifications_class` (`class_id`),
+  FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `gradebook_categories` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `class_id` INT NOT NULL,
@@ -345,6 +373,9 @@ CREATE TABLE IF NOT EXISTS `ai_content` (
   `content_type` ENUM('lesson', 'quiz', 'chat') NOT NULL,
   `topic` VARCHAR(255) DEFAULT NULL,
   `content` MEDIUMTEXT NOT NULL,
+  -- metadata JSON is additive across generations:
+  --   legacy CG/BOW lessons: {grounded, retrieval_reason, citations:[S#...], term, competency_code}
+  --   plan-input lessons:    {source:'teacher_plan', plan_format, focus_session, plan_source, plan_hash, coverage, citations:[P#...]}
   `metadata` JSON DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -428,10 +459,73 @@ CREATE TABLE IF NOT EXISTS `otp_verifications` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `email` VARCHAR(150) NOT NULL,
   `code_hash` VARCHAR(255) NOT NULL,
-  `purpose` ENUM('teacher_register','student_register') NOT NULL,
+  `purpose` ENUM('teacher_register','student_register','password_reset') NOT NULL,
   `attempts` TINYINT NOT NULL DEFAULT 0,
   `expires_at` DATETIME NOT NULL,
   `consumed_at` DATETIME DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX `idx_otp_email_purpose` (`email`, `purpose`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Adviser student-lifecycle: section transfer requests (dual approval).
+-- A teacher never moves a student unilaterally: the sending adviser files
+-- the request, then BOTH the receiving adviser and an admin must approve
+-- (either order). On final approval the student's grade_level/section is
+-- updated and enrollments re-synced; grades/submissions are preserved.
+-- One pending request per student at a time (unique key).
+CREATE TABLE IF NOT EXISTS `section_transfer_requests` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `student_id` INT NOT NULL,
+  `from_grade` VARCHAR(20) NOT NULL,
+  `from_section` VARCHAR(50) NOT NULL,
+  `to_grade` VARCHAR(20) NOT NULL,
+  `to_section` VARCHAR(50) NOT NULL,
+  `requested_by` INT NOT NULL,
+  `reason` VARCHAR(500) NOT NULL,
+  `status` ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+  `receiver_decided_by` INT DEFAULT NULL,
+  `receiver_decision` ENUM('approved','rejected') DEFAULT NULL,
+  `receiver_decided_at` DATETIME DEFAULT NULL,
+  `admin_decided_by` INT DEFAULT NULL,
+  `admin_decision` ENUM('approved','rejected') DEFAULT NULL,
+  `admin_decided_at` DATETIME DEFAULT NULL,
+  `decision_reason` VARCHAR(500) DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_pending_student` (`student_id`, `status`),
+  INDEX `idx_transfer_status` (`status`),
+  FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`requested_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Adviser student-lifecycle: unified change requests (admin approval).
+-- Covers edit (names/gender/email/LRN), drop, restore, and deactivate
+-- ("delete" from the teacher's view). A teacher never applies these
+-- directly: every request carries the teacher's note/reason, and an
+-- admin approves (executes) or rejects (with their own decision note).
+-- The note is the whole point — it tells the admin what to decide.
+-- `payload` holds type-specific fields as JSON:
+--   edit:    {first_name?, last_name?, gender?, email?, lrn?} (only changed keys)
+--   drop:    {}           (enrollments → dropped; account stays active)
+--   restore: {}           (enrollments → active + re-enroll)
+--   deactivate: {}        (status → rejected-equivalent inactive; records kept)
+-- One pending request per student at a time (unique key).
+CREATE TABLE IF NOT EXISTS `student_change_requests` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `student_id` INT NOT NULL,
+  `request_type` ENUM('edit','drop','restore','deactivate') NOT NULL,
+  `payload` JSON DEFAULT NULL,
+  `teacher_note` VARCHAR(500) NOT NULL,
+  `requested_by` INT NOT NULL,
+  `status` ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+  `decided_by` INT DEFAULT NULL,
+  `decision_note` VARCHAR(500) DEFAULT NULL,
+  `decided_at` DATETIME DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_pending_change` (`student_id`, `status`),
+  INDEX `idx_change_status` (`status`),
+  INDEX `idx_change_type` (`request_type`),
+  FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`requested_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

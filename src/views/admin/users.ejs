@@ -1,55 +1,59 @@
-<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+<div class="admin-page-head">
     <div>
-        <h2 class="fw-bold mb-1" style="color: var(--zahs-emerald-deep);">User Management</h2>
-        <p class="text-muted small mb-0">Create, monitor, and configure teacher and student accounts across all levels.</p>
+        <h2>User Management</h2>
+        <p class="text-muted">Create, monitor, and configure teacher and student accounts across all levels.</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="admin-head-actions">
         <button type="button" class="btn btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#addTeacherModal">
             <i class="bi bi-person-plus me-1"></i> Add Teacher
         </button>
         <button type="button" class="btn btn-liquid-amber" data-bs-toggle="modal" data-bs-target="#addStudentModal">
             <i class="bi bi-person-badge me-1"></i> Add Student
         </button>
+        <button type="button" class="btn btn-glass" data-bs-toggle="modal" data-bs-target="#addAdminModal">
+            <i class="bi bi-shield-plus me-1"></i> Add Admin
+        </button>
     </div>
 </div>
 
-<!-- Unified Filter Bar: role pills + status select + search -->
-<div class="glass-card p-3 mb-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-    <!-- Role Tabs -->
-    <div class="nav gap-1" aria-label="Filter by role">
-        <a href="/admin/users?role=all&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="filter-pill <%= selectedRole === 'all' ? 'active' : '' %>">All</a>
-        <a href="/admin/users?role=teacher&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="filter-pill <%= selectedRole === 'teacher' ? 'active' : '' %>">Teachers</a>
-        <a href="/admin/users?role=student&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="filter-pill <%= selectedRole === 'student' ? 'active' : '' %>">Students</a>
-        <a href="/admin/users?role=admin&status=<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>" class="filter-pill <%= selectedRole === 'admin' ? 'active' : '' %>">Admins</a>
+<!-- Phase 0.1: one-time temp-password handoff (popped server-side; refresh hides it) -->
+<% if (typeof resetPwOnce !== 'undefined' && resetPwOnce) { %>
+    <div class="glass-card p-3 mb-4 d-flex align-items-center gap-3 flex-wrap" style="border-left: 4px solid var(--zahs-amber-gold);" role="status" aria-live="polite">
+        <i class="bi bi-key-fill fs-4 text-warning"></i>
+        <div class="flex-grow-1">
+            <div class="fw-bold text-dark">Temporary password generated (user ID <%= resetPwOnce.userId %>)</div>
+            <div class="small text-muted">Share it securely with the user now — it will not be shown again. They must change it on next sign-in.</div>
+            <div class="font-monospace fw-bold fs-5 mt-1" style="letter-spacing: 0.04em;"><%= resetPwOnce.password %></div>
+            <span class="small text-muted copy-feedback" role="status" aria-live="polite"></span>
+        </div>
+        <button type="button" class="btn btn-sm btn-glass copy-code-btn" data-code="<%= resetPwOnce.password %>" title="Copy temporary password" aria-label="Copy temporary password">
+            <i class="bi bi-clipboard me-1"></i> Copy
+        </button>
     </div>
+<% } %>
 
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        <!-- Status Select -->
-        <label class="small fw-bold text-muted mb-0" for="statusFilter">Status</label>
-        <select id="statusFilter" class="glass-input py-1 px-3" style="width: auto;" onchange="location.href='/admin/users?role=<%= selectedRole %>&status=' + this.value">
-            <% const st = typeof selectedStatus !== 'undefined' ? selectedStatus : 'all'; %>
-            <option value="all" <%= st === 'all' ? 'selected' : '' %>>All</option>
-            <option value="pending" <%= st === 'pending' ? 'selected' : '' %>>Pending</option>
-            <option value="active" <%= st === 'active' ? 'selected' : '' %>>Active</option>
-            <option value="rejected" <%= st === 'rejected' ? 'selected' : '' %>>Rejected</option>
-        </select>
-
-        <!-- Search Form -->
-        <form action="/admin/users" method="GET" class="d-flex gap-2" style="max-width: 280px; width: 100%;">
-            <input type="hidden" name="role" value="<%= selectedRole %>">
-            <input type="hidden" name="status" value="<%= typeof selectedStatus !== 'undefined' ? selectedStatus : 'all' %>">
-            <input type="text" name="q" class="glass-input py-1 px-3" placeholder="Search name, email, LRN..." value="<%= searchQuery %>" aria-label="Search users">
-            <button type="submit" class="btn btn-glass py-1 px-3" aria-label="Search">
-                <i class="bi bi-search"></i>
-            </button>
-        </form>
-    </div>
-</div>
-
-<!-- Pending Approvals -->
+<% /* Pending Approvals: only rendered when NOT already filtered to pending.
+     Rationale: on ?status=pending the main table below IS the pending
+     list, so a second pending-only card duplicates it and — worse —
+     after the last approval the page shows two stacked "nothing here"
+     states, which reads as a broken/empty page. */ %>
+<% const isPendingFilter = (typeof selectedStatus !== 'undefined' ? selectedStatus : 'all') === 'pending'; %>
 <% const pendingUsers = users.filter(u => u.status === 'pending'); %>
+<% if (!isPendingFilter) { %>
 <div class="glass-card p-3 mb-4">
-    <h5 class="fw-bold mb-3"><i class="bi bi-hourglass-split text-warning me-2"></i>Pending Approvals (<%= pendingUsers.length %>)</h5>
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-hourglass-split text-warning me-2"></i>Pending Approvals (<%= pendingUsers.length %>)</h5>
+        <% if (pendingUsers.length > 0) { %>
+            <form action="/admin/users/bulk" method="POST" class="d-flex gap-2 align-items-center" id="bulkApproveForm">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                <input type="hidden" name="decision" value="approve">
+                <% pendingUsers.forEach(u => { %>
+                    <input type="hidden" name="ids" value="<%= u.id %>">
+                <% }) %>
+                <button type="submit" class="btn btn-sm btn-liquid-primary" data-confirm="Approve all <%= pendingUsers.length %> pending accounts?">Approve All (<%= pendingUsers.length %>)</button>
+            </form>
+        <% } %>
+    </div>
     <% if (pendingUsers.length === 0) { %>
         <p class="text-muted small mb-0">No pending registrations.</p>
     <% } else { %>
@@ -57,19 +61,32 @@
             <table class="glass-table">
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Registered</th>
-                        <th>Actions</th>
+                        <th scope="col" style="width: 36px;"><input type="checkbox" id="bulkCheckAll" class="form-check-input" title="Select all pending" aria-label="Select all pending"></th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Role</th>
+                        <th scope="col">Grade / Section</th>
+                        <th scope="col">Registered</th>
+                        <th scope="col">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <% pendingUsers.forEach(u => { %>
                         <tr>
+                            <td><input type="checkbox" class="form-check-input bulk-check" value="<%= u.id %>" aria-label="Select <%= u.first_name %> <%= u.last_name %>"></td>
                             <td class="fw-bold text-dark"><%= u.first_name %> <%= u.last_name %></td>
                             <td class="small text-muted"><%= u.email %></td>
-                            <td><span class="badge badge-gray"><%= u.role.toUpperCase() %></span></td>
+                            <td><span class="<%= u.role === 'admin' ? 'badge-gray' : (u.role === 'teacher' ? 'badge-emerald' : 'badge-jade') %>"><%= u.role.toUpperCase() %></span></td>
+                            <td class="small text-muted">
+                                <% if (u.role === 'teacher') { %>
+                                    <%= [u.teacher_grade, u.teacher_section].filter(Boolean).join(' - ') || 'No grade/section declared' %>
+                                <% } else if (u.role === 'student') { %>
+                                    <div>LRN <%= u.lrn || 'N/A' %></div>
+                                    <% if (u.grade_level || u.section) { %>
+                                        <div class="fw-semibold text-dark"><%= [u.grade_level, u.section].filter(Boolean).join(' - ') %></div>
+                                    <% } %>
+                                <% } else { %>—<% } %>
+                            </td>
                             <td class="small text-muted font-monospace"><%= u.created_at ? new Date(u.created_at).toLocaleString() : 'N/A' %></td>
                             <td>
                                 <div class="d-flex gap-2">
@@ -77,7 +94,7 @@
                                         <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                                         <button type="submit" class="btn btn-sm btn-success">Approve</button>
                                     </form>
-                                    <form action="/admin/users/<%= u.id %>/reject" method="POST" onsubmit="return confirm('Reject this registration?')">
+                                    <form action="/admin/users/<%= u.id %>/reject" method="POST" data-confirm="Reject this registration?">
                                         <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                                         <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
                                     </form>
@@ -88,21 +105,195 @@
                 </tbody>
             </table>
         </div>
+        <form action="/admin/users/bulk" method="POST" class="d-flex gap-2 align-items-center mt-3 flex-wrap" id="bulkSelectedForm">
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+            <span class="small text-muted" id="bulkSelectedCount">0 selected</span>
+            <button type="submit" name="decision" value="approve" class="btn btn-sm btn-liquid-primary">Approve Selected</button>
+            <button type="submit" name="decision" value="reject" class="btn btn-sm btn-outline-danger" data-confirm="Reject the selected registrations?">Reject Selected</button>
+        </form>
+        <!-- Bulk-select bookkeeping — external file, CSP-safe (see /js/users-bulk.js). -->
+        <script src="/js/users-bulk.js" defer></script>
+    <% } %>
+</div>
+<% } %>
+
+<!-- Section transfer queue (adviser dual-approval: admin half decided here). -->
+<% const transfers = typeof pendingTransfers !== 'undefined' ? pendingTransfers : []; %>
+<div class="glass-card p-3 mb-4" style="border-left: 4px solid var(--zahs-amber-gold);">
+    <h5 class="fw-bold mb-3"><i class="bi bi-arrow-left-right text-warning me-2"></i>Section Transfers (<%= transfers.length %>)</h5>
+    <% if (transfers.length === 0) { %>
+        <p class="text-muted small mb-0">No pending section-transfer requests.</p>
+    <% } else { %>
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Learner</th>
+                        <th scope="col">From → To</th>
+                        <th scope="col">Requested By</th>
+                        <th scope="col">Receiver</th>
+                        <th scope="col">Reason</th>
+                        <th scope="col">Decision + Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% transfers.forEach(t => { %>
+                        <tr>
+                            <td><div class="fw-bold text-dark"><%= t.first_name %> <%= t.last_name %></div><div class="font-monospace small text-muted">LRN <%= t.lrn || 'N/A' %></div></td>
+                            <td class="small text-muted"><%= t.from_grade %> - <%= t.from_section %> → <strong class="text-dark"><%= t.to_grade %> - <%= t.to_section %></strong></td>
+                            <td class="small text-muted"><%= t.req_first %> <%= t.req_last %></td>
+                            <td class="small"><span class="<%= t.receiver_decision === 'approved' ? 'badge-emerald' : 'badge-gray' %>"><%= t.receiver_decision === 'approved' ? 'Accepted' : 'Pending' %></span></td>
+                            <td class="small" style="max-width: 200px;"><%= t.reason %></td>
+                            <td>
+                                <form action="/admin/transfers/<%= t.id %>/decide" method="POST" class="d-flex gap-1 align-items-center flex-wrap" data-require-reason data-reason-alert="Give a decision reason of at least 10 characters.">
+                                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                    <input type="text" name="reason" class="glass-input py-1 px-2 small" placeholder="Decision reason (min 10)" required minlength="10" style="max-width: 180px;" aria-label="Decision reason">
+                                    <button type="submit" name="decision" value="approved" class="btn btn-sm btn-success">Approve</button>
+                                    <button type="submit" name="decision" value="rejected" class="btn btn-sm btn-outline-danger" data-confirm="Reject this transfer?">Reject</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
     <% } %>
 </div>
 
-<!-- Users Table -->
+<!-- Adviser change requests (edit/drop/restore/deactivate — teacher note drives the decision). -->
+<% const changeReqs = typeof pendingChanges !== 'undefined' ? pendingChanges : []; %>
+<div class="glass-card p-3 mb-4" style="border-left: 4px solid var(--zahs-jade);">
+    <h5 class="fw-bold mb-3"><i class="bi bi-clipboard-check text-success me-2"></i>Adviser Requests (<%= changeReqs.length %>)</h5>
+    <% if (changeReqs.length === 0) { %>
+        <p class="text-muted small mb-0">No pending adviser change requests.</p>
+    <% } else { %>
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Learner (current)</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Requested Change</th>
+                        <th scope="col">Teacher Note</th>
+                        <th scope="col">Filed By / When</th>
+                        <th scope="col">Decision + Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% changeReqs.forEach(c => { %>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark"><%= c.first_name %> <%= c.last_name %></div>
+                                <div class="font-monospace small text-muted">LRN <%= c.cur_lrn || 'N/A' %></div>
+                                <div class="small text-muted"><%= c.cur_grade %> - <%= c.cur_section %></div>
+                                <div class="small text-muted"><%= c.cur_email %></div>
+                            </td>
+                            <td><span class="<%= c.request_type === 'deactivate' ? 'badge-red' : (c.request_type === 'drop' ? 'badge-amber' : 'badge-emerald') %>"><%= c.request_type.toUpperCase() %></span></td>
+                            <td class="small" style="max-width: 220px;">
+                                <% const p = c.payload || {}; %>
+                                <% if (c.request_type === 'edit') { %>
+                                    <% if (p.first_name !== undefined) { %><div>First: "<%= c.first_name %>" → "<strong><%= p.first_name %></strong>"</div><% } %>
+                                    <% if (p.last_name !== undefined) { %><div>Last: "<%= c.last_name %>" → "<strong><%= p.last_name %></strong>"</div><% } %>
+                                    <% if (p.gender !== undefined) { %><div>Gender: <%= c.cur_gender %> → <strong><%= p.gender %></strong></div><% } %>
+                                    <% if (p.email !== undefined) { %><div>Email: <span class="font-monospace"><%= c.cur_email %></span> → <strong class="font-monospace"><%= p.email %></strong></div><% } %>
+                                    <% if (p.lrn !== undefined) { %><div>LRN: <span class="font-monospace"><%= c.cur_lrn %></span> → <strong class="font-monospace"><%= p.lrn %></strong></div><% } %>
+                                <% } else if (c.request_type === 'drop') { %>
+                                    Enrollments → dropped (grades kept, account stays active)
+                                <% } else if (c.request_type === 'restore') { %>
+                                    Enrollments → active
+                                <% } else if (c.request_type === 'deactivate') { %>
+                                    Account → deactivated (all records kept, cannot sign in)
+                                <% } %>
+                            </td>
+                            <td class="small p-2 rounded-3" style="max-width: 220px; background: rgba(245,158,11,0.08); border-left: 3px solid var(--zahs-amber-gold);"><i class="bi bi-quote me-1"></i><%= c.teacher_note %></td>
+                            <td class="small text-muted"><%= c.req_first %> <%= c.req_last %><br><span class="font-monospace"><%= c.created_at ? new Date(c.created_at).toLocaleString() : 'N/A' %></span></td>
+                            <td>
+                                <form action="/admin/change-requests/<%= c.id %>/decide" method="POST" class="d-flex gap-1 align-items-center flex-wrap" data-require-reason data-reason-field="decision_note" data-reason-alert="Give a decision note of at least 10 characters — the teacher will see it.">
+                                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                    <input type="text" name="decision_note" class="glass-input py-1 px-2 small" placeholder="Decision note (min 10, seen by teacher)" required minlength="10" maxlength="500" style="max-width: 180px;" aria-label="Decision note">
+                                    <button type="submit" name="decision" value="approved" class="btn btn-sm btn-success">Approve + Apply</button>
+                                    <button type="submit" name="decision" value="rejected" class="btn btn-sm btn-outline-danger" data-confirm="Reject this request? Your note goes back to the teacher.">Reject</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    <% } %>
+</div>
+
+<!-- Users Table. Filter controls live INSIDE this card, directly above
+     the column headers: role pills row, then status + search row, then
+     the sortable columns. One management surface, not two cards. -->
+<% const _filterStatus = typeof selectedStatus !== 'undefined' ? selectedStatus : 'all'; %>
+<% const _sortLabel = (typeof sortKey !== 'undefined' ? sortKey : 'newest'); %>
 <div class="glass-table-container">
+    <!-- In-table filter header: role pills -->
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 px-3 pt-3 pb-2">
+        <% const _sortKeep = (typeof sortKey !== 'undefined' && sortKey && sortKey !== 'newest') ? `&sort=${sortKey}` : ''; %>
+        <div class="nav gap-1" aria-label="Filter by role">
+            <a href="/admin/users?role=all&status=<%= _filterStatus %><%= searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '' %><%- _sortKeep %>" class="filter-pill <%= selectedRole === 'all' ? 'active' : '' %>">All</a>
+            <a href="/admin/users?role=teacher&status=<%= _filterStatus %><%= searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '' %><%- _sortKeep %>" class="filter-pill <%= selectedRole === 'teacher' ? 'active' : '' %>">Teachers</a>
+            <a href="/admin/users?role=student&status=<%= _filterStatus %><%= searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '' %><%- _sortKeep %>" class="filter-pill <%= selectedRole === 'student' ? 'active' : '' %>">Students</a>
+            <a href="/admin/users?role=admin&status=<%= _filterStatus %><%= searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '' %><%- _sortKeep %>" class="filter-pill <%= selectedRole === 'admin' ? 'active' : '' %>">Admins</a>
+        </div>
+        <span class="badge-emerald"><i class="bi bi-people me-1"></i><%= users.length %> shown</span>
+    </div>
+    <!-- In-table filter header: status + search.
+         Status is a real form (GET submit): works with keyboard, without
+         JS, and under the CSP (no inline onchange handler). -->
+    <div class="d-flex align-items-center gap-2 flex-wrap px-3 pb-3">
+        <form action="/admin/users" method="GET" class="d-flex align-items-center gap-2 flex-wrap" id="statusFilterForm">
+            <input type="hidden" name="role" value="<%= selectedRole %>">
+            <% if (searchQuery) { %><input type="hidden" name="q" value="<%= searchQuery %>"><% } %>
+            <% if (typeof sortKey !== 'undefined' && sortKey && sortKey !== 'newest') { %><input type="hidden" name="sort" value="<%= sortKey %>"><% } %>
+            <label class="small fw-bold text-muted mb-0" for="statusFilter">Status</label>
+            <select id="statusFilter" name="status" class="glass-input py-1 px-3" style="width: auto;" data-auto-submit="statusFilterForm">
+                <option value="all" <%= _filterStatus === 'all' ? 'selected' : '' %>>All</option>
+                <option value="pending" <%= _filterStatus === 'pending' ? 'selected' : '' %>>Pending</option>
+                <option value="active" <%= _filterStatus === 'active' ? 'selected' : '' %>>Active</option>
+                <option value="rejected" <%= _filterStatus === 'rejected' ? 'selected' : '' %>>Rejected</option>
+            </select>
+        </form>
+        <form action="/admin/users" method="GET" class="d-flex gap-2 ms-auto" style="max-width: 280px; width: 100%;">
+            <input type="hidden" name="role" value="<%= selectedRole %>">
+            <input type="hidden" name="status" value="<%= _filterStatus %>">
+            <% if (typeof sortKey !== 'undefined' && sortKey && sortKey !== 'newest') { %><input type="hidden" name="sort" value="<%= sortKey %>"><% } %>
+            <input type="text" name="q" class="glass-input py-1 px-3" placeholder="Search name, email, LRN..." value="<%= searchQuery %>" aria-label="Search users">
+            <button type="submit" class="btn btn-glass py-1 px-3" aria-label="Search">
+                <i class="bi bi-search"></i>
+            </button>
+        </form>
+    </div>
+    <div class="px-3 pb-2 d-flex align-items-center gap-2 flex-wrap">
+        <span class="small text-muted">
+            <%= selectedRole === 'all' ? 'All roles' : (selectedRole === 'teacher' ? 'Teachers' : (selectedRole === 'student' ? 'Students' : 'Admins')) %>
+            &bull; <%= _filterStatus === 'all' ? 'Any status' : _filterStatus[0].toUpperCase() + _filterStatus.slice(1) %>
+            <% if (searchQuery) { %>&bull; matching “<%= searchQuery %>”<% } %>
+            &bull; sorted by <%= _sortLabel === 'newest' ? 'newest first' : (_sortLabel === 'oldest' ? 'oldest first' : (_sortLabel.replace('_desc', ' ↓').replace('_', ' ') + (_sortLabel.endsWith('_desc') ? '' : ' ↑'))) %>
+        </span>
+        <% if (selectedRole !== 'all' || _filterStatus !== 'all' || searchQuery) { %>
+            <a href="/admin/users" class="small fw-bold ms-auto" style="color: var(--zahs-emerald-primary);">Clear filters</a>
+        <% } %>
+    </div>
     <div class="table-responsive">
         <table class="glass-table">
             <thead>
                 <tr>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Identifier / Level</th>
-                    <th>Advisory</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <% /* Sortable headers: server-side via ?sort=, preserving
+                         role/status/search. Active column shows ▲/▼; clicking
+                         flips direction. Advisory + Actions are not sortable
+                         (badges/buttons carry no meaningful order). */ %>
+                    <% const _sort = typeof sortKey !== 'undefined' ? sortKey : 'newest'; %>
+                    <% const _sortHref = (base) => `/admin/users?role=${selectedRole}&status=${typeof selectedStatus !== 'undefined' ? selectedStatus : 'all'}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}&sort=${base}`; %>
+                    <% const _arrow = (base) => _sort === base ? ' <span aria-hidden="true">▲</span>' : (_sort === base + '_desc' ? ' <span aria-hidden="true">▼</span>' : ''); %>
+                    <th scope="col" aria-sort="<%= _sort === 'name' ? 'ascending' : (_sort === 'name_desc' ? 'descending' : 'none') %>"><a href="<%= _sortHref(_sort === 'name' ? 'name_desc' : 'name') %>" class="table-sort-link">User<%- _arrow('name') %></a></th>
+                    <th scope="col" aria-sort="<%= _sort === 'role' ? 'ascending' : (_sort === 'role_desc' ? 'descending' : 'none') %>"><a href="<%= _sortHref(_sort === 'role' ? 'role_desc' : 'role') %>" class="table-sort-link">Role<%- _arrow('role') %></a></th>
+                    <th scope="col" aria-sort="<%= _sort === 'level' ? 'ascending' : (_sort === 'level_desc' ? 'descending' : 'none') %>"><a href="<%= _sortHref(_sort === 'level' ? 'level_desc' : 'level') %>" class="table-sort-link">Identifier / Level<%- _arrow('level') %></a></th>
+                    <th scope="col">Advisory</th>
+                    <th scope="col" aria-sort="<%= _sort === 'status' ? 'ascending' : (_sort === 'status_desc' ? 'descending' : 'none') %>"><a href="<%= _sortHref(_sort === 'status' ? 'status_desc' : 'status') %>" class="table-sort-link">Status<%- _arrow('status') %></a></th>
+                    <th scope="col">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -110,7 +301,11 @@
                     <tr>
                         <td colspan="6" class="text-center py-5 text-muted">
                             <i class="bi bi-people fs-2 d-block mb-2"></i>
-                            No users found matching your query.
+                            <% if (isPendingFilter) { %>
+                                No pending registrations — you're all caught up.
+                            <% } else { %>
+                                No users found matching your query.
+                            <% } %>
                         </td>
                     </tr>
                 <% } %>
@@ -128,7 +323,7 @@
                             </div>
                         </td>
                         <td>
-                            <span class="<%= u.role === 'admin' ? 'badge-amber' : (u.role === 'teacher' ? 'badge-emerald' : 'badge-jade') %>">
+                            <span class="<%= u.role === 'admin' ? 'badge-gray' : (u.role === 'teacher' ? 'badge-emerald' : 'badge-jade') %>">
                                 <%= u.role.toUpperCase() %>
                             </span>
                         </td>
@@ -139,6 +334,9 @@
                             <% } else if (u.role === 'teacher') { %>
                                 <div class="fw-bold text-dark">ID: <%= u.employee_id || 'N/A' %></div>
                                 <div class="text-muted"><%= u.department %></div>
+                                <% if (u.teacher_grade || u.teacher_section) { %>
+                                    <div class="text-muted small"><i class="bi bi-mortarboard me-1"></i><%= [u.teacher_grade, u.teacher_section].filter(Boolean).join(' - ') %></div>
+                                <% } %>
                             <% } else { %>
                                 <div class="text-muted">System Administrator</div>
                             <% } %>
@@ -153,24 +351,28 @@
                             <% } %>
                         </td>
                         <td>
-                            <span class="<%= u.is_active ? 'badge-emerald' : 'badge-gray' %>">
-                                <%= u.is_active ? 'Active' : 'Inactive' %>
-                            </span>
                             <% if (u.status === 'pending') { %>
-                                <span class="badge-amber ms-1">Pending</span>
+                                <span class="badge-amber">Pending review</span>
                             <% } else if (u.status === 'rejected') { %>
-                                <span class="badge-red ms-1">Rejected</span>
+                                <span class="badge-red">Rejected</span>
+                            <% } else { %>
+                                <span class="<%= u.is_active ? 'badge-emerald' : 'badge-gray' %>">
+                                    <%= u.is_active ? 'Active' : 'Inactive' %>
+                                </span>
                             <% } %>
                         </td>
                         <td>
                             <div class="d-flex gap-1">
+                                <a href="/admin/users/<%= u.id %>" class="btn btn-sm btn-glass" title="Open 360° profile" aria-label="Open profile for <%= u.first_name %> <%= u.last_name %>">
+                                    <i class="bi bi-eye"></i>
+                                </a>
                                 <form action="/admin/users/<%= u.id %>/toggle-status" method="POST" class="d-inline">
                                     <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                                     <button type="submit" class="btn btn-sm <%= u.is_active ? 'btn-glass' : 'btn-liquid-primary' %>" title="<%= u.is_active ? 'Deactivate Account' : 'Activate Account' %>" aria-label="<%= u.is_active ? 'Deactivate' : 'Activate' %> <%= u.first_name %> <%= u.last_name %>">
                                         <i class="bi <%= u.is_active ? 'bi-slash-circle' : 'bi-check-circle' %>"></i>
                                     </button>
                                 </form>
-                                <form action="/admin/users/<%= u.id %>/reset-password" method="POST" class="d-inline" onsubmit="return confirm('Reset this user password to default (ChangeMe123!)?')">
+                                <form action="/admin/users/<%= u.id %>/reset-password" method="POST" class="d-inline" data-confirm="Generate a random temporary password for this user? It will be shown once and they must change it on next sign-in.">
                                     <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                                     <button type="submit" class="btn btn-sm btn-glass" title="Reset Password" aria-label="Reset password for <%= u.first_name %> <%= u.last_name %>">
                                         <i class="bi bi-key"></i>
@@ -199,20 +401,20 @@
                 <div class="modal-body">
                     <div class="row g-3">
                         <div class="col-6">
-                            <label class="form-label small fw-bold">First Name</label>
-                            <input type="text" name="first_name" class="glass-input" placeholder="e.g. Juan" required>
+                            <label class="form-label small fw-bold" for="teacherFirstName">First Name</label>
+                            <input type="text" name="first_name" id="teacherFirstName" class="glass-input" placeholder="e.g. Juan" aria-label="Teacher first name" required>
                         </div>
                         <div class="col-6">
-                            <label class="form-label small fw-bold">Last Name</label>
-                            <input type="text" name="last_name" class="glass-input" placeholder="e.g. Dela Cruz" required>
+                            <label class="form-label small fw-bold" for="teacherLastName">Last Name</label>
+                            <input type="text" name="last_name" id="teacherLastName" class="glass-input" placeholder="e.g. Dela Cruz" aria-label="Teacher last name" required>
                         </div>
                         <div class="col-12">
-                            <label class="form-label small fw-bold">DepEd Email</label>
-                            <input type="email" name="email" class="glass-input" placeholder="e.g. juan.delacruz@zahs.edu.ph" required>
+                            <label class="form-label small fw-bold" for="teacherEmail">DepEd Email</label>
+                            <input type="email" name="email" id="teacherEmail" class="glass-input" placeholder="e.g. juan.delacruz@zahs.edu.ph" aria-label="Teacher DepEd email" required>
                         </div>
                         <div class="col-6">
-                            <label class="form-label small fw-bold">Employee ID</label>
-                            <input type="text" name="employee_id" class="glass-input" placeholder="e.g. EMP-2026-042">
+                            <label class="form-label small fw-bold" for="teacherEmployeeId">Employee ID</label>
+                            <input type="text" name="employee_id" id="teacherEmployeeId" class="glass-input" placeholder="e.g. EMP-2026-042" aria-label="Teacher employee ID">
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-bold">Department</label>
@@ -223,13 +425,13 @@
                             </select>
                         </div>
                         <div class="col-12">
-                            <label class="form-label small fw-bold">Temporary Password</label>
-                            <input type="password" name="password" class="glass-input" value="Teacher123!" required>
+                            <label class="form-label small fw-bold" for="teacherTempPassword">Temporary Password</label>
+                            <input type="password" name="password" id="teacherTempPassword" class="glass-input" placeholder="Min 10 chars, upper + lower + digit" aria-label="Teacher temporary password" required minlength="10">
                             <div class="form-text small">User will be forced to change this upon initial login.</div>
                         </div>
                         <div class="col-12">
                             <div class="form-check form-switch mt-2">
-                                <input class="form-check-input" type="checkbox" name="is_adviser" value="1" id="adviserSwitch" onchange="document.getElementById('adviserFields').style.display = this.checked ? 'block' : 'none'">
+                                <input class="form-check-input" type="checkbox" name="is_adviser" value="1" id="adviserSwitch" data-toggle-target="adviserFields">
                                 <label class="form-check-label small fw-bold" for="adviserSwitch">Designate as Advisory Class Adviser</label>
                             </div>
                         </div>
@@ -238,10 +440,9 @@
                                 <div class="col-6">
                                     <label class="form-label small fw-bold">Advisory Grade</label>
                                     <select name="advisory_grade" class="glass-input">
-                                        <option value="Grade 7">Grade 7</option>
-                                        <option value="Grade 8">Grade 8</option>
-                                        <option value="Grade 9">Grade 9</option>
-                                        <option value="Grade 10">Grade 10</option>
+                                        <% ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].forEach(function(g) { %>
+                                            <option value="<%= g %>"><%= g %></option>
+                                        <% }) %>
                                     </select>
                                 </div>
                                 <div class="col-6">
@@ -299,20 +500,19 @@
                         </div>
                         <div class="col-4">
                             <label class="form-label small fw-bold">Grade Level</label>
-                            <select name="grade_level" class="glass-input">
-                                <option value="Grade 7">Grade 7</option>
-                                <option value="Grade 8">Grade 8</option>
-                                <option value="Grade 9">Grade 9</option>
-                                <option value="Grade 10">Grade 10</option>
+                            <select name="grade_level" class="glass-input" data-section-for="adminStudentSection">
+                                <% ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].forEach(function(g) { %>
+                                    <option value="<%= g %>"><%= g %></option>
+                                <% }) %>
                             </select>
                         </div>
                         <div class="col-4">
                             <label class="form-label small fw-bold">Section</label>
-                            <input type="text" name="section" class="glass-input" value="Rizal" required>
+                            <input type="text" name="section" id="adminStudentSection" class="glass-input" value="Rizal" required maxlength="50" autocomplete="off" placeholder="Start typing…" role="combobox" aria-autocomplete="list" aria-expanded="false">
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-bold">Temporary Password</label>
-                            <input type="password" name="password" class="glass-input" value="Student123!" required>
+                            <input type="password" name="password" class="glass-input" placeholder="Min 10 chars, upper + lower + digit" required minlength="10">
                         </div>
                     </div>
                 </div>
@@ -324,3 +524,56 @@
         </div>
     </div>
 </div>
+
+<!-- Modal: Add Admin (Phase 2.7) -->
+<div class="modal fade modal-glass" id="addAdminModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-shield-plus text-success me-2"></i>Register New Administrator</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/admin/users/create-admin" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">First Name</label>
+                            <input type="text" name="first_name" class="glass-input" placeholder="e.g. Jose" required maxlength="100">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Last Name</label>
+                            <input type="text" name="last_name" class="glass-input" placeholder="e.g. Rizal" required maxlength="100">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Admin Email</label>
+                            <input type="email" name="email" class="glass-input" placeholder="e.g. admin2@edushare.com" required maxlength="150">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Temporary Password</label>
+                            <input type="password" name="password" class="glass-input" placeholder="Min 10 chars, upper + lower + digit" required minlength="10">
+                            <div class="form-text small">They must change this on first sign-in. Creation is security-logged.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Reason (min 10 chars, recorded in audit log)</label>
+                            <input type="text" name="reason" class="glass-input" placeholder="e.g. new ICT coordinator needs admin access" required minlength="10">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Your Current Password (re-authentication)</label>
+                            <input type="password" name="current_password" class="glass-input" placeholder="Confirm your own password" required>
+                            <div class="form-text small">Proves you still hold your credentials before minting a peer admin.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-liquid-primary">Create Admin Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/js/section-autocomplete.js" defer></script>
+<!-- Admin submit-button feedback (spinner + double-submit guard; confirms/reasons stay in global app.js). -->
+<script src="/js/admin-feedback.js" defer></script>

@@ -1,6 +1,5 @@
-<div class="mb-4">
-    <h2 class="fw-bold mb-1" style="color: var(--zahs-emerald-deep);">Curriculum Standards & Knowledge Base</h2>
-    <p class="text-muted small mb-0">DepEd MATATAG Curriculum Guides (CG), Budgets of Work (BOW), and AI Grounding Competencies.</p>
+<div class="admin-page-head">
+    <h2>Curriculum Standards & Knowledge Base</h2>
 </div>
 
 <div class="row g-4 mb-4">
@@ -34,6 +33,8 @@
                         <option value="Grade 8">Grade 8</option>
                         <option value="Grade 9">Grade 9</option>
                         <option value="Grade 10">Grade 10</option>
+                        <option value="Grade 11">Grade 11</option>
+                        <option value="Grade 12">Grade 12</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -66,6 +67,67 @@
             </form>
         </div>
     </div>
+    <!-- Ingested Documents + chunk/preview explorer (GET /api/curriculum/chunks). -->
+    <div class="col-12">
+        <div class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+                <h5 class="fw-bold mb-0"><i class="bi bi-archive text-success me-2"></i>Ingested Documents</h5>
+                <span class="badge-emerald"><%= documents.length %> document<%= documents.length === 1 ? '' : 's' %> indexed</span>
+            </div>
+            <p class="text-muted small mb-3">What the ingest form above produced. Pick a document to inspect its grounded chunks, or run a retrieval preview (same grounding teachers get).</p>
+            <% if (documents.length === 0) { %>
+                <%- include('../partials/admin-empty', { icon: 'bi-archive', title: 'No documents ingested yet', hint: 'Upload a CG/BOW/LE/LM above — its chunks will appear here for inspection.' }) %>
+            <% } else { %>
+            <div class="table-responsive">
+                <table class="glass-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Title</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Subject</th>
+                            <th scope="col">Grade</th>
+                            <th scope="col">Quarter</th>
+                            <th scope="col">Indexed</th>
+                            <th scope="col">Chunks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% documents.forEach(d => { %>
+                            <tr>
+                                <td class="fw-bold text-dark small"><%= d.title %></td>
+                                <td><span class="badge-emerald"><%= d.doc_type %></span></td>
+                                <td class="small"><%= d.subject %></td>
+                                <td class="small text-muted"><%= d.grade_level %></td>
+                                <td><span class="badge-gray"><%= d.quarter || '—' %></span></td>
+                                <td class="small text-muted font-monospace"><%= d.created_at ? new Date(d.created_at).toLocaleString() : 'N/A' %></td>
+                                <td><button type="button" class="btn btn-sm btn-glass" data-chunks-doc="<%= d.id %>">View chunks</button></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-lg-6">
+                    <label class="form-label small fw-bold" for="chunksDocId">Inspect chunks (document #)</label>
+                    <div class="d-flex gap-2">
+                        <input type="number" id="chunksDocId" class="glass-input py-1 px-3 small" min="1" placeholder="e.g. <%= documents[0].id %>" aria-label="Document id">
+                        <button type="button" id="btnViewChunks" class="btn btn-sm btn-glass">View chunks</button>
+                    </div>
+                    <div id="chunksResult" class="small mt-2 d-flex flex-column gap-2" role="status" aria-live="polite"></div>
+                </div>
+                <div class="col-lg-6">
+                    <label class="form-label small fw-bold" for="previewTopic">Retrieval preview (teacher grounding check)</label>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <input type="text" id="previewTopic" class="glass-input py-1 px-3 small flex-grow-1" style="min-width: 180px;" placeholder="e.g. verb tenses" aria-label="Preview topic">
+                        <button type="button" id="btnPreviewSources" class="btn btn-sm btn-liquid-primary">Preview sources</button>
+                    </div>
+                    <div class="form-text small">POST /api/curriculum/preview-sources is teacher-scoped; admins preview here via the same fetch. Blocked responses render as a notice, not a silent failure.</div>
+                    <div id="previewResult" class="small mt-2 d-flex flex-column gap-2" role="status" aria-live="polite"></div>
+                </div>
+            </div>
+            <% } %>
+        </div>
+    </div>
     <!-- Seeded Competencies -->
     <div class="col-12">
         <div class="glass-card p-4">
@@ -93,12 +155,12 @@
                 <table class="glass-table">
                     <thead>
                         <tr>
-                            <th>Code</th>
-                            <th>Description</th>
-                            <th>Subject</th>
-                            <th>Grade Level</th>
-                            <th>Quarter</th>
-                            <th>Source</th>
+                            <th scope="col">Code</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Subject</th>
+                            <th scope="col">Grade Level</th>
+                            <th scope="col">Quarter</th>
+                            <th scope="col">Source</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -108,7 +170,7 @@
                                 <td class="small" style="max-width: 400px;"><%= comp.description %></td>
                                 <td><%= comp.subject %></td>
                                 <td><%= comp.grade_level %></td>
-                                <td><span class="badge <%= comp.quarter === 'Q1' ? 'badge-emerald' : (comp.quarter === 'Q2' ? 'badge-jade' : (comp.quarter === 'Q3' ? 'badge-amber' : 'badge-gray')) %>"><%= comp.quarter %></span></td>
+                                <td><span class="<%= comp.quarter === 'Q1' ? 'badge-emerald' : (comp.quarter === 'Q2' ? 'badge-jade' : (comp.quarter === 'Q3' ? 'badge-amber' : 'badge-gray')) %>"><%= comp.quarter %></span></td>
                                 <td class="small text-muted"><%= comp.source_version %></td>
                             </tr>
                         <% }) %>

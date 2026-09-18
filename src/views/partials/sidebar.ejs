@@ -1,62 +1,76 @@
-<aside class="liquid-sidebar">
+<aside class="liquid-sidebar" id="appSidebar" aria-label="Primary navigation">
     <div>
         <% if (user && user.role === 'admin') { %>
-            <div class="sidebar-heading">Admin Portal</div>
-            <a href="/admin/dashboard" class="sidebar-nav-item <%= currentPath.startsWith('/admin/dashboard') ? 'active' : '' %>">
+            <div class="sidebar-heading">Manage</div>
+            <a href="/admin/dashboard" class="sidebar-nav-item <%= (currentPath.startsWith('/admin/dashboard')) ? 'active' : '' %>"<%= (currentPath.startsWith('/admin/dashboard')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-speedometer2"></i>
                 <span>Dashboard</span>
             </a>
-            <a href="/admin/users" class="sidebar-nav-item <%= currentPath.startsWith('/admin/users') ? 'active' : '' %>">
+            <a href="/admin/users" class="sidebar-nav-item <%= (currentPath.startsWith('/admin/users')) ? 'active' : '' %>"<%= (currentPath.startsWith('/admin/users')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-people"></i>
                 <span>User Management</span>
             </a>
-            <a href="/admin/settings" class="sidebar-nav-item <%= currentPath.startsWith('/admin/settings') ? 'active' : '' %>">
+            <a href="/admin/settings" class="sidebar-nav-item <%= (currentPath.startsWith('/admin/settings')) ? 'active' : '' %>"<%= (currentPath.startsWith('/admin/settings')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-gear"></i>
                 <span>School Settings</span>
             </a>
-            <a href="/admin/curriculum" class="sidebar-nav-item <%= currentPath.startsWith('/admin/curriculum') ? 'active' : '' %>">
+            <div class="sidebar-heading">Academic Oversight</div>
+            <a href="/admin/classes" class="sidebar-nav-item <%= (currentPath.startsWith('/admin/classes')) ? 'active' : '' %>"<%= (currentPath.startsWith('/admin/classes')) ? ' aria-current="page"' : '' %>>
+                <i class="bi bi-mortarboard"></i>
+                <span>Classes</span>
+            </a>
+            <a href="/admin/gradebook" class="sidebar-nav-item <%= (currentPath.startsWith('/admin/gradebook')) ? 'active' : '' %>"<%= (currentPath.startsWith('/admin/gradebook')) ? ' aria-current="page"' : '' %>>
+                <i class="bi bi-table"></i>
+                <span>Gradebooks</span>
+            </a>
+            <div class="sidebar-heading">System</div>
+            <a href="/admin/sessions" class="sidebar-nav-item <%= (currentPath.startsWith('/admin/sessions')) ? 'active' : '' %>"<%= (currentPath.startsWith('/admin/sessions')) ? ' aria-current="page"' : '' %>>
+                <i class="bi bi-hdd-network"></i>
+                <span>Sessions</span>
+            </a>
+            <a href="/admin/curriculum" class="sidebar-nav-item <%= (currentPath.startsWith('/admin/curriculum')) ? 'active' : '' %>"<%= (currentPath.startsWith('/admin/curriculum')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-journal-bookmark"></i>
                 <span>Curriculum & RAG</span>
             </a>
-            <a href="/admin/logs" class="sidebar-nav-item <%= currentPath.startsWith('/admin/logs') ? 'active' : '' %>">
+            <a href="/admin/logs" class="sidebar-nav-item <%= (currentPath.startsWith('/admin/logs')) ? 'active' : '' %>"<%= (currentPath.startsWith('/admin/logs')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-clock-history"></i>
                 <span>Activity Logs</span>
             </a>
 
         <% } else if (user && user.role === 'teacher') { %>
             <div class="sidebar-heading">Teach</div>
-            <a href="/teacher/dashboard" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/dashboard') ? 'active' : '' %>">
+            <a href="/teacher/dashboard" class="sidebar-nav-item <%= (currentPath.startsWith('/teacher/dashboard')) ? 'active' : '' %>"<%= (currentPath.startsWith('/teacher/dashboard')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-grid-1x2"></i>
                 <span>Dashboard</span>
             </a>
-            <a href="/teacher/classes" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/classes') ? 'active' : '' %>">
+            <a href="/teacher/classes" class="sidebar-nav-item <%= (currentPath.startsWith('/teacher/classes')) ? 'active' : '' %>"<%= (currentPath.startsWith('/teacher/classes')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-mortarboard"></i>
                 <span>My Classes</span>
             </a>
-            <a href="/teacher/library" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/library') ? 'active' : '' %>">
+            <a href="/teacher/library" class="sidebar-nav-item <%= (currentPath.startsWith('/teacher/library')) ? 'active' : '' %>"<%= (currentPath.startsWith('/teacher/library')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-folder2-open"></i>
                 <span>Material Library</span>
             </a>
 
             <div class="sidebar-heading">Assess</div>
-            <a href="/teacher/gradebook" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/gradebook') ? 'active' : '' %>">
+            <a href="/teacher/gradebook" class="sidebar-nav-item <%= (currentPath.startsWith('/teacher/gradebook')) ? 'active' : '' %>"<%= (currentPath.startsWith('/teacher/gradebook')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-table"></i>
                 <span>E-Class Record</span>
             </a>
 
             <div class="sidebar-heading">Create</div>
-            <a href="/teacher/lesson-generator" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/lesson-generator') ? 'active' : '' %>">
+            <a href="/teacher/lesson-generator" class="sidebar-nav-item <%= (currentPath.startsWith('/teacher/lesson-generator')) ? 'active' : '' %>"<%= (currentPath.startsWith('/teacher/lesson-generator')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-stars"></i>
                 <span>AI Lesson Generator</span>
             </a>
-            <a href="/teacher/quiz-maker" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/quiz-maker') ? 'active' : '' %>">
+            <a href="/teacher/quiz-maker" class="sidebar-nav-item <%= (currentPath.startsWith('/teacher/quiz-maker')) ? 'active' : '' %>"<%= (currentPath.startsWith('/teacher/quiz-maker')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-card-checklist"></i>
                 <span>AI Quiz Maker</span>
             </a>
 
             <% if (user.is_adviser) { %>
                 <div class="sidebar-heading">Advisory Section</div>
-                <a href="/teacher/advisory" class="sidebar-nav-item <%= currentPath.startsWith('/teacher/advisory') ? 'active' : '' %>">
+                <a href="/teacher/advisory" class="sidebar-nav-item <%= (currentPath.startsWith('/teacher/advisory')) ? 'active' : '' %>"<%= (currentPath.startsWith('/teacher/advisory')) ? ' aria-current="page"' : '' %>>
                     <i class="bi bi-person-lines-fill"></i>
                     <span>My Advisory (SF1)</span>
                 </a>
@@ -64,17 +78,22 @@
 
         <% } else if (user && user.role === 'student') { %>
             <div class="sidebar-heading">Student Learning</div>
-            <a href="/student/dashboard" class="sidebar-nav-item <%= currentPath.startsWith('/student/dashboard') ? 'active' : '' %>">
+            <a href="/student/dashboard" class="sidebar-nav-item <%= (currentPath.startsWith('/student/dashboard')) ? 'active' : '' %>"<%= (currentPath.startsWith('/student/dashboard')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-speedometer2"></i>
                 <span>Dashboard</span>
             </a>
-            <a href="/student/classes" class="sidebar-nav-item <%= currentPath.startsWith('/student/classes') ? 'active' : '' %>">
+            <a href="/student/classes" class="sidebar-nav-item <%= (currentPath.startsWith('/student/classes')) ? 'active' : '' %>"<%= (currentPath.startsWith('/student/classes')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-book"></i>
                 <span>My Classes</span>
             </a>
+            <a href="/student/notifications" class="sidebar-nav-item <%= (currentPath.startsWith('/student/notifications')) ? 'active' : '' %>"<%= (currentPath.startsWith('/student/notifications')) ? ' aria-current="page"' : '' %>>
+                <i class="bi bi-bell"></i>
+                <span>Notifications</span>
+                <% if (typeof unreadNotifications !== 'undefined' && unreadNotifications > 0) { %><span class="badge rounded-pill bg-danger ms-auto"><%= unreadNotifications > 99 ? '99+' : unreadNotifications %></span><% } %>
+            </a>
 
             <div class="sidebar-heading">AI Study Companion</div>
-            <a href="/student/chatbot" class="sidebar-nav-item <%= currentPath.startsWith('/student/chatbot') ? 'active' : '' %>">
+            <a href="/student/chatbot" class="sidebar-nav-item <%= (currentPath.startsWith('/student/chatbot')) ? 'active' : '' %>"<%= (currentPath.startsWith('/student/chatbot')) ? ' aria-current="page"' : '' %>>
                 <i class="bi bi-robot"></i>
                 <span>AI Study Tutor</span>
             </a>

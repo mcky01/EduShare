@@ -1,0 +1,20 @@
+<%# Shared local list filter bar. Locals: scope (required), searchId, searchPlaceholder, searchLabel, selectId (optional), selectLabel (optional), selectOptions (optional array), selectAllLabel (optional), countId (optional), countLabel (optional, default "items"), viewToggle (optional { scope, label } rendered right-aligned before the count). %>
+<%# Requires /js/local-filter.js (loaded globally in layouts/main.ejs). Filterable rows/cards carry [data-filter-scope="scope"] with data-search (+ optional data-filter-group). %>
+<div class="glass-card p-3 mb-3 d-flex align-items-center gap-2 flex-wrap" data-filter-bar="<%= scope %>">
+    <input type="search" id="<%= typeof searchId !== 'undefined' && searchId ? searchId : ('filter-' + scope) %>" class="glass-input py-1 small" style="max-width: 260px;" placeholder="<%= typeof searchPlaceholder !== 'undefined' && searchPlaceholder ? searchPlaceholder : 'Search...' %>" aria-label="<%= typeof searchLabel !== 'undefined' && searchLabel ? searchLabel : 'Filter list' %>" data-filter-search="<%= scope %>">
+    <% if (typeof selectOptions !== 'undefined' && selectOptions && selectOptions.length) { %>
+        <select id="<%= typeof selectId !== 'undefined' && selectId ? selectId : ('filter-' + scope + '-group') %>" class="glass-input py-1 small" style="max-width: 200px;" aria-label="<%= typeof selectLabel !== 'undefined' && selectLabel ? selectLabel : 'Filter group' %>" data-filter-group-select="<%= scope %>">
+            <option value=""><%= typeof selectAllLabel !== 'undefined' && selectAllLabel ? selectAllLabel : 'All' %></option>
+            <% selectOptions.forEach(function (opt) { %>
+                <option value="<%= opt %>"><%= opt %></option>
+            <% }) %>
+        </select>
+    <% } %>
+    <% if (typeof viewToggle !== 'undefined' && viewToggle) { %>
+        <span class="ms-auto"></span>
+        <%- include('./view-toggle', { scope: viewToggle.scope, label: viewToggle.label }) %>
+    <% } %>
+    <% if (typeof countId !== 'undefined' && countId) { %>
+        <span class="small text-muted <%= (typeof viewToggle !== 'undefined' && viewToggle) ? '' : 'ms-auto' %>" aria-live="polite"><span id="<%= countId %>" data-filter-count="<%= scope %>"></span> <%= typeof countLabel !== 'undefined' && countLabel ? countLabel : 'items' %></span>
+    <% } %>
+</div>

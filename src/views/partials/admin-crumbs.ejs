@@ -1,0 +1,17 @@
+<% /* Admin breadcrumb trail. Expects `trail`: [{label, href?}]; last item is current page. */ %>
+<% if (typeof trail !== 'undefined' && trail && trail.length) { %>
+<nav aria-label="breadcrumb" class="glass-card px-3 py-2 mb-4">
+    <ol class="breadcrumb mb-0 small">
+        <% trail.forEach((crumb, i) => { %>
+            <% const isLast = i === trail.length - 1; %>
+            <li class="breadcrumb-item <%= isLast ? 'active fw-bold text-dark' : '' %>" <%= isLast ? 'aria-current="page"' : '' %>>
+                <% if (!isLast && crumb.href) { %>
+                    <a href="<%= crumb.href %>" class="text-decoration-none fw-semibold"><%= crumb.label %></a>
+                <% } else { %>
+                    <%= crumb.label %>
+                <% } %>
+            </li>
+        <% }) %>
+    </ol>
+</nav>
+<% } %>

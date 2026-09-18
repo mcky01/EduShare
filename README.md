@@ -1,4 +1,4 @@
-# EduShare 2.0 — Next-Gen Learning Management System
+# EduShare — Next-Gen Learning Management System
 
 > **Zeferino Arroyo High School (Iriga City, 1981)**  
 > *"Basta Zeferinian, Magaling Yan!"*  
@@ -8,7 +8,7 @@
 
 ## 🌟 Overview
 
-**EduShare 2.0** is an enterprise-grade Learning Management System (LMS) re-architected from the ground up for zero errors, production readiness, and optimal user experience. It replaces legacy client-rendered HTML templates with a unified **Server-Side Rendered (SSR) Node.js + Express + EJS** architecture.
+**EduShare** is an enterprise-grade Learning Management System (LMS) re-architected from the ground up for zero errors, production readiness, and optimal user experience. It replaces legacy client-rendered HTML templates with a unified **Server-Side Rendered (SSR) Node.js + Express + EJS** architecture.
 
 The user interface features a modern **Liquid Glass** aesthetic—translucent frosted glass panels, glowing ambient gradients, and silky borders harmonized with the emerald green and gold insignia of Zeferino Arroyo High School.
 
@@ -61,7 +61,7 @@ The user interface features a modern **Liquid Glass** aesthetic—translucent fr
 ### 1. Prerequisites
 - **Node.js** v18+ or v20+ installed.
 - **MySQL / MariaDB** (e.g., XAMPP MySQL running on port 3306).
-- **Ollama** (optional, recommended for live AI streaming: `ollama run qwen2.5:7b`). If Ollama is offline, EduShare 2.0 seamlessly activates its built-in educational fallback engine with zero errors.
+- **Ollama** (optional, recommended for live AI streaming: `ollama run qwen2.5:7b`). If Ollama is offline, EduShare seamlessly activates its built-in educational fallback engine with zero errors.
 
 ### 2. Installation
 ```bash
@@ -89,6 +89,30 @@ npm start
 *Note: The system automatically checks, creates the database `edushare_db_v2`, runs the normalized schema, and seeds default accounts and classes on boot!*
 
 Open your browser to: **`http://localhost:3000`**
+
+### 5. Testing
+
+Prereqs for every suite: server running on `127.0.0.1:3000`, MySQL reachable,
+dev database (`edushare_db_v2`). The registration suite additionally needs
+`OTP_DEV_LOG=true` in the server environment.
+
+```bash
+npm test                    # smoke suite (15 checks): needs only the server running
+npm run test:smoke          # same as npm test
+npm run test:registration   # OTP registration suite: requires OTP_DEV_LOG=true
+npm run test:integration    # end-to-end suite (27 checks): mutates the dev DB
+```
+
+- `test` stays smoke-only on purpose: registration and integration require
+a live server + DB and mutate dev data (OTP rows, grades, library saves),
+so chaining them under `npm test` would fail for anyone without that
+environment.
+- Registration suite deliberately trips the OTP rate limiter; a final 429
+is expected behavior, not a failure.
+- Integration suite writes grades, quiz attempts, and lesson saves — run
+against a non-prod DB only.
+- Restart the server between back-to-back suite runs to reset the login
+limiter (20 POSTs / 15 min per IP).
 
 ---
 

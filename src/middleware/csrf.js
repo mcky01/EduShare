@@ -20,8 +20,17 @@ function csrfFailure(req, res) {
     if (isJsonRequest(req)) {
         return res.status(403).json({ error: 'Security check failed.' });
     }
+    // Authenticated users get sent back to context (flash) instead of the
+    // sign-in card: CSRF expiry on a signed-in form should not look like logout.
+    if (req.session && req.session.user && req.method === 'POST') {
+        const { setFlash } = require('./branding');
+        setFlash(req, 'error', 'Session expired. Please try that action again.');
+        const back = req.get('Referer');
+        const target = typeof back === 'string' && back.startsWith('/') ? back : 'back';
+        return res.status(403).redirect(target);
+    }
     return res.status(403).render('auth/login', {
-        title: 'Sign In | EduShare 2.0',
+        title: 'Sign In | EduShare',
         layout: 'layouts/auth',
         loginError: 'Security check failed. Please reload the sign-in page and try again.',
         credential: req.body?.credential || '',

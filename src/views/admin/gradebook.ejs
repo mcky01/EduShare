@@ -1,0 +1,329 @@
+<% const gbTrail = [{ label: 'Gradebooks', href: '/admin/gradebook' }]; %>
+<% const gbView = typeof view !== 'undefined' ? view : 'ecr'; %>
+<% const gbGrade = typeof selectedGrade !== 'undefined' ? selectedGrade : null; %>
+<% if (gbView === 'sections') { %>
+    <% if (gbGrade) { gbTrail.push({ label: gbGrade }); } %>
+<% } %>
+<% if (gbView === 'ecr') { %>
+    <% if (selectedClass) { %>
+        <% if (gbGrade) { gbTrail.push({ label: gbGrade, href: '/admin/gradebook?grade=' + encodeURIComponent(gbGrade) }); } %>
+        <% gbTrail.push({ label: selectedClass.class_name }); %>
+    <% } %>
+<% } %>
+<% if (gbTrail.length > 1) { %>
+    <%- include('../partials/admin-crumbs', { trail: gbTrail }) %>
+<% } %>
+<div class="admin-page-head">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <span class="badge-emerald"><i class="bi bi-award me-1"></i>DepEd Order 8 s. 2015</span>
+            <span class="badge-amber">MATATAG Transmutation</span>
+            <span class="badge-gray"><i class="bi bi-eye me-1"></i>Read-only oversight</span>
+        </div>
+        <h2>Electronic Class Record (Oversight)</h2>
+    </div>
+
+    <% if (selectedClass && selectedClass.id && gradebookData) { %>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <button type="button" class="btn btn-liquid-amber" data-bs-toggle="modal" data-bs-target="#correctGradeModal">
+                <i class="bi bi-pencil-square me-1"></i> Correct Grade
+            </button>
+            <form action="/admin/gradebook/export" method="POST" class="d-inline">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                <input type="hidden" name="class_id" value="<%= selectedClass.id %>">
+                <button type="submit" class="btn btn-glass text-success fw-semibold">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export to CSV
+                </button>
+            </form>
+        </div>
+    <% } %>
+</div>
+
+<style>
+.gradebook-sticky-col { position: sticky; left: 0; z-index: 5; background: rgba(255,255,255,0.95); box-shadow: 2px 0 4px rgba(0,0,0,0.06); }
+thead .gradebook-sticky-col { z-index: 6; }
+</style>
+
+<!-- Class Selector: jump-to box, ECR step only. Steps 1-2 ARE the
+     navigation, so a second picker there would duplicate them. -->
+<% const gbGroups = typeof classGroups !== 'undefined' && classGroups.length ? classGroups : null; %>
+<% if (gbView === 'ecr' && selectedClass) { %>
+<div class="glass-card p-3 mb-4 d-flex align-items-center gap-3 flex-wrap">
+    <a href="<%= gbGrade ? `/admin/gradebook?grade=${encodeURIComponent(gbGrade)}` : '/admin/gradebook' %>" class="btn btn-sm btn-glass">
+        <i class="bi bi-arrow-left me-1"></i><%= gbGrade || 'All grades' %>
+    </a>
+    <span class="fw-bold small text-dark"><i class="bi bi-arrow-left-right me-1"></i>Jump to:</span>
+    <% if (classes.length > 6) { %>
+        <form action="/admin/gradebook" method="GET" class="d-inline-flex gap-2 align-items-center" id="adminGradebookClassForm">
+            <select id="adminGradebookClassSelect" name="classId" class="glass-input py-1 small" style="max-width: 340px;" aria-label="Select class section" data-auto-submit="adminGradebookClassForm">
+                <% (gbGroups || [{ grade: '', classes }]).forEach(g => { %>
+                    <% if (gbGroups) { %><optgroup label="<%= g.grade %> (<%= g.classes.length %>)"><% } %>
+                    <% g.classes.forEach(c => { %>
+                        <option value="<%= c.id %>" <%= selectedClass && selectedClass.id === c.id ? 'selected' : '' %>><%= c.subject %> — <%= c.section %> · <%= c.class_name %> (<%= c.teacher_first %> <%= c.teacher_last %>)</option>
+                    <% }) %>
+                    <% if (gbGroups) { %></optgroup><% } %>
+                <% }) %>
+            </select>
+            <noscript><button type="submit" class="btn btn-sm btn-glass">Open</button></noscript>
+        </form>
+    <% } else { %>
+    <div class="d-flex gap-2 flex-wrap">
+        <% classes.forEach(c => { %>
+            <a href="/admin/gradebook?classId=<%= c.id %>" class="btn btn-sm <%= selectedClass && selectedClass.id === c.id ? 'btn-liquid-primary' : 'btn-glass' %>">
+                <%= c.class_name %>
+            </a>
+        <% }) %>
+    </div>
+    <% } %>
+    <% if (selectedClass) { %>
+        <span class="small text-muted ms-auto">Teacher: <strong class="text-dark"><%= selectedClass.teacher_first %> <%= selectedClass.teacher_last %></strong></span>
+    <% } %>
+</div>
+<% } %>
+
+<!-- STEP 1: grade grid (default when >1 class and no grade/class picked) -->
+<% if (gbView === 'grades') { %>
+    <% const gradeGroupsList = typeof gradeGroups !== 'undefined' ? gradeGroups : []; %>
+    <% if (gradeGroupsList.length === 0) { %>
+        <%- include('../partials/admin-empty', { icon: 'bi-table', title: 'No Gradebooks Yet', hint: 'Gradebooks appear once teachers create active classes.' }) %>
+    <% } else { %>
+        <p class="text-muted small mb-3">Pick a grade level to see its sections with pass rates and flags, then open a full E-Class Record.</p>
+        <div class="row g-3">
+            <% gradeGroupsList.forEach(g => { %>
+                <div class="col-sm-6 col-lg-4">
+                    <a href="/admin/gradebook?grade=<%= encodeURIComponent(g.grade) %>" class="glass-card stat-card-glass text-decoration-none h-100">
+                        <div class="stat-icon-wrapper stat-icon-emerald">
+                            <i class="bi bi-mortarboard"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="stat-value" style="font-size: 1.1rem;"><%= g.grade %></div>
+                            <div class="stat-label"><%= g.classCount %> class<%= g.classCount === 1 ? '' : 'es' %> &bull; <%= g.enrolled %> student<%= g.enrolled === 1 ? '' : 's' %></div>
+                            <div class="mt-1 d-flex gap-1 flex-wrap align-items-center">
+                                <% if (g.enrolled === 0) { %>
+                                    <span class="badge-gray">No students</span>
+                                <% } else { %>
+                                    <span class="<%= g.passRate != null && g.passRate < 75 ? 'badge-red' : 'badge-emerald' %>"><%= g.passRate %>% passing</span>
+                                    <% if (g.failed > 0) { %><span class="badge-amber"><%= g.failed %> failing</span><% } %>
+                                <% } %>
+                                <% if (g.empty > 0) { %><span class="badge-red" title="Classes with zero enrolled students"><%= g.empty %> empty</span><% } %>
+                                <% if (g.noScores > 0) { %><span class="badge-amber" title="Classes with students but no scores entered"><%= g.noScores %> unscored</span><% } %>
+                            </div>
+                        </div>
+                        <i class="bi bi-chevron-right text-muted"></i>
+                    </a>
+                </div>
+            <% }) %>
+        </div>
+    <% } %>
+<!-- STEP 2: section list for one grade (worst-first, flags) -->
+<% } else if (gbView === 'sections') { %>
+    <% const sectionRows = typeof sections !== 'undefined' ? sections : []; %>
+    <% const gradeTotals = typeof totals !== 'undefined' ? totals : { enrolled: 0, passed: 0, failed: 0 }; %>
+    <div class="glass-card p-3 mb-4 d-flex align-items-center gap-2 flex-wrap">
+        <a href="/admin/gradebook" class="btn btn-sm btn-glass"><i class="bi bi-arrow-left me-1"></i>All grades</a>
+        <span class="fw-bold text-dark fs-6"><%= gbGrade %></span>
+        <span class="badge-emerald"><%= sectionRows.length %> section<%= sectionRows.length === 1 ? '' : 's' %></span>
+        <span class="badge-amber"><%= gradeTotals.enrolled %> students</span>
+        <% if (gradeTotals.enrolled > 0) { %>
+            <span class="<%= Math.round((gradeTotals.passed / gradeTotals.enrolled) * 100) < 75 ? 'badge-red' : 'badge-emerald' %>"><%= Math.round((gradeTotals.passed / gradeTotals.enrolled) * 100) %>% passing</span>
+            <% if (gradeTotals.failed > 0) { %><span class="badge-red"><%= gradeTotals.failed %> failing</span><% } %>
+        <% } %>
+    </div>
+    <% if (sectionRows.length === 0) { %>
+        <%- include('../partials/admin-empty', { icon: 'bi-table', title: 'No Sections in this Grade', hint: 'No active classes filed under this grade level yet.' }) %>
+    <% } else { %>
+        <div class="glass-table-container">
+            <div class="table-responsive">
+                <table class="glass-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Section (Subject)</th>
+                            <th scope="col">Teacher</th>
+                            <th scope="col">Enrolled</th>
+                            <th scope="col">Passing</th>
+                            <th scope="col">Average</th>
+                            <th scope="col">Flags</th>
+                            <th scope="col">Open</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% sectionRows.forEach(s => { const st = s.stats || {}; %>
+                            <tr>
+                                <td>
+                                    <div class="fw-bold text-dark"><%= s.section %></div>
+                                    <div class="text-muted small"><%= s.subject %> &bull; <span class="font-monospace"><%= s.class_code %></span></div>
+                                </td>
+                                <td class="small"><div class="fw-bold text-dark"><%= s.teacher_first %> <%= s.teacher_last %></div></td>
+                                <td><span class="<%= (st.enrolled || 0) === 0 ? 'badge-red' : 'badge-emerald' %>"><%= st.enrolled || 0 %></span></td>
+                                <td>
+                                    <% if ((st.enrolled || 0) === 0) { %><span class="text-muted">—</span>
+                                    <% } else { %><span class="<%= (st.passRate != null ? st.passRate : 100) < 75 ? 'badge-red' : 'badge-emerald' %>"><%= st.passRate %>%</span><% } %>
+                                </td>
+                                <td class="font-monospace small fw-bold"><%= st.average != null ? st.average : '—' %></td>
+                                <td class="small">
+                                    <% if ((st.enrolled || 0) === 0) { %><span class="badge-red">Empty</span><% } %>
+                                    <% if ((st.enrolled || 0) > 0 && !st.hasScores) { %><span class="badge-amber">Unscored</span><% } %>
+                                    <% if (!st.hasColumns) { %><span class="badge-amber">No columns</span><% } %>
+                                    <% if ((st.failed || 0) > 0) { %><span class="badge-red"><%= st.failed %> failing</span><% } %>
+                                    <% if ((st.enrolled || 0) > 0 && st.hasScores && (st.failed || 0) === 0) { %><span class="badge-emerald">Healthy</span><% } %>
+                                </td>
+                                <td>
+                                    <a href="/admin/gradebook?classId=<%= s.id %>&grade=<%= encodeURIComponent(gbGrade) %>" class="btn btn-sm btn-liquid-primary"><i class="bi bi-eye me-1"></i>ECR</a>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    <% } %>
+<!-- STEP 3: full ECR drill-down -->
+<% } else if (gbView === 'empty') { %>
+    <%- include('../partials/admin-empty', { icon: 'bi-table', title: 'No Gradebooks Yet', hint: 'Gradebooks appear once teachers create active classes.' }) %>
+<% } else { %>
+<% if (!gradebookData || gradebookData.studentGrades.length === 0) { %>
+    <%- include('../partials/admin-empty', { icon: 'bi-table', title: 'No Students Enrolled in this Section', hint: 'Students who join this class with a join code will automatically appear in this E-Class Record.' }) %>
+<% } else { %>
+    <div class="d-flex gap-2 align-items-center flex-wrap mb-3">
+        <input type="text" id="gradebookFilter" class="glass-input py-1 px-3 small" style="max-width: 300px;" placeholder="Filter students by name or LRN..." aria-label="Filter students">
+        <span class="small text-muted" id="gradebookCount" role="status" aria-live="polite"></span>
+        <span class="small text-muted ms-auto">* Admin-corrected cell — quiz auto-sync will not overwrite it.</span>
+    </div>
+    <!-- Read-only E-Class Record Table (same shape as teacher view, static cells) -->
+    <div class="glass-table-container">
+        <div class="table-responsive" style="max-height: 60vh;">
+            <table class="glass-table table-bordered border-light-subtle text-center align-middle" id="gradebookTable" style="font-size: 0.85rem;">
+                <thead style="position: sticky; top: 0; z-index: 7;">
+                    <tr>
+                        <th scope="col" rowspan="2" class="text-start gradebook-sticky-col" style="min-width: 180px;">Student Name</th>
+                        <th scope="col" rowspan="2" style="min-width: 110px;">LRN</th>
+                        <th scope="col" rowspan="2" style="min-width: 60px;">Gender</th>
+
+                        <% gradebookData.categories.forEach(cat => { %>
+                            <th scope="col" colspan="<%= cat.columns.length + 2 %>" class="bg-light-subtle text-center">
+                                <%= cat.category_name %> (<%= cat.weight_percentage %>%)
+                            </th>
+                        <% }) %>
+
+                        <th scope="col" rowspan="2" class="bg-success-subtle text-success fw-bold" style="min-width: 80px;">Initial Grade</th>
+                        <th scope="col" rowspan="2" class="bg-success text-white fw-bold" style="min-width: 90px;">Transmuted Grade</th>
+                        <th scope="col" rowspan="2" style="min-width: 100px;">Remarks</th>
+                    </tr>
+
+                    <tr>
+                        <% gradebookData.categories.forEach(cat => { %>
+                            <% cat.columns.forEach(col => { %>
+                                <th scope="col" style="min-width: 80px;" title="<%= col.column_name %>">
+                                    <div class="text-truncate" style="max-width: 80px;"><%= col.column_name %></div>
+                                    <span class="badge bg-light text-dark border">HPS: <%= col.max_score %></span>
+                                </th>
+                            <% }) %>
+                            <th scope="col" style="min-width: 70px;" class="fw-bold">Total</th>
+                            <th scope="col" style="min-width: 70px;" class="fw-bold text-success">WS</th>
+                        <% }) %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% gradebookData.studentGrades.forEach(sg => { %>
+                        <tr>
+                            <td class="text-start fw-bold text-dark gradebook-sticky-col">
+                                <%= sg.student.last_name %>, <%= sg.student.first_name %>
+                            </td>
+                            <td class="font-monospace small text-muted"><%= sg.student.lrn %></td>
+                            <td><%= sg.student.gender %></td>
+
+                            <% gradebookData.categories.forEach(cat => { %>
+                                <% cat.columns.forEach(col => { %>
+                                    <% const isOverride = (typeof overrideSet !== 'undefined' && overrideSet.includes(col.id + ':' + sg.student.id)); %>
+                                    <td class="fw-semibold" <%= isOverride ? 'title="Admin correction — quiz auto-sync will not overwrite"' : '' %>>
+                                        <%= sg.scores[col.id] != null ? sg.scores[col.id] : '—' %><%= isOverride ? ' *' : '' %>
+                                    </td>
+                                <% }) %>
+
+                                <td class="fw-bold bg-light-subtle">
+                                    <%= sg.categoryTotals[cat.id] ? sg.categoryTotals[cat.id].totalScore : 0 %>
+                                </td>
+                                <td class="fw-bold text-success bg-light-subtle">
+                                    <%= sg.categoryTotals[cat.id] ? sg.categoryTotals[cat.id].weightedScore : 0 %>
+                                </td>
+                            <% }) %>
+
+                            <td class="fw-bold text-success font-monospace">
+                                <%= sg.initialGrade.toFixed(2) %>
+                            </td>
+                            <td class="fw-bold fs-6 font-monospace <%= sg.transmutedGrade >= 75 ? 'text-success' : 'text-danger' %>">
+                                <%= sg.transmutedGrade %>
+                            </td>
+                            <td>
+                                <span class="<%= sg.passed ? 'badge-emerald' : 'badge-red' %>">
+                                    <%= sg.passed ? 'PASSED' : 'FAILED' %>
+                                </span>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+<% } %>
+
+<!-- Q3: client-side student filter (no server round-trip; read-only view). External file: CSP-safe. -->
+<script src="/js/admin-gradebook.js" defer></script>
+<!-- Admin submit-button feedback (spinner + double-submit guard; confirms/reasons stay in global app.js). -->
+<script src="/js/admin-feedback.js" defer></script>
+
+<!-- Phase 2.3: Correct-grade modal -->
+<% if (selectedClass && gradebookData) { %>
+<div class="modal fade modal-glass" id="correctGradeModal" tabindex="-1" aria-labelledby="correctGradeTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square text-warning me-2"></i><span id="correctGradeTitle">Correct Grade — <%= selectedClass.class_name %></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close correct grade dialog"></button>
+            </div>
+            <form action="/admin/gradebook/correct" method="POST" data-require-reason>
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                <input type="hidden" name="class_id" value="<%= selectedClass.id %>">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-bold" for="correctStudent">Student</label>
+                            <select name="student_id" id="correctStudent" class="glass-input" required>
+                                <% students.forEach(s => { %>
+                                    <option value="<%= s.id %>"><%= s.last_name %>, <%= s.first_name %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold" for="correctColumn">Gradebook column</label>
+                            <select name="column_id" id="correctColumn" class="glass-input" required>
+                                <% gradebookData.categories.forEach(cat => { %>
+                                    <optgroup label="<%= cat.category_name %>">
+                                        <% cat.columns.forEach(col => { %>
+                                            <option value="<%= col.id %>"><%= col.column_name %> (HPS <%= col.max_score %>)</option>
+                                        <% }) %>
+                                    </optgroup>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold" for="correctScore">Corrected score</label>
+                            <input type="number" name="score" id="correctScore" class="glass-input" step="0.5" min="0" required placeholder="0 – column HPS (server enforces the max)">
+                            <div class="form-text small">Must be within 0 and the column's HPS; out-of-range saves are rejected.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold" for="correctReason">Reason (min 10 chars, recorded in audit log)</label>
+                            <input type="text" name="reason" id="correctReason" class="glass-input" required minlength="10" placeholder="e.g. rechecked paper, +5 for Q3">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-liquid-amber">Apply Correction</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<% } %>
+<% } %>

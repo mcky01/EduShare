@@ -14,6 +14,9 @@
             <h3 class="fw-bold text-dark mb-2"><%= activity.title %></h3>
             <div class="small text-muted mb-4">
                 Due Date: <strong><%= activity.due_date ? new Date(activity.due_date).toLocaleDateString() : 'No deadline' %></strong>
+                <% const _due = activity.due_date ? new Date(activity.due_date) : null; const _over = _due && _due < new Date() && (!submission || submission.status !== 'graded'); %>
+                <% if (_over) { %><span class="badge-red ms-2" style="font-size:0.72rem;"><i class="bi bi-exclamation-triangle me-1"></i>Overdue — submit ASAP</span><% } %>
+                <% if (submission) { %><span class="badge <%= submission.status === 'graded' ? 'badge-emerald' : 'badge-amber' %> ms-2"><%= submission.status === 'graded' ? 'Graded' : 'Submitted — resubmit allowed' %></span><% } %>
             </div>
 
             <h6 class="fw-bold text-dark">Instructions:</h6>
@@ -58,11 +61,13 @@
                     </div>
                 <% } %>
 
-                <form action="/student/activities/<%= activity.id %>/classes/<%= cls.id %>/submit" method="POST" enctype="multipart/form-data">
+                <div id="activitySubmitError" class="alert alert-danger rounded-4 small d-none" role="alert" aria-live="assertive"></div>
+                <form id="activitySubmitForm" action="/student/activities/<%= activity.id %>/classes/<%= cls.id %>/submit" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Upload Your File (PDF, DOCX, PPTX, XLSX, TXT, Image)</label>
-                        <input type="file" name="submission_file" class="glass-input" accept=".pdf,.docx,.pptx,.xlsx,.txt,.jpg,.jpeg,.png" <%= submission ? '' : 'required' %>>
+                        <input type="file" id="submissionFileInput" name="submission_file" class="glass-input" accept=".pdf,.docx,.pptx,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.webp" <%= submission ? '' : 'required' %> aria-describedby="submissionFileHint">
+                        <div id="submissionFileHint" class="form-text small text-muted">Max 50 MB. Allowed: PDF, DOCX, PPTX, XLSX, TXT, JPG, PNG, GIF, WEBP.</div>
                         <% if (submission && submission.file_path) { %>
                             <div class="small text-muted mt-1">
                                 Current file: <a href="<%= submission.file_path %>" target="_blank" class="text-success fw-bold">View Submitted File</a>
@@ -75,15 +80,16 @@
                         <textarea name="note" class="glass-input" rows="3" placeholder="Add any comments or reflection on your work..."><%= submission ? submission.note || '' : '' %></textarea>
                     </div>
 
-                    <button type="submit" class="btn btn-liquid-primary w-100 py-2 fs-6 shadow">
-                        <i class="bi bi-check2-circle me-2"></i> <%= submission ? 'Update Submission' : 'Submit Activity' %>
+                    <div class="progress d-none mb-3" id="activityUploadProgress" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" id="activityUploadBar" style="width: 0%">0%</div>
+                    </div>
+                    <button type="submit" id="activitySubmitBtn" class="btn btn-liquid-primary w-100 py-2 fs-6 shadow">
+                        <i class="bi bi-check2-circle me-2"></i> <span id="activitySubmitLabel"><%= submission ? 'Update Submission' : 'Submit Activity' %></span>
                     </button>
                 </form>
+                <script src="/js/activity-submit.js"></script>
             </div>
 
-            <div class="mt-4 pt-3 border-top text-center text-muted small" style="border-color: rgba(16,185,129,0.15) !important;">
-                <%= school.name %> &bull; "Basta Zeferinian, Magaling Yan!"
-            </div>
         </div>
     </div>
 </div>

@@ -1,0 +1,66 @@
+<div class="glass-card p-4 p-md-5 mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <div class="badge-emerald mb-2"><i class="bi bi-bell-fill me-1"></i> Notifications</div>
+            <h2 class="fw-bold text-dark mb-1">Your updates</h2>
+            <p class="text-muted small mb-0">Announcements, activities, materials, quizzes, and grades from your classes.</p>
+        </div>
+        <form method="POST" action="/student/notifications/read-all" class="m-0">
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+            <button type="submit" class="btn btn-liquid-primary btn-sm" <%= unreadCount === 0 ? "disabled" : "" %>>
+                <i class="bi bi-check2-all me-1"></i> Mark all as read (<%= unreadCount %>)
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="glass-card p-3 p-md-4 mb-4">
+    <div class="d-flex gap-2 flex-wrap" role="group" aria-label="Filter notifications">
+        <% const _f = (typeof filter !== "undefined" && filter) ? filter : "all"; %>
+        <% [["all","All"],["unread","Unread"],["announcement","Bulletins"],["activity","Activities"],["material","Materials"],["quiz","Quizzes"],["grade","Grades"]].forEach(([key, label]) => { %>
+            <a href="/student/notifications?filter=<%= key %>" class="btn btn-sm <%= _f === key ? "btn-liquid-primary" : "btn-glass" %>"><%= label %></a>
+        <% }) %>
+    </div>
+</div>
+
+<div class="glass-card p-3 p-md-4">
+    <% if (!items || items.length === 0) { %>
+        <div class="text-center text-muted p-5">
+            <i class="bi bi-bell-slash fs-1 d-block mb-2"></i>
+            <p class="small mb-0">No notifications here yet. New class updates will appear in this feed.</p>
+        </div>
+    <% } %>
+    <div class="d-flex flex-column gap-2">
+        <% (items || []).forEach(n => { %>
+            <div class="p-3 rounded-4 <%= n.is_read ? "" : "border border-success-subtle" %>" style="background: <%= n.is_read ? "rgba(255,255,255,0.6)" : "rgba(16,185,129,0.08)" %>;">
+                <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                    <div class="flex-grow-1" style="min-width: 220px;">
+                        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                            <span class="badge-emerald"><%= n.type %></span>
+                            <% if (n.class_name) { %><span class="small text-muted"><%= n.class_name %></span><% } %>
+                            <% if (!n.is_read) { %><span class="badge rounded-pill bg-success">New</span><% } %>
+                        </div>
+                        <h6 class="fw-bold text-dark mb-1"><%= n.title %></h6>
+                        <% if (n.message) { %><p class="small text-secondary mb-1" style="white-space: pre-wrap;"><%= n.message %></p><% } %>
+                        <div class="small text-muted"><%= n.created_at ? new Date(n.created_at).toLocaleString() : "" %></div>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <% if (n.link_url) { %>
+                            <form method="POST" action="/student/notifications/<%= n.id %>/read" class="m-0">
+                                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                <input type="hidden" name="next" value="<%= n.link_url %>">
+                                <button type="submit" class="btn btn-sm btn-liquid-primary">Open &rarr;</button>
+                            </form>
+                        <% } %>
+                        <% if (!n.is_read) { %>
+                            <form method="POST" action="/student/notifications/<%= n.id %>/read" class="m-0">
+                                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                <button type="submit" class="btn btn-sm btn-glass" title="Mark as read"><i class="bi bi-check-lg"></i></button>
+                            </form>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        <% }) %>
+    </div>
+</div>

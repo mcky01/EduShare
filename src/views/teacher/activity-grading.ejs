@@ -94,8 +94,8 @@
                                     <input type="hidden" name="activity_id" value="<%= activity.id %>">
                                     <input type="hidden" name="class_id" value="<%= cls.id %>">
                                     <input type="hidden" name="student_id" value="<%= sub.student_profile_id %>">
-                                    <button type="submit" class="btn btn-sm btn-liquid-primary">
-                                        <i class="bi bi-check-lg"></i>
+                                    <button type="submit" class="btn btn-sm btn-liquid-primary" data-grade-save aria-label="Save grade">
+                                        <i class="bi bi-check-lg" aria-hidden="true"></i>
                                     </button>
                                 </form>
                             </td>
@@ -106,91 +106,5 @@
     </div>
 </div>
 
-<script>
-(function () {
-    var filter = document.getElementById('gradeStatusFilter');
-    var rows = Array.prototype.slice.call(document.querySelectorAll('[data-grade-row]'));
-    if (filter) {
-        filter.addEventListener('change', function () {
-            var v = filter.value;
-            rows.forEach(function (r) {
-                r.style.display = (v === 'all' || r.getAttribute('data-status') === v) ? '' : 'none';
-            });
-        });
-    }
-    // Clamp score inputs to max.
-    document.querySelectorAll('[data-grade-score]').forEach(function (inp) {
-        inp.addEventListener('change', function () {
-            var max = parseFloat(inp.getAttribute('data-max')) || 100;
-            var v = parseFloat(inp.value);
-            if (inp.value === '' || isNaN(v)) return;
-            if (v < 0) inp.value = 0;
-            else if (v > max) inp.value = max;
-        });
-    });
-    // Bulk-save: POST each row with a score via XHR, keep single-row forms intact.
-    var bulkBtn = document.querySelector('[data-bulk-save]');
-    var bulkStatus = document.getElementById('bulkSaveStatus');
-    if (bulkBtn) {
-        bulkBtn.addEventListener('click', async function () {
-            var endpoint = bulkBtn.getAttribute('data-grade-endpoint') || '/teacher/activities/grade';
-            var activityId = bulkBtn.getAttribute('data-activity-id');
-            var classId = bulkBtn.getAttribute('data-class-id');
-            var csrfEl = document.querySelector('meta[name="csrf-token"]');
-            var token = (csrfEl && csrfEl.content) || window.CSRF_TOKEN || '';
-            var pending = rows.filter(function (r) {
-                var scoreEl = r.querySelector('[data-grade-score]');
-                return scoreEl && String(scoreEl.value).trim() !== '';
-            });
-            if (pending.length === 0) {
-                if (bulkStatus) bulkStatus.textContent = 'No scores to save.';
-                return;
-            }
-            bulkBtn.disabled = true;
-            var saved = 0, failed = 0;
-            for (var i = 0; i < pending.length; i++) {
-                var row = pending[i];
-                var scoreVal = row.querySelector('[data-grade-score]').value;
-                var fbEl = row.querySelector('[data-grade-feedback]');
-                if (bulkStatus) bulkStatus.textContent = 'Saving ' + (i + 1) + ' / ' + pending.length + '...';
-                try {
-                    var res = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'x-csrf-token': token
-                        },
-                        body: new URLSearchParams({
-                            submission_id: row.getAttribute('data-submission-id') || '',
-                            activity_id: activityId,
-                            class_id: classId,
-                            student_id: row.getAttribute('data-student-id') || '',
-                            score: scoreVal,
-                            feedback: fbEl ? fbEl.value : ''
-                        })
-                    });
-                    if (res.ok) { saved++; row.setAttribute('data-status', 'graded'); }
-                    else { failed++; }
-                } catch (e) { failed++; }
-            }
-            bulkBtn.disabled = false;
-            if (bulkStatus) bulkStatus.textContent = 'Saved ' + saved + ' of ' + pending.length + (failed ? ' (' + failed + ' failed)' : '') + '.';
-            var gradedNow = rows.filter(function (r) {
-                var s = r.querySelector('[data-grade-score]');
-                return s && String(s.value).trim() !== '';
-            }).length;
-            var gradedCount = document.getElementById('gradedCount');
-            var gradedBar = document.getElementById('gradedBar');
-            if (gradedCount) gradedCount.textContent = gradedNow;
-            if (gradedBar) {
-                var pct = rows.length ? Math.round(gradedNow / rows.length * 100) : 0;
-                gradedBar.style.width = pct + '%';
-                gradedBar.setAttribute('aria-valuenow', gradedNow);
-                gradedBar.setAttribute('aria-valuemax', rows.length);
-            }
-        });
-    }
-})();
-</script>
+<!-- Grading helpers (status filter, score clamp, bulk-save) — external file, CSP-safe. -->
+<script src="/js/grading.js" defer></script>

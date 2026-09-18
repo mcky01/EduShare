@@ -1,37 +1,63 @@
 <nav class="liquid-navbar">
     <div class="d-flex align-items-center gap-3">
-        <button id="sidebarToggle" class="btn btn-sm btn-glass d-lg-none" type="button">
-            <i class="bi bi-list fs-5"></i>
+        <button id="sidebarToggle" class="btn btn-sm btn-glass d-lg-none" type="button" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="appSidebar">
+            <i class="bi bi-list fs-5" aria-hidden="true"></i>
         </button>
         <a href="/" class="d-flex align-items-center gap-2 text-decoration-none">
             <img src="<%= school.logo || '/images/zahs-logo.png' %>" alt="ZAHS Logo" class="brand-logo-img">
             <div>
-                <h1 class="brand-text-title">EduShare <span style="color: var(--zahs-amber-gold);">2.0</span></h1>
+                <h1 class="brand-text-title">EduShare</h1>
                 <p class="brand-text-sub"><%= school.abbr || 'ZAHS' %> LMS</p>
             </div>
         </a>
     </div>
 
     <!-- Global Omnisearch Trigger -->
-    <div class="search-trigger-bar d-none d-md-flex" onclick="openOmniSearch()">
-        <i class="bi bi-search text-success"></i>
-        <span>Search classes, materials, quizzes...</span>
-        <span class="search-kbd-hint">Ctrl K</span>
-    </div>
+    <% const _searchHint = (typeof user !== 'undefined' && user && user.role === 'teacher') ? 'Search my classes, library, quizzes...' : ((typeof user !== 'undefined' && user && user.role === 'admin') ? 'Search classes, users, quizzes...' : 'Search classes, materials, quizzes...'); %>
+    <button type="button" class="search-trigger-bar d-none d-md-flex border-0" id="omniSearchTrigger" aria-label="<%= _searchHint %>">
+        <i class="bi bi-search text-success" aria-hidden="true"></i>
+        <span><%= _searchHint %></span>
+        <span class="search-kbd-hint"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+    </button>
+    <!-- Q8: mobile search entry (same modal, icon-only) -->
+    <button type="button" class="btn btn-sm btn-glass d-md-none" id="mobileSearchBtn" aria-label="Search EduShare">
+        <i class="bi bi-search" aria-hidden="true"></i>
+    </button>
+
+    <div class="d-flex align-items-center gap-2">
+    <!-- Student notification bell -->
+    <% if (typeof user !== 'undefined' && user && user.role === 'student') { %>
+        <% const _unread = (typeof unreadNotifications !== 'undefined' ? unreadNotifications : 0); %>
+        <div class="dropdown">
+            <button class="btn btn-sm btn-glass position-relative rounded-circle p-2" type="button" id="notifBellBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-label="Notifications<%= _unread ? ', ' + _unread + ' unread' : '' %>">
+                <i class="bi bi-bell fs-6" aria-hidden="true"></i>
+                <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill <%= _unread ? 'bg-danger' : 'bg-secondary' %>"<%= _unread ? '' : ' hidden' %> aria-live="polite"><%= _unread > 99 ? '99+' : _unread %></span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 p-2" id="notifDropdown" aria-labelledby="notifBellBtn" style="background: rgba(255,255,255,0.97); backdrop-filter: blur(16px); min-width: 330px; max-width: 92vw;">
+                <div class="d-flex justify-content-between align-items-center px-2 py-1">
+                    <span class="fw-bold small text-dark">Notifications</span>
+                    <a href="/student/notifications" class="small text-decoration-none">View all</a>
+                </div>
+                <div id="notifList" class="d-flex flex-column gap-1" style="max-height: 340px; overflow-y: auto;">
+                    <div class="text-center text-muted small p-3" id="notifEmpty">Loading notifications...</div>
+                </div>
+            </div>
+        </div>
+    <% } %>
 
     <!-- User Profile Dropdown -->
     <div class="dropdown">
-        <button class="btn p-1 d-flex align-items-center gap-2 rounded-pill glass-card" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border: 1px solid rgba(16,185,129,0.3); padding: 4px 12px 4px 6px !important;">
+        <button class="btn p-1 d-flex align-items-center gap-2 rounded-pill glass-card user-pill" type="button" data-bs-toggle="dropdown" aria-expanded="false">
             <% if (user && user.avatar_url) { %>
-                <img src="<%= user.avatar_url %>" alt="<%= user.first_name %>" class="user-avatar-bubble">
+                <img src="<%= user.avatar_url %>" alt="Profile photo of <%= user.first_name %>" class="user-avatar-bubble" data-avatar-fallback>
             <% } else { %>
                 <div class="user-avatar-initials">
                     <%= (user ? user.first_name[0] + user.last_name[0] : 'U').toUpperCase() %>
                 </div>
             <% } %>
             <div class="d-none d-sm-block text-start me-2">
-                <div class="fw-bold small text-dark" style="line-height: 1.2;"><%= user ? user.first_name + ' ' + user.last_name : 'Guest' %></div>
-                <div class="text-uppercase text-muted" style="font-size: 0.68rem; font-weight: 700; color: var(--zahs-emerald-primary) !important;"><%= user ? user.role : 'Guest' %></div>
+                <div class="fw-bold small text-dark user-pill-name"><%= user ? user.first_name + ' ' + user.last_name : 'Guest' %></div>
+                <div class="text-uppercase user-pill-role"><%= user ? user.role : 'Guest' %></div>
             </div>
             <i class="bi bi-chevron-down text-muted small me-1"></i>
         </button>
@@ -58,5 +84,6 @@
                 </button>
             </li>
         </ul>
+    </div>
     </div>
 </nav>

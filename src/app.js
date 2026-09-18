@@ -20,6 +20,7 @@ const studentRoutes = require('./routes/studentRoutes');
 const filesRoutes = require('./routes/filesRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const apiRoutes = require('./routes/apiRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const curriculumRoutes = require('./routes/curriculumRoutes');
 
 const app = express();
@@ -58,18 +59,6 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
-// Strict brute-force protection for credential endpoints (Phase 0 hardening).
-// Counts per IP; generic 429 keeps login UX calm instead of leaking state.
-const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-    skip: (req) => req.method !== 'POST',
-    message: 'Too many sign-in attempts. Please wait 15 minutes and try again.'
-});
-app.use('/auth/login', loginLimiter);
-
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(cookieParser());
@@ -77,6 +66,9 @@ app.use(cookieParser());
 // ==========================================
 // Session Configuration
 // ==========================================
+// Session: rolling refresh with a 24h default cookie ceiling.
+// Signed-in flows use shorter explicit maxAges at login (12h via authController);
+// the branding middleware's session_timeout setting may override per-request otherwise.
 app.use(session({
     store: sessionStore,
     secret: env.SESSION_SECRET,
@@ -119,6 +111,38 @@ if (env.IS_DEV) {
 // Global Branding & Flash Context
 app.use(brandingMiddleware);
 
+// Strict brute-force protection for credential endpoints (Phase 0 hardening).
+// Mounted AFTER body parsers + session + branding so the 429 handler can
+// re-render the styled login card (preserving credential/returnTo/csrfToken).
+// Counts per IP; status stays 429 (tests assert on it); Retry-After hints 15 min.
+function isSafeReturnToLocal(target) {
+    if (!target || typeof target !== 'string') return false;
+    if (!target.startsWith('/') || target.startsWith('//')) return false;
+    if (target.includes('\\') || target.includes(' ') || target.toLowerCase().startsWith('/auth/login')) return false;
+    return true;
+}
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => req.method !== 'POST',
+    handler: (req, res) => {
+        res.set('Retry-After', String(15 * 60));
+        const rawCred = typeof req.body?.credential === 'string' ? req.body.credential : '';
+        const rawReturnTo = typeof req.body?.returnTo === 'string' ? req.body.returnTo : (typeof req.query?.returnTo === 'string' ? req.query.returnTo : '');
+        return res.status(429).render('auth/login', {
+            title: 'Sign In | EduShare',
+            layout: 'layouts/auth',
+            loginError: 'Too many sign-in attempts. Please wait 15 minutes and try again.',
+            credential: rawCred,
+            returnTo: isSafeReturnToLocal(rawReturnTo) ? rawReturnTo : '',
+            csrfToken: req.session?.csrfToken || res.locals?.csrfToken || ''
+        });
+    }
+});
+app.use('/auth/login', loginLimiter);
+
 // ==========================================
 // Routes Mounting
 // ==========================================
@@ -146,6 +170,7 @@ app.use('/files', filesRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/curriculum', curriculumRoutes);
 app.use('/api', apiRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // ==========================================
 // Error Handlers

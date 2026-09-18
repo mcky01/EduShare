@@ -39,7 +39,11 @@ router.get('/:subDir/:filename', async (req, res) => {
 
         const like = `%${filename}`;
 
-        // Admin bypasses ownership checks (still authenticated + validated).
+        // Admin file-download bypass (incident-response + oversight support).
+        // Policy: downloading a known file stays open to admins, but page-level
+        // access is granted only through the explicit admin oversight routes
+        // (GET /admin/classes*, /admin/gradebook, /admin/quizzes/*,
+        // /admin/activities/*, /admin/users/:id). See adminController.
         const isAdmin = user && user.role === 'admin';
 
         if (subDir === 'avatars' || subDir === 'logos') {

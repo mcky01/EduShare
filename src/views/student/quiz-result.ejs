@@ -24,20 +24,24 @@
         <div class="badge-amber mt-1" style="font-size: 0.72rem;"><%= Math.round(attempt.percentage) %>% Score</div>
     </div>
 
-    <p class="text-secondary small max-w-md mx-auto mb-0" style="max-width: 500px;">
+    <p class="text-secondary small max-w-md mx-auto mb-0" style="max-width: 500px;" role="status" aria-live="polite">
         Your score has been synchronized with your class record. Review each question below to deepen your learning.
+        Quizzes allow one submitted attempt — to retake, ask your teacher to reset your attempt.
     </p>
 </div>
 
 <!-- Question by Question Review -->
 <h4 class="fw-bold mb-3"><i class="bi bi-journal-check text-success me-2"></i>Detailed Question Review</h4>
+<% if (!answers || answers.length === 0) { %>
+<div class="glass-card p-4 text-center text-muted" role="status">No per-question data was recorded for this attempt. Your score above is final.</div>
+<% } %>
 
 <div class="d-flex flex-column gap-3">
     <% answers.forEach((a, idx) => { %>
         <div class="glass-card p-4 <%= a.is_correct ? 'border-start border-4 border-success' : 'border-start border-4 border-danger' %>">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="badge <%= a.is_correct ? 'badge-emerald' : 'badge bg-danger text-white' %>">
-                    <i class="bi <%= a.is_correct ? 'bi-check' : 'bi-x' %>"></i> Question <%= idx + 1 %>: <%= a.is_correct ? 'Correct (+1 pt)' : 'Incorrect (0 pt)' %>
+                    <i class="bi <%= a.is_correct ? 'bi-check' : 'bi-x' %>"></i> Question <%= idx + 1 %>: <%= a.is_correct ? ('Correct (+' + (a.max_points != null ? a.max_points : 1) + ' pt' + ((a.max_points != null ? a.max_points : 1) == 1 ? '' : 's') + ')') : ('Incorrect (0/' + (a.max_points != null ? a.max_points : 1) + ' pts)') %>
                 </span>
                 <span class="small text-muted text-capitalize"><%= a.question_type.replace('_', ' ') %></span>
             </div>
@@ -77,6 +81,10 @@
             <% } else if (a.question_type === 'identification') { %>
                 <div class="p-3 rounded-3 mb-3" style="background: rgba(255,255,255,0.6);">
                     <div class="small"><strong>Your Answer:</strong> <span class="<%= a.is_correct ? 'text-success fw-bold' : 'text-danger fw-bold' %>"><%= a.answer_text || '(blank)' %></span></div>
+                    <% const _opts = (a.options || []).map(o => o.option_text).filter(Boolean); %>
+                    <% if (!a.is_correct && _opts.length) { %>
+                        <div class="small mt-1"><strong>Accepted Answer<%= _opts.length > 1 ? 's' : '' %>:</strong> <span class="text-success fw-bold"><%= _opts.join(' / ') %></span></div>
+                    <% } %>
                 </div>
             <% } %>
 

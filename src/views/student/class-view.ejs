@@ -45,7 +45,10 @@
 
 <!-- TAB CONTENT -->
 <% if (activeTab === 'materials') { %>
-    <div class="row g-3">
+    <div class="d-flex justify-content-end mb-3">
+        <%- include('../partials/view-toggle', { scope: 'student-class-materials', label: 'class materials' }) %>
+    </div>
+    <div class="row g-3" data-view-cards="student-class-materials">
         <% if (materials.length === 0) { %>
             <div class="col-12">
                 <div class="glass-card p-5 text-center text-muted">
@@ -69,22 +72,72 @@
                     </div>
                     <div class="border-top pt-3 d-flex justify-content-between align-items-center">
                         <span class="small text-muted"><%= new Date(m.posted_at).toLocaleDateString() %></span>
-                        <% if (m.file_path) { %>
-                            <a href="<%= m.file_path %>" target="_blank" class="btn btn-sm btn-liquid-primary">
-                                <i class="bi bi-download me-1"></i> View / Download
-                            </a>
-                        <% } %>
+                        <div class="d-flex gap-2">
+                            <% if (m.source === 'ai_lesson' && m.lesson_content) { %>
+                                <button type="button" class="btn btn-sm btn-liquid-primary lesson-viewer" data-lesson="<%= encodeURIComponent(m.lesson_content) %>" data-lesson-title="<%= m.title %>">
+                                    <i class="bi bi-easel me-1"></i> View Slides
+                                </button>
+                            <% } %>
+                            <% if (m.file_path) { %>
+                                <a href="<%= m.file_path %>" target="_blank" class="btn btn-sm btn-glass">
+                                    <i class="bi bi-download me-1"></i> View / Download
+                                </a>
+                            <% } %>
+                        </div>
                     </div>
                 </div>
             </div>
         <% }) %>
     </div>
 
-<% if (quizzes.length === 0) { %>
-<% } %>
+    <% if (materials.length > 0) { %>
+    <div class="glass-table-container d-none" data-view-table="student-class-materials">
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Title</th>
+                        <th scope="col">Subject</th>
+                        <th scope="col">Posted</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% materials.forEach(m => { %>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark"><%= m.title %></div>
+                                <div class="small text-muted"><%= m.description || 'Classroom study file.' %> <% if (m.file_size) { %>&bull; <%= m.file_size %><% } %></div>
+                            </td>
+                            <td><span class="badge-emerald"><%= m.subject %></span></td>
+                            <td class="small text-muted"><%= m.posted_at ? new Date(m.posted_at).toLocaleDateString() : 'N/A' %></td>
+                            <td>
+                                <div class="d-flex gap-1 justify-content-end flex-wrap">
+                                    <% if (m.source === 'ai_lesson' && m.lesson_content) { %>
+                                        <button type="button" class="btn btn-sm btn-liquid-primary lesson-viewer" data-lesson="<%= encodeURIComponent(m.lesson_content) %>" data-lesson-title="<%= m.title %>">
+                                            <i class="bi bi-easel me-1"></i> Slides
+                                        </button>
+                                    <% } %>
+                                    <% if (m.file_path) { %>
+                                        <a href="<%= m.file_path %>" target="_blank" class="btn btn-sm btn-glass">
+                                            <i class="bi bi-download me-1"></i> View
+                                        </a>
+                                    <% } %>
+                                </div>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <% } %>
 
 <% } else if (activeTab === 'activities') { %>
-    <div class="row g-3">
+    <div class="d-flex justify-content-end mb-3">
+        <%- include('../partials/view-toggle', { scope: 'student-class-activities', label: 'class activities' }) %>
+    </div>
+    <div class="row g-3" data-view-cards="student-class-activities">
         <% if (activities.length === 0) { %>
             <div class="col-12">
                 <div class="glass-card p-5 text-center text-muted">
@@ -99,9 +152,9 @@
             <div class="col-md-6 col-lg-4">
                 <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between">
                     <div>
-                        <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
                             <span class="badge-amber"><%= act.points %> Max Points</span>
-                            <span class="small text-muted">Due: <%= act.due_date ? new Date(act.due_date).toLocaleDateString() : 'None' %></span>
+                            <span class="small <%= act.due_date && new Date(act.due_date) < new Date() && act.submission_status !== 'graded' ? 'text-danger fw-bold' : 'text-muted' %>">Due: <%= act.due_date ? new Date(act.due_date).toLocaleDateString() : 'None' %><% if (act.due_date && new Date(act.due_date) < new Date() && act.submission_status !== 'graded') { %> <span class="badge-red" style="font-size:0.72rem;">Overdue</span><% } %></span>
                         </div>
                         <h5 class="fw-bold text-dark mb-2"><%= act.title %></h5>
                         <p class="small text-secondary mb-3"><%= act.instructions || 'Review task details upon submission.' %></p>
@@ -124,8 +177,55 @@
         <% }) %>
     </div>
 
+    <% if (activities.length > 0) { %>
+    <div class="glass-table-container d-none" data-view-table="student-class-activities">
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Activity</th>
+                        <th scope="col">Points</th>
+                        <th scope="col">Due</th>
+                        <th scope="col">Status</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% activities.forEach(act => { %>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark"><%= act.title %></div>
+                                <div class="small text-muted"><%= act.instructions || 'Review task details upon submission.' %></div>
+                            </td>
+                            <td><span class="badge-amber"><%= act.points %> Pts</span></td>
+                            <td class="small <%= act.due_date && new Date(act.due_date) < new Date() && act.submission_status !== 'graded' ? 'text-danger fw-bold' : 'text-muted' %>"><%= act.due_date ? new Date(act.due_date).toLocaleDateString() : 'None' %><% if (act.due_date && new Date(act.due_date) < new Date() && act.submission_status !== 'graded') { %> <span class="badge-red" style="font-size:0.72rem;">Overdue</span><% } %></td>
+                            <td>
+                                <% if (act.submission_status === 'graded') { %>
+                                    <span class="badge-emerald">Score: <%= act.score %>/<%= act.points %></span>
+                                <% } else if (act.submission_status === 'submitted') { %>
+                                    <span class="badge-amber">Under Review</span>
+                                <% } else { %>
+                                    <span class="badge-gray">Not Submitted</span>
+                                <% } %>
+                            </td>
+                            <td class="text-end">
+                                <a href="/student/activities/<%= act.id %>/classes/<%= cls.id %>/submit" class="btn btn-sm btn-liquid-primary">
+                                    <%= act.submission_status ? 'View Work' : 'Submit Work &rarr;' %>
+                                </a>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <% } %>
+
 <% } else if (activeTab === 'quizzes') { %>
-    <div class="row g-3">
+    <div class="d-flex justify-content-end mb-3">
+        <%- include('../partials/view-toggle', { scope: 'student-class-quizzes', label: 'class quizzes' }) %>
+    </div>
+    <div class="row g-3" data-view-cards="student-class-quizzes">
         <% if (quizzes.length === 0) { %>
             <div class="col-12">
                 <div class="glass-card p-5 text-center text-muted">
@@ -145,17 +245,25 @@
                             <span class="badge-amber"><%= q.time_limit_minutes %> Mins</span>
                         </div>
                         <h5 class="fw-bold text-dark mb-1"><%= q.title %></h5>
-                        <p class="small text-muted mb-3"><%= q.description || 'Course assessment.' %></p>
+                        <p class="small text-muted mb-1"><%= q.description || 'Course assessment.' %></p>
+                        <% const _qNow = new Date(); const _qStart = q.start_time ? new Date(q.start_time) : null; const _qEnd = q.end_time ? new Date(q.end_time) : null; const _qNotOpen = !!(_qStart && _qStart > _qNow); const _qClosed = !!(_qEnd && _qEnd < _qNow); %>
+                        <% if (_qStart || _qEnd) { %>
+                            <p class="small text-muted mb-1">Open: <%= _qStart ? _qStart.toLocaleString() : 'Now' %> – <%= _qEnd ? _qEnd.toLocaleString() : 'No closing date' %></p>
+                        <% } %>
+                        <p class="small text-muted mb-3">One attempt only.</p>
                     </div>
                     <div class="border-top pt-3 d-flex justify-content-between align-items-center">
                         <% if (q.attempt_status === 'submitted' || q.attempt_status === 'graded') { %>
                             <div>
-                                <div class="fw-bold text-success">Score: <%= q.score %>/<%= q.total_questions %></div>
+                                <div class="fw-bold text-success">Score: <%= q.score %>/<%= (q.max_score != null ? q.max_score : q.total_questions) %></div>
                                 <span class="<%= q.passed ? 'badge-emerald' : 'badge bg-danger' %>"><%= q.passed ? 'PASSED' : 'NEEDS REVIEW' %></span>
                             </div>
                             <a href="/student/quizzes/<%= q.attempt_id %>/result" class="btn btn-sm btn-glass text-success fw-bold">
                                 Review &rarr;
                             </a>
+                        <% } else if (_qNotOpen || _qClosed) { %>
+                            <span class="badge-gray">Closed</span>
+                            <button type="button" class="btn btn-sm btn-glass" disabled><%= _qNotOpen ? 'Not open yet' : 'Window closed' %></button>
                         <% } else { %>
                             <span class="badge-amber">Ready to Take</span>
                             <a href="/student/quizzes/<%= q.id %>/take" class="btn btn-sm btn-liquid-primary">
@@ -167,6 +275,59 @@
             </div>
         <% }) %>
     </div>
+
+    <% if (quizzes.length > 0) { %>
+    <div class="glass-table-container d-none" data-view-table="student-class-quizzes">
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Quiz</th>
+                        <th scope="col">Items</th>
+                        <th scope="col">Status</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% quizzes.forEach(q => { %>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark"><%= q.title %></div>
+                                <div class="small text-muted"><%= q.description || 'Course assessment.' %> &bull; <%= q.total_questions %> questions, <%= q.time_limit_minutes %> mins &bull; One attempt only.<% if (q.start_time || q.end_time) { %> Open: <%= q.start_time ? new Date(q.start_time).toLocaleString() : 'Now' %> – <%= q.end_time ? new Date(q.end_time).toLocaleString() : 'No closing date' %>.<% } %></div>
+                            </td>
+                            <td><span class="badge-emerald"><%= q.total_questions %></span></td>
+                            <td>
+                                <% if (q.attempt_status === 'submitted' || q.attempt_status === 'graded') { %>
+                                    <div class="fw-bold text-success small">Score: <%= q.score %>/<%= (q.max_score != null ? q.max_score : q.total_questions) %></div>
+                                    <span class="<%= q.passed ? 'badge-emerald' : 'badge bg-danger' %>"><%= q.passed ? 'PASSED' : 'NEEDS REVIEW' %></span>
+                                <% } else { %>
+                                    <% const _tNow = new Date(); const _tStart = q.start_time ? new Date(q.start_time) : null; const _tEnd = q.end_time ? new Date(q.end_time) : null; %>
+                                    <% if ((_tStart && _tStart > _tNow) || (_tEnd && _tEnd < _tNow)) { %>
+                                        <span class="badge-gray">Closed</span>
+                                    <% } else { %>
+                                        <span class="badge-amber">Ready to Take</span>
+                                    <% } %>
+                                <% } %>
+                            </td>
+                            <td class="text-end">
+                                <% if (q.attempt_status === 'submitted' || q.attempt_status === 'graded') { %>
+                                    <a href="/student/quizzes/<%= q.attempt_id %>/result" class="btn btn-sm btn-glass text-success fw-bold">Review &rarr;</a>
+                                <% } else { %>
+                                    <% const _bNow = new Date(); const _bStart = q.start_time ? new Date(q.start_time) : null; const _bEnd = q.end_time ? new Date(q.end_time) : null; %>
+                                    <% if ((_bStart && _bStart > _bNow) || (_bEnd && _bEnd < _bNow)) { %>
+                                        <button type="button" class="btn btn-sm btn-glass" disabled>Closed</button>
+                                    <% } else { %>
+                                        <a href="/student/quizzes/<%= q.id %>/take" class="btn btn-sm btn-liquid-primary">Start Quiz &rarr;</a>
+                                    <% } %>
+                                <% } %>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <% } %>
 
 <% } else if (activeTab === 'announcements') { %>
     <div class="d-flex flex-column gap-3">
@@ -194,3 +355,23 @@
         <% }) %>
     </div>
 <% } %>
+
+<!-- Shared AI lesson slide viewer (projection bullets only; speaker notes stay teacher-only) -->
+<div class="modal fade modal-glass" id="studentLessonModal" tabindex="-1" aria-labelledby="studentLessonTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-easel text-success me-2"></i><span id="studentLessonTitle">Lesson Slides</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close lesson slides"></button>
+            </div>
+            <div class="modal-body">
+                <div id="studentLessonSlides" class="d-flex flex-column gap-3" aria-live="polite"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/student-lesson-viewer.js"></script>

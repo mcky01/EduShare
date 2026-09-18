@@ -5,14 +5,14 @@
             <span class="badge-amber">Auto-Graded & Gradebook Synced</span>
         </div>
         <h2 class="fw-bold mb-0 text-dark">AI Quiz Maker</h2>
-        <p class="text-muted small mb-0">Generate curriculum-grounded quizzes with multiple choice, true/false, and identification items.</p>
+        <p class="text-muted small mb-0">Generate plan-grounded quizzes with multiple choice, true/false, and identification items.</p>
     </div>
 </div>
 
 <div class="row g-4 mb-4">
     <!-- Left: Setup Parameters Form -->
     <div class="col-lg-5">
-        <div class="glass-card p-4">
+        <div class="glass-card p-4 h-100 d-flex flex-column">
             <h5 class="fw-bold mb-3"><i class="bi bi-sliders text-success me-2"></i>Configure Quiz</h5>
 
             <div class="row g-3">
@@ -26,43 +26,63 @@
                 </div>
                 <div class="col-6">
                     <label class="form-label small fw-bold">Grade Level</label>
+                    <% const _quizGrade = (typeof teacherProfile !== 'undefined' && teacherProfile && teacherProfile.grade_level) ? teacherProfile.grade_level : 'Grade 7'; %>
                     <select id="quizGrade" class="glass-input">
-                        <option value="Grade 7">Grade 7</option>
-                        <option value="Grade 8">Grade 8</option>
-                        <option value="Grade 9">Grade 9</option>
-                        <option value="Grade 10">Grade 10</option>
+                        <% ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].forEach(function(g) { %>
+                            <option value="<%= g %>" <%= _quizGrade === g ? 'selected' : '' %>><%= g %></option>
+                        <% }); %>
                     </select>
                 </div>
                 <div class="col-12">
                     <label class="form-label small fw-bold">Topic / Content Focus</label>
                     <input type="text" id="quizTopic" class="glass-input" value="Simile, Metaphor, Personification, and Hyperbole" required>
                 </div>
+                <div class="col-12">
+                    <div class="alert alert-info py-2 px-3 mb-0 small">
+                        <strong><i class="bi bi-journal-text me-1"></i>Ground from your lesson plan (recommended).</strong>
+                        Paste the plan (or upload PDF/DOCX/DOC/TXT) so quiz items come from its Assessment section.
+                        Optionally attach the just-generated deck JSON so items match what was projected.
+                    </div>
+                </div>
                 <div class="col-6">
-                    <label class="form-label small fw-bold">Delivery Term <span class="text-muted fw-normal">(select first)</span></label>
-                    <select id="quizTerm" class="glass-input">
-                        <option value="T1" selected>Term 1 (Q1-Q2)</option>
-                        <option value="T2">Term 2 (Q3)</option>
-                        <option value="T3">Term 3 (Q4)</option>
+                    <label class="form-label small fw-bold">Plan Format</label>
+                    <select id="quizPlanFormat" class="glass-input">
+                        <option value="ilaw" selected>ILAW</option>
+                        <option value="dll">DLL</option>
+                        <option value="dlp">DLP</option>
                     </select>
                 </div>
-                <div class="col-6 d-flex align-items-end">
-                    <div id="quizGroundBadge" class="small fw-semibold text-muted">Sources: not generated yet</div>
+                <div class="col-6">
+                    <label class="form-label small fw-bold">Focus Session</label>
+                    <select id="quizFocusSession" class="glass-input">
+                        <option value="">Whole plan</option>
+                        <option value="S1">Session 1</option>
+                        <option value="S2">Session 2</option>
+                        <option value="S3">Session 3</option>
+                        <option value="S4">Session 4</option>
+                        <option value="S5">Session 5</option>
+                    </select>
                 </div>
                 <div class="col-12">
-                    <label class="form-label small fw-bold">DepEd Competency <span class="text-muted fw-normal" id="quizCompCount"></span></label>
-                    <select id="quizCompetency" class="glass-input">
-                        <% (typeof competencies !== 'undefined' ? competencies : []).forEach(comp => { %>
-                            <option value="<%= comp.code %>: <%= comp.description %>" data-code="<%= comp.code %>" data-term="<%= comp.term || '' %>">
-                                <%= comp.code %>: <%= comp.description %>
-                            </option>
-                        <% }) %>
-                        <option value="General Standard" data-code="" data-term="">Custom / Unlisted Competency</option>
-                    </select>
+                    <label class="form-label small fw-bold">Lesson Plan Text <span class="text-muted fw-normal">(paste, or leave blank for ungrounded)</span></label>
+                    <textarea id="quizPlanText" class="glass-input" rows="5" placeholder="Paste the DLL/DLP/ILAW plan here — quiz items come from its Assessment section first."></textarea>
+                </div>
+                <div class="col-6">
+                    <label class="form-label small fw-bold">Plan File <span class="text-muted fw-normal">(optional)</span></label>
+                    <input type="file" id="quizPlanFile" class="glass-input" accept=".pdf,.docx,.doc,.txt">
+                </div>
+                <div class="col-6">
+                    <label class="form-label small fw-bold">Deck JSON <span class="text-muted fw-normal">(optional)</span></label>
+                    <input type="file" id="quizDeckFile" class="glass-input" accept=".json,application/json">
+                    <div class="form-text small">Export from the lesson preview, or auto-filled after generating a deck.</div>
+                </div>
+                <div class="col-12" id="quizPlanCoverageWrap" style="display: none;">
+                    <div id="quizPlanCoverage" class="small fw-semibold text-muted">Plan: not provided.</div>
                 </div>
 
                 <div class="col-4">
                     <label class="form-label small fw-bold">Multiple Choice</label>
-                    <input type="number" id="quizMcCount" class="glass-input text-center" value="3" min="1" max="10">
+                    <input type="number" id="quizMcCount" class="glass-input text-center" value="3" min="0" max="10">
                 </div>
                 <div class="col-4">
                     <label class="form-label small fw-bold">True / False</label>
@@ -107,16 +127,19 @@
 
     <!-- Right: Questions Preview & Save -->
     <div class="col-lg-7">
-        <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between">
+        <div class="glass-card p-4 h-100 d-flex flex-column">
             <div>
-                <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                     <h5 class="fw-bold mb-0">Generated Questions & Answer Key</h5>
-                    <span id="questionCountBadge" class="badge-emerald">0 Questions</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="questionCountBadge" class="badge-emerald">0 Questions</span>
+                        <span id="quizGroundBadge" class="small fw-semibold text-muted">Plan: not provided</span>
+                    </div>
                 </div>
 
                 <div id="quizReviewBox" class="mb-3" style="display: none;"></div>
 
-                <div id="quizQuestionsContainer" style="max-height: 520px; overflow-y: auto;">
+                <div id="quizQuestionsContainer" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; max-height: min(1300px, 130vh);">
                     <div class="text-center text-muted p-5">
                         <i class="bi bi-card-checklist fs-1 text-warning d-block mb-2"></i>
                         <h6>No Questions Generated Yet</h6>

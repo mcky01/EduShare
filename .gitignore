@@ -1,29 +1,42 @@
+# Dependencies
 node_modules/
+tmp-npm-cache/
+
+# Environment variables (NEVER COMMIT)
 .env
-public/uploads/avatars/*
-public/uploads/materials/*
-public/uploads/submissions/*
-!public/uploads/avatars/.gitkeep
-!public/uploads/materials/.gitkeep
-!public/uploads/submissions/.gitkeep
-server-restart.log
-nohup.out
-*.log
-.superpowers/
-login-debug*.html
-inline*.js
-live-*.html
-live-*.js
+.env.local
+.env.*.local
 
-# Agent tooling
-.opencode/
-.zcode/
-.superpowers/
-.superpowers
+# User uploads (keep folder structure, ignore contents)
+public/uploads/**/*
+!public/uploads/**/.gitkeep
 
-# Local backups (curriculum-only, partial)
-backup_curriculum_*.sql
-
-# Runtime storage
+# Storage and logs
 storage/
-public/uploads/
+logs/
+*.log
+npm-debug.log*
+
+# Temp files
+.tmp/
+.tmp-*/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
+coverage/
+
+# Test output
+tests/output/

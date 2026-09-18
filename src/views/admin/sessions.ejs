@@ -1,0 +1,69 @@
+<% const sessTrail = [{ label: 'Sessions', href: '/admin/sessions' }]; if (filterUserId) { sessTrail.push({ label: 'User #' + filterUserId }); } %>
+<% if (sessTrail.length > 1) { %><%- include('../partials/admin-crumbs', { trail: sessTrail }) %><% } %>
+<div class="admin-page-head">
+    <div>
+        <h2>Active Sessions</h2>
+        <p class="text-muted">Every signed-in device. Revoking signs the device out on its next request.</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <% if (filterUserId) { %>
+            <a href="/admin/sessions" class="btn btn-glass">Clear user filter</a>
+            <a href="/admin/users/<%= filterUserId %>" class="btn btn-glass">Back to Profile</a>
+        <% } %>
+    </div>
+</div>
+
+<div class="glass-table-container">
+    <div class="table-responsive">
+        <table class="glass-table">
+            <thead>
+                <tr>
+                    <th scope="col">Session</th>
+                    <th scope="col">User</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Expires</th>
+                    <th scope="col">Revoke</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% if (sessions.length === 0) { %>
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-hdd-network fs-2 d-block mb-2"></i>
+                            No active sessions<%= filterUserId ? ' for this user' : '' %>.
+                        </td>
+                    </tr>
+                <% } %>
+                <% sessions.forEach(s => { %>
+                    <tr class="<%= s.is_current ? 'table-success' : '' %>">
+                        <td class="font-monospace small">
+                            <%= s.short_id %>&hellip;
+                            <% if (s.is_current) { %><span class="badge-emerald ms-1">This device</span><% } %>
+                        </td>
+                        <td class="small">
+                            <% if (s.user) { %>
+                                <a href="/admin/users/<%= s.user.id %>" class="fw-bold text-dark text-decoration-none"><%= s.user.first_name %> <%= s.user.last_name %></a>
+                                <div class="text-muted"><%= s.user.email %></div>
+                            <% } else { %>
+                                <span class="text-muted">Unknown (corrupt session row)</span>
+                            <% } %>
+                        </td>
+                        <td class="small text-muted"><%= s.user ? s.user.role : '—' %></td>
+                        <td class="small text-muted font-monospace"><%= s.expires.toLocaleString() %></td>
+                        <td>
+                            <% if (s.is_current) { %>
+                                <span class="text-muted small">Current</span>
+                            <% } else { %>
+                                <form action="/admin/sessions/<%= s.session_id %>/revoke" method="POST" class="d-flex gap-1 flex-wrap" data-confirm="Revoke this session? The device signs out on its next request." data-require-reason>
+                                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                    <input type="text" name="reason" class="glass-input py-1 px-2 small reason-input" placeholder="Reason (min 10)" required minlength="10" aria-label="Reason">
+                                    <button type="submit" class="btn btn-sm btn-glass" title="Revoke session"><i class="bi bi-x-circle"></i></button>
+                                </form>
+                            <% } %>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>

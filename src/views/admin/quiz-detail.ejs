@@ -1,0 +1,151 @@
+<% const quizTrail = [{ label: 'Classes', href: '/admin/classes' }]; if (postings.length) { quizTrail.push({ label: postings[0].class_name, href: '/admin/classes/' + postings[0].class_id + '?tab=quizzes' }); } quizTrail.push({ label: quiz.title }); %>
+<%- include('../partials/admin-crumbs', { trail: quizTrail }) %>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <span class="badge-emerald"><i class="bi bi-card-checklist me-1"></i>Quiz</span>
+            <span class="badge-gray"><i class="bi bi-eye me-1"></i>Read-only oversight</span>
+        </div>
+        <h2 class="fw-bold mb-1 text-dark" style="font-size: 1.25rem;"><%= quiz.title %></h2>
+        <p class="text-muted small mb-0">
+            <%= quiz.subject || '' %> &bull; <%= quiz.grade_level || '' %> &bull; by <%= quiz.teacher_first %> <%= quiz.teacher_last %>
+            &bull; <%= quiz.total_questions %> questions &bull; <%= quiz.time_limit_minutes %> min &bull; pass <%= quiz.passing_score %>%
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <% if (postings.length > 0) { %>
+            <a href="/admin/classes/<%= postings[0].class_id %>?tab=quizzes" class="btn btn-glass">
+                <i class="bi bi-arrow-left me-1"></i> Back to Class
+            </a>
+        <% } %>
+    </div>
+</div>
+
+<% if (quiz.description) { %>
+    <div class="glass-card p-3 mb-4 small text-secondary"><%= quiz.description %></div>
+<% } %>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="glass-card p-4">
+            <h5 class="fw-bold mb-3">Questions</h5>
+            <% let lastQ = null; let qNum = 0; %>
+            <% questions.forEach(row => { %>
+                <% if (!lastQ || lastQ.id !== row.id) { qNum++; %>
+                    <% if (lastQ) { %></div><% } %>
+                    <div class="mb-4 pb-3 border-bottom">
+                        <div class="d-flex gap-2 align-items-center mb-1 flex-wrap">
+                            <span class="badge-emerald">Q<%= qNum %></span>
+                            <span class="badge-amber"><%= row.question_type %></span>
+                            <span class="small text-muted"><%= row.points %> pt(s)</span>
+                        </div>
+                        <div class="fw-semibold text-dark mb-2"><%= row.question_text %></div>
+                <% } %>
+                <% if (row.option_id) { %>
+                    <div class="small <%= row.is_correct ? 'fw-bold text-success' : 'text-muted' %>">
+                        <i class="bi <%= row.is_correct ? 'bi-check-circle-fill' : 'bi-circle' %> me-1"></i><%= row.option_text %>
+                    </div>
+                <% } %>
+                <% lastQ = row; %>
+            <% }) %>
+            <% if (lastQ) { %></div><% } %>
+            <% if (questions.length === 0) { %>
+                <p class="text-muted small mb-0">No questions saved for this quiz.</p>
+            <% } %>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="glass-card p-4 mb-4">
+            <h5 class="fw-bold mb-3">Posted In — Windows</h5>
+            <p class="text-muted small">Extending or re-opening a window lets enrolled students take the quiz inside it. Hiding removes it from student dashboards. Every change needs a reason and is logged.</p>
+            <% if (postings.length === 0) { %>
+                <p class="text-muted small mb-0">Not posted to any class.</p>
+            <% } else { %>
+                <div class="d-flex flex-column gap-3">
+                    <% postings.forEach(p => { %>
+                        <form action="/admin/section-quizzes/<%= p.id %>/window" method="POST" class="p-3 rounded-3" style="background: rgba(255,255,255,0.5);" data-require-reason>
+                            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                <a href="/admin/classes/<%= p.class_id %>" class="fw-bold text-dark text-decoration-none small"><%= p.class_name %></a>
+                                <span class="text-muted font-monospace small">(<%= p.class_code %>)</span>
+                                <span class="<%= p.is_published ? 'badge-emerald' : 'badge-gray' %>"><%= p.is_published ? 'Published' : 'Hidden' %></span>
+                            </div>
+                            <div class="row g-2 align-items-end">
+                                <% const fmtLocal = (d) => { const x = new Date(d); const p2 = (n) => String(n).padStart(2, '0'); return `${x.getFullYear()}-${p2(x.getMonth() + 1)}-${p2(x.getDate())}T${p2(x.getHours())}:${p2(x.getMinutes())}`; }; %>
+                                <div class="col-6 col-md-3">
+                                    <label class="form-label small fw-bold mb-1">Start (blank = none)</label>
+                                    <input type="datetime-local" name="start_time" class="glass-input py-1 px-2 small" value="<%= p.start_time ? fmtLocal(p.start_time) : '' %>">
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="form-label small fw-bold mb-1">End (blank = none)</label>
+                                    <input type="datetime-local" name="end_time" class="glass-input py-1 px-2 small" value="<%= p.end_time ? fmtLocal(p.end_time) : '' %>">
+                                </div>
+                                <div class="col-6 col-md-2">
+                                    <div class="form-check form-switch mt-3">
+                                        <input class="form-check-input" type="checkbox" name="is_published" value="1" id="pub-<%= p.id %>" <%= p.is_published ? 'checked' : '' %>>
+                                        <label class="form-check-label small fw-bold" for="pub-<%= p.id %>">Visible</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label small fw-bold mb-1">Reason (min 10)</label>
+                                    <div class="d-flex gap-1">
+                                        <input type="text" name="reason" class="glass-input py-1 px-2 small flex-grow-1" placeholder="e.g. storm makeup window" required minlength="10">
+                                        <button type="submit" class="btn btn-sm btn-liquid-primary">Save</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    <% }) %>
+                </div>
+            <% } %>
+        </div>
+
+        <div class="glass-card p-4">
+            <h5 class="fw-bold mb-3">Attempts (<%= attempts.length %>)</h5>
+            <p class="text-muted small">Resetting deletes the attempt and its answers so the student can retake. Optionally clears the linked gradebook cell. Discarded scores are recorded in the audit log.</p>
+            <% if (attempts.length === 0) { %>
+                <p class="text-muted small mb-0">No attempts recorded.</p>
+            <% } else { %>
+                <div class="table-responsive">
+                    <table class="glass-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Student</th>
+                                <th scope="col">Class</th>
+                                <th scope="col">Score</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Reset</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% attempts.forEach(a => { %>
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-dark small"><%= a.first_name %> <%= a.last_name %></div>
+                                        <div class="text-muted font-monospace" style="font-size: 0.72rem;"><%= a.lrn %></div>
+                                    </td>
+                                    <td class="small text-muted"><%= a.class_name %></td>
+                                    <td class="small fw-bold"><%= a.score %> / <%= a.max_score %> (<%= a.percentage %>%)</td>
+                                    <td>
+                                        <span class="<%= a.passed ? 'badge-emerald' : 'badge-red' %>"><%= a.passed ? 'PASS' : 'FAIL' %></span>
+                                    </td>
+                                    <td>
+                                        <form action="/admin/attempts/<%= a.id %>/reset" method="POST" class="d-flex gap-1 align-items-center flex-wrap" data-confirm="Reset this attempt for <%= a.first_name %> <%= a.last_name %>? Discards score <%= a.score %>/<%= a.max_score %>." data-require-reason>
+                                            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                            <input type="text" name="reason" class="glass-input py-1 px-2 small reason-input" placeholder="Reason (min 10)" required minlength="10" aria-label="Reason">
+                                            <label class="small text-muted mb-0 d-flex align-items-center gap-1" title="Also clear the linked gradebook cell">
+                                                <input type="checkbox" name="clear_gradebook_cell" value="1" checked class="form-check-input mt-0"> cell
+                                            </label>
+                                            <button type="submit" class="btn btn-sm btn-glass" title="Reset attempt"><i class="bi bi-arrow-counterclockwise"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } %>
+        </div>
+    </div>
+</div>

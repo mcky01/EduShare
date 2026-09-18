@@ -1,27 +1,42 @@
-<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+<div class="admin-page-head">
     <div>
-        <h2 class="fw-bold mb-1" style="color: var(--zahs-emerald-deep);">System Audit & Activity Logs</h2>
-        <p class="text-muted small mb-0">Immutable compliance log of user logins, role modifications, and institutional events.</p>
+        <h2>System Audit & Activity Logs</h2>
+        <p class="text-muted">Immutable compliance log of logins, role changes, and institutional events.</p>
     </div>
-    <div class="d-flex gap-1">
-        <a href="/admin/logs?category=all" class="btn btn-sm btn-glass <%= selectedCategory === 'all' ? 'active' : '' %>">All</a>
-        <a href="/admin/logs?category=account" class="btn btn-sm btn-glass <%= selectedCategory === 'account' ? 'active' : '' %>">Account</a>
-        <a href="/admin/logs?category=security" class="btn btn-sm btn-glass <%= selectedCategory === 'security' ? 'active' : '' %>">Security</a>
-        <a href="/admin/logs?category=admin" class="btn btn-sm btn-glass <%= selectedCategory === 'admin' ? 'active' : '' %>">Admin</a>
+    <div class="admin-head-actions d-flex gap-1 flex-wrap align-items-center">
+        <a href="/admin/logs?category=all&q=<%= encodeURIComponent(searchQuery) %>&page=1" class="btn btn-sm btn-glass <%= selectedCategory === 'all' ? 'active' : '' %>">All</a>
+        <a href="/admin/logs?category=account&q=<%= encodeURIComponent(searchQuery) %>&page=1" class="btn btn-sm btn-glass <%= selectedCategory === 'account' ? 'active' : '' %>">Account</a>
+        <a href="/admin/logs?category=security&q=<%= encodeURIComponent(searchQuery) %>&page=1" class="btn btn-sm btn-glass <%= selectedCategory === 'security' ? 'active' : '' %>">Security</a>
+        <a href="/admin/logs?category=admin&q=<%= encodeURIComponent(searchQuery) %>&page=1" class="btn btn-sm btn-glass <%= selectedCategory === 'admin' ? 'active' : '' %>">Admin</a>
+        <form action="/admin/logs" method="GET" class="d-inline-flex gap-1">
+            <input type="hidden" name="category" value="<%= selectedCategory %>">
+            <input type="text" name="q" class="glass-input py-1 px-3 small" style="max-width: 220px;" placeholder="Search action, details, email..." value="<%= searchQuery %>" aria-label="Search logs">
+            <button type="submit" class="btn btn-sm btn-glass" aria-label="Search logs"><i class="bi bi-search"></i></button>
+        </form>
+        <form action="/admin/logs/export" method="POST" class="d-inline-flex gap-1 align-items-center">
+            <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+            <input type="hidden" name="category" value="<%= selectedCategory %>">
+            <input type="hidden" name="q" value="<%= searchQuery %>">
+            <button type="submit" class="btn btn-sm btn-liquid-primary">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
+            </button>
+        </form>
     </div>
 </div>
+
+<p class="text-muted small mb-3">Showing <%= logs.length === 0 ? 0 : ((page - 1) * pageSize + 1) %>–<%= (page - 1) * pageSize + logs.length %> of <%= total %> rows (page <%= page %> of <%= totalPages %>).</p>
 
 <div class="glass-table-container">
     <div class="table-responsive">
         <table class="glass-table">
             <thead>
                 <tr>
-                    <th>Timestamp</th>
-                    <th>User</th>
-                    <th>Action</th>
-                    <th>Details</th>
-                    <th>Category</th>
-                    <th>IP Address</th>
+                    <th scope="col">Timestamp</th>
+                    <th scope="col">User</th>
+                    <th scope="col">Action</th>
+                    <th scope="col">Details</th>
+                    <th scope="col">Category</th>
+                    <th scope="col">IP Address</th>
                 </tr>
             </thead>
             <tbody>
@@ -37,8 +52,13 @@
                     <tr>
                         <td class="small text-muted font-monospace text-nowrap"><%= new Date(log.created_at).toLocaleString() %></td>
                         <td>
-                            <span class="fw-bold text-dark"><%= log.first_name %> <%= log.last_name %></span>
-                            <div class="small text-muted"><%= log.email %> (<%= log.role %>)</div>
+                            <% if (log.role === 'unknown') { %>
+                                <span class="fw-bold text-muted"><%= log.first_name %> <%= log.last_name %></span>
+                                <div class="small text-muted">account deleted (ID <%= log.actor_id %>)</div>
+                            <% } else { %>
+                                <a href="/admin/users/<%= log.actor_id %>" class="fw-bold text-dark text-decoration-none"><%= log.first_name %> <%= log.last_name %></a>
+                                <div class="small text-muted"><%= log.email %> (<%= log.role %>)</div>
+                            <% } %>
                         </td>
                         <td class="fw-bold <%= log.category === 'security' ? 'text-danger' : 'text-success' %>"><%= log.action %></td>
                         <td class="small log-details-cell" title="<%= log.description %>"><%= log.description %></td>
@@ -54,3 +74,17 @@
         </table>
     </div>
 </div>
+
+<% if (totalPages > 1) { %>
+<nav aria-label="Audit log pages" class="d-flex justify-content-center gap-2 mt-3 flex-wrap">
+    <% if (page > 1) { %>
+        <a href="/admin/logs?category=<%= selectedCategory %>&q=<%= encodeURIComponent(searchQuery) %>&page=<%= page - 1 %>" class="btn btn-sm btn-glass">&larr; Prev</a>
+    <% } %>
+    <span class="small text-muted align-self-center">Page <%= page %> of <%= totalPages %></span>
+    <% if (page < totalPages) { %>
+        <a href="/admin/logs?category=<%= selectedCategory %>&q=<%= encodeURIComponent(searchQuery) %>&page=<%= page + 1 %>" class="btn btn-sm btn-glass">Next &rarr;</a>
+    <% } %>
+</nav>
+<% } %>
+<!-- Admin submit-button feedback (spinner + double-submit guard; export forms are skipped inside). -->
+<script src="/js/admin-feedback.js" defer></script>

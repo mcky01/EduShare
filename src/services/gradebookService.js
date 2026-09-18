@@ -138,9 +138,10 @@ async function getClassGradebook(classId) {
 
             for (const col of cat.columns) {
                 const entry = entriesMap[student.id]?.[col.id];
-                const score = entry !== undefined ? entry.score : 0;
+                // Missing entry = ungraded (null), never a scored zero.
+                const score = entry !== undefined ? entry.score : null;
                 studentData.scores[col.id] = score;
-                studentCatTotal += score;
+                studentCatTotal += (score == null ? 0 : score);
             }
 
             const hps = cat.totalHPS || 1;
@@ -209,10 +210,60 @@ async function syncQuizScore(quizId, classId, studentId, score, maxScore) {
     }
 }
 
+// Lightweight per-class overview for the admin drill-down (grade grid
+// → section list → full ECR). Reuses getClassGradebook per class and
+// reduces it to aggregates — no new queries beyond what the ECR
+// already runs. Cheap at oversight scale (tens of classes × tens of
+// students); the drill-down caps overview computation to one grade.
+async function getClassOverview(classId) {
+    const data = await getClassGradebook(classId);
+    const grades = data.studentGrades || [];
+    const enrolled = grades.length;
+    let passed = 0;
+    let sum = 0;
+    let hasScores = false;
+    for (const sg of grades) {
+        if (sg.passed) passed += 1;
+        sum += Number(sg.transmutedGrade) || 0;
+        if (!hasScores) {
+            for (const colId of Object.keys(sg.scores || {})) {
+                if (sg.scores[colId] != null) { hasScores = true; break; }
+            }
+        }
+    }
+    const failed = enrolled - passed;
+    return {
+        enrolled,
+        passed,
+        failed,
+        passRate: enrolled > 0 ? Math.round((passed / enrolled) * 100) : null,
+        average: enrolled > 0 ? Math.round((sum / enrolled) * 100) / 100 : null,
+        hasScores,
+        hasColumns: (data.columns || []).length > 0
+    };
+}
+
+// Overview for many classes: returns [{ classId, ...overview }].
+// Failures per class degrade to an empty overview (never throws —
+// one broken class must not blank the whole grade grid).
+async function getOverviewForClasses(classIds) {
+    const out = [];
+    for (const id of classIds) {
+        try {
+            out.push({ classId: id, ...(await getClassOverview(id)) });
+        } catch {
+            out.push({ classId: id, enrolled: 0, passed: 0, failed: 0, passRate: null, average: null, hasScores: false, hasColumns: false });
+        }
+    }
+    return out;
+}
+
 module.exports = {
     TRANSMUTATION_TABLE,
     transmute,
     getDescriptor,
     getClassGradebook,
+    getClassOverview,
+    getOverviewForClasses,
     syncQuizScore
 };

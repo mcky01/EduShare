@@ -1,6 +1,9 @@
-// EduShare 2.0 Interactive Gradebook Sheet
+// EduShare Interactive Gradebook Sheet
 // Debounced autosave + clamp + arrow-key nav + save indicator.
 
+// Idempotent guard (Agent A convention): skip rebinding when already wired.
+if (!document.documentElement.hasAttribute('data-gradebook-wired')) {
+document.documentElement.setAttribute('data-gradebook-wired', '1');
 document.addEventListener('DOMContentLoaded', () => {
     var classSelect = document.getElementById('gradebookClassSelect');
     if (classSelect) {
@@ -23,8 +26,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function clampCell(el) {
         var max = parseFloat(el.dataset.maxScore);
         if (!isFinite(max) || max <= 0) max = 100;
+        // Empty = ungraded: leave blank, do not autosave a zero.
+        if (el.value === '') return null;
         var v = parseFloat(el.value);
-        if (el.value === '' || isNaN(v)) return 0;
+        if (isNaN(v)) return null;
         if (v < 0) { el.value = 0; return 0; }
         if (v > max) { el.value = max; return max; }
         return v;
@@ -33,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function saveCell(el) {
         var score = clampCell(el);
         el.classList.remove('dirty');
+        if (score === null) { setIndicator('saved', 'Saved'); return; }
         el.classList.add('saving');
         setIndicator('saving', 'Saving...');
         try {
@@ -111,3 +117,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+} // end idempotent guard

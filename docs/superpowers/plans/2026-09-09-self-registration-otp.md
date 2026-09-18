@@ -133,7 +133,7 @@ SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
 SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
 SMTP_USER: process.env.SMTP_USER || '',
 SMTP_PASS: process.env.SMTP_PASS || '',
-MAIL_FROM: process.env.MAIL_FROM || process.env.SMTP_USER || 'EduShare 2.0 <noreply@zahs.edu.ph>',
+MAIL_FROM: process.env.MAIL_FROM || process.env.SMTP_USER || 'EduShare <noreply@zahs.edu.ph>',
 OTP_DEV_LOG: process.env.OTP_DEV_LOG === 'true',
 ```
 
@@ -143,7 +143,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your.school.gmail@gmail.com
 SMTP_PASS=your_gmail_app_password_here
-MAIL_FROM=EduShare 2.0 <your.school.gmail@gmail.com>
+MAIL_FROM=EduShare <your.school.gmail@gmail.com>
 OTP_DEV_LOG=true
 ```
 

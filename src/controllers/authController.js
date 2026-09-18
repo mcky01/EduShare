@@ -3,13 +3,14 @@ const crypto = require('crypto');
 const { query, withTransaction } = require('../config/database');
 const { setFlash } = require('../middleware/branding');
 const { requestOtp, verifyOtp, RateLimited, InvalidCode, ExpiredOrMissing } = require('../services/otpService');
+const sectionService = require('../services/sectionService');
 
 async function showLogin(req, res) {
     const { ensureToken } = require('../middleware/csrf');
     ensureToken(req);
     const returnTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : '';
     res.render('auth/login', {
-        title: 'Sign In | EduShare 2.0',
+        title: 'Sign In | EduShare',
         layout: 'layouts/auth',
         loginError: null,
         credential: '',
@@ -49,7 +50,7 @@ function resolveRedirect(user, returnTo) {
 
 function renderLoginError(req, res, status, message, cred, returnTo) {
     return res.status(status).render('auth/login', {
-        title: 'Sign In | EduShare 2.0',
+        title: 'Sign In | EduShare',
         layout: 'layouts/auth',
         loginError: message,
         credential: cred || '',
@@ -95,12 +96,14 @@ async function login(req, res) {
         }
 
         const cred = normalizeCredential(rawCred);
+        // All-digit input (spaces/dashes stripped) is always an LRN attempt:
+        // exactly 12 digits -> student lookup; anything else -> helpful hint.
         const lrnDigits = looksLikeLrn(rawCred);
         if (!cred) {
             return renderLoginError(req, res, 400, GENERIC_LOGIN_ERROR, rawCred.trim(), safeReturnTo);
         }
         // Numeric identifiers must be full 12-digit LRNs; anything shorter is a typo.
-        if (!lrnDigits && /^[\d\s-]+$/.test(rawCred.trim())) {
+        if (lrnDigits !== null && lrnDigits.length !== 12) {
             return renderLoginError(req, res, 400, 'Student LRN must be exactly 12 digits. Check the number and try again.', rawCred.trim(), safeReturnTo);
         }
         let user = null;
@@ -221,12 +224,16 @@ async function login(req, res) {
             advisory_section: user.advisory_section || null
         };
 
-        // Fixed 12-hour session (remember-me control removed from login).
+        // Session: explicit 12-hour ceiling at sign-in (remember-me control removed
+        // from login). Rolling refresh otherwise rides the 24h default in
+        // src/app.js unless the branding middleware's session_timeout overrides.
         req.session.cookie.maxAge = 12 * 60 * 60 * 1000; // 12 hours
 
         await logLoginAttempt(user.id, req, true);
 
         if (user.force_password_change) {
+            // Stash the same-role returnTo so the post-change redirect can honor it.
+            if (safeReturnTo) req.session.returnTo = safeReturnTo;
             return res.redirect('/auth/change-password');
         }
 
@@ -247,10 +254,12 @@ async function login(req, res) {
 async function showChangePassword(req, res) {
     const { ensureToken } = require('../middleware/csrf');
     ensureToken(req);
+    const stashed = typeof req.session?.returnTo === 'string' ? req.session.returnTo : '';
     res.render('auth/change-password', {
-        title: 'Change Password | EduShare 2.0',
+        title: 'Change Password | EduShare',
         layout: 'layouts/auth',
-        csrfToken: req.session.csrfToken
+        csrfToken: req.session.csrfToken,
+        returnTo: isSafeReturnTo(stashed) ? stashed : ''
     });
 }
 
@@ -303,6 +312,19 @@ async function changePassword(req, res) {
         setFlash(req, 'success', 'Password updated successfully!');
 
         const role = req.session.user.role;
+        // Honor a stashed same-role returnTo (from the forced-change redirect at
+        // login), then clear it so it can never replay on a later change.
+        // NOTE: req.session.regenerate() above drops all session fields, so a
+        // returnTo posted via the change-password form body is the live carrier;
+        // the session copy survives only when regenerate fell back to in-place.
+        const posted = typeof req.body?.returnTo === 'string' ? req.body.returnTo : '';
+        const stashed = isSafeReturnTo(posted) ? posted
+            : (typeof req.session.returnTo === 'string' ? req.session.returnTo : '');
+        delete req.session.returnTo;
+        const honored = isSafeReturnTo(stashed)
+            && (stashed === `/${role}` || stashed.startsWith(`/${role}/`))
+            ? stashed : null;
+        if (honored) return res.redirect(honored);
         if (role === 'admin') return res.redirect('/admin/dashboard');
         if (role === 'teacher') return res.redirect('/teacher/dashboard');
         return res.redirect('/student/dashboard');
@@ -364,6 +386,24 @@ const GENERIC_REGISTER_ERROR = 'Invalid details. Check your information and try 
 const GENERIC_CODE_ERROR = 'Code invalid or expired. Request a new code and try again.';
 const PASSWORD_RULE_MESSAGE = 'Password must be at least 10 characters with upper/lowercase letters and a number.';
 
+// Grade vocabulary lives in sectionService (single 7-12 list shared by
+// every surface). The local alias below stays so existing teacher-code
+// references keep working without a wider rename.
+const TEACHER_GRADES = sectionService.TEACHER_GRADES;
+
+// Optional teacher self-declared fields: blank stays NULL (admin corrects at
+// approval). Grade is whitelist-checked; section is free text (max 50 chars)
+// since class assignments vary per teacher and SHS strands are not yet known.
+function cleanTeacherGrade(raw) {
+    const v = String(raw || '').trim();
+    return TEACHER_GRADES.includes(v) ? v : null;
+}
+
+function cleanTeacherSection(raw) {
+    const v = String(raw || '').trim().slice(0, 50);
+    return v.length > 0 ? v : null;
+}
+
 function validPassword(raw) {
     const pw = String(raw || '');
     return pw.length >= 10 && /[a-z]/.test(pw) && /[A-Z]/.test(pw) && /\d/.test(pw);
@@ -381,14 +421,15 @@ function renderRegisterError(res, status, message, preservedForms, csrfToken) {
     const teacherForm = { first_name: '', last_name: '', email: '', ...(preservedForms?.teacherForm || {}) };
     const studentForm = { first_name: '', last_name: '', email: '', lrn: '', ...(preservedForms?.studentForm || {}) };
     return res.status(status).render('auth/register', {
-        title: 'Create Account | EduShare 2.0',
+        title: 'Create Account | EduShare',
         layout: 'layouts/auth',
         csrfToken: csrfToken || '',
         teacherForm,
         studentForm,
         registerError: message,
         codeSentTo: preservedForms?.codeSentTo || null,
-        activeTab: preservedForms?.activeTab || 'teacher'
+        activeTab: preservedForms?.activeTab || 'teacher',
+        studentGrades: sectionService.STUDENT_GRADES
     });
 }
 
@@ -396,7 +437,7 @@ function renderRegisterPage(req, res, overrides = {}) {
     const { ensureToken } = require('../middleware/csrf');
     ensureToken(req);
     return res.render('auth/register', {
-        title: 'Create Account | EduShare 2.0',
+        title: 'Create Account | EduShare',
         layout: 'layouts/auth',
         csrfToken: req.session.csrfToken,
         teacherForm: {},
@@ -404,6 +445,7 @@ function renderRegisterPage(req, res, overrides = {}) {
         registerError: null,
         codeSentTo: null,
         activeTab: 'teacher',
+        studentGrades: sectionService.STUDENT_GRADES,
         ...overrides
     });
 }
@@ -420,7 +462,9 @@ async function requestTeacherCode(req, res) {
         const first_name = String(req.body?.first_name || '').trim();
         const last_name = String(req.body?.last_name || '').trim();
         const email = String(req.body?.email || '').trim().toLowerCase();
-        const preserved = { teacherForm: { first_name, last_name, email }, studentForm: {}, activeTab: 'teacher' };
+        const grade_level = cleanTeacherGrade(req.body?.grade_level);
+        const section = cleanTeacherSection(req.body?.section);
+        const preserved = { teacherForm: { first_name, last_name, email, grade_level: grade_level || '', section: section || '' }, studentForm: {}, activeTab: 'teacher' };
         if (!validName(first_name) || !validName(last_name)) {
             return renderRegisterError(res, 400, 'Enter your first and last name.', preserved, csrfToken);
         }
@@ -443,7 +487,7 @@ async function requestTeacherCode(req, res) {
             throw err;
         }
         return renderRegisterPage(req, res, {
-            teacherForm: { first_name, last_name, email },
+            teacherForm: { first_name, last_name, email, grade_level: grade_level || '', section: section || '' },
             codeSentTo: email,
             activeTab: 'teacher'
         });
@@ -468,7 +512,9 @@ async function verifyTeacherRegister(req, res) {
         const email = String(req.body?.email || '').trim().toLowerCase();
         const password = String(req.body?.password || '');
         const code = String(req.body?.code || '').trim();
-        const preserved = { teacherForm: { first_name, last_name, email }, studentForm: {}, activeTab: 'teacher' };
+        const grade_level = cleanTeacherGrade(req.body?.grade_level);
+        const section = cleanTeacherSection(req.body?.section);
+        const preserved = { teacherForm: { first_name, last_name, email, grade_level: grade_level || '', section: section || '' }, studentForm: {}, activeTab: 'teacher' };
         if (!validName(first_name) || !validName(last_name)) {
             return renderRegisterError(res, 400, 'Enter your first and last name.', preserved, csrfToken);
         }
@@ -501,9 +547,9 @@ async function verifyTeacherRegister(req, res) {
                 [first_name, last_name, email, hash]
             );
             await conn.query(
-                `INSERT INTO teachers (user_id, employee_id, department, specialization)
-                 VALUES (?, NULL, 'Junior High School', 'General Education')`,
-                [userRes.insertId]
+                `INSERT INTO teachers (user_id, employee_id, department, specialization, grade_level, section)
+                 VALUES (?, NULL, 'Junior High School', 'General Education', ?, ?)`,
+                [userRes.insertId, grade_level, section]
             );
             return userRes.insertId;
         });
@@ -529,6 +575,26 @@ async function verifyTeacherRegister(req, res) {
     }
 }
 
+// Public type-to-search lookup: which sections exist for a grade.
+// The section input never dumps the whole list — q (min 1 char) is
+// required, results are capped at 8 plain strings (no teacher names,
+// emails, or class codes leak), and grade_level is whitelist-checked
+// so an attacker cannot scrape the full section roster at once.
+async function suggestSections(req, res) {
+    try {
+        const gradeLevel = String(req.query?.grade_level || '').trim();
+        const q = String(req.query?.q || '').trim();
+        if (!sectionService.STUDENT_GRADES.includes(gradeLevel) || q.length < 1) {
+            return res.json({ sections: [] });
+        }
+        const sections = await sectionService.suggestSections(gradeLevel, q.slice(0, 50));
+        return res.json({ sections });
+    } catch (err) {
+        console.error('Section suggest error:', err);
+        return res.json({ sections: [] });
+    }
+}
+
 async function requestStudentCode(req, res) {
     try {
         const { ensureToken } = require('../middleware/csrf');
@@ -538,9 +604,19 @@ async function requestStudentCode(req, res) {
         const last_name = String(req.body?.last_name || '').trim();
         const email = String(req.body?.email || '').trim().toLowerCase();
         const lrn = normalizeLrn(req.body?.lrn);
-        const preserved = { studentForm: { first_name, last_name, email, lrn }, teacherForm: {}, activeTab: 'student' };
+        // Grade/section declared at signup so the admin + adviser can route
+        // the approval to the right class. Converged to the canonical
+        // spelling when the grade already has one (soft-match: free text
+        // still accepted so students are never blocked by teacher rollout).
+        const grade_level = sectionService.cleanStudentGrade(req.body?.grade_level);
+        const rawSection = sectionService.cleanSection(req.body?.section);
+        const gender = sectionService.cleanGender(req.body?.gender, 'Other');
+        const preserved = { studentForm: { first_name, last_name, email, lrn, grade_level: grade_level || '', section: rawSection || '', gender }, teacherForm: {}, activeTab: 'student' };
         if (!validName(first_name) || !validName(last_name)) {
             return renderRegisterError(res, 400, 'Enter your first and last name.', preserved, csrfToken);
+        }
+        if (!grade_level || !rawSection) {
+            return renderRegisterError(res, 400, 'Select your grade level and section so your adviser can find your registration.', preserved, csrfToken);
         }
         if (!/^\d{12}$/.test(lrn)) {
             return renderRegisterError(res, 400, 'Student LRN must be exactly 12 digits. Check the number and try again.', preserved, csrfToken);
@@ -564,8 +640,11 @@ async function requestStudentCode(req, res) {
             }
             throw err;
         }
+        // Canonicalize now so the verify step shows the exact spelling that
+        // will be saved (picked from the lookup, or the trimmed free text).
+        const section = await sectionService.canonicalizeSection(grade_level, rawSection);
         return renderRegisterPage(req, res, {
-            studentForm: { first_name, last_name, email, lrn },
+            studentForm: { first_name, last_name, email, lrn, grade_level, section, gender },
             codeSentTo: email,
             activeTab: 'student'
         });
@@ -591,9 +670,18 @@ async function verifyStudentRegister(req, res) {
         const lrn = normalizeLrn(req.body?.lrn);
         const password = String(req.body?.password || '');
         const code = String(req.body?.code || '').trim();
-        const preserved = { studentForm: { first_name, last_name, email, lrn }, teacherForm: {}, activeTab: 'student' };
+        // Re-validate the hidden grade/section/gender fields: the code step
+        // re-posts them as hidden inputs, so the final write must not trust
+        // them blindly (a forged POST could land in any section otherwise).
+        const grade_level = sectionService.cleanStudentGrade(req.body?.grade_level);
+        const rawSection = sectionService.cleanSection(req.body?.section);
+        const gender = sectionService.cleanGender(req.body?.gender, 'Other');
+        const preserved = { studentForm: { first_name, last_name, email, lrn, grade_level: grade_level || '', section: rawSection || '', gender }, teacherForm: {}, activeTab: 'student' };
         if (!validName(first_name) || !validName(last_name)) {
             return renderRegisterError(res, 400, 'Enter your first and last name.', preserved, csrfToken);
+        }
+        if (!grade_level || !rawSection) {
+            return renderRegisterError(res, 400, 'Your grade level and section are missing. Start registration again so your adviser can find you.', preserved, csrfToken);
         }
         if (!/^\d{12}$/.test(lrn)) {
             return renderRegisterError(res, 400, 'Student LRN must be exactly 12 digits. Check the number and try again.', preserved, csrfToken);
@@ -627,18 +715,22 @@ async function verifyStudentRegister(req, res) {
                  VALUES (?, ?, ?, ?, 'student', 0, 'pending', 0)`,
                 [first_name, last_name, email, hash]
             );
+            // Converge to the canonical section spelling when one exists
+            // for this grade (e.g. typed "rizal" -> saved "Rizal"), so the
+            // adviser roster + approval queries match exactly.
+            const section = await sectionService.canonicalizeSection(grade_level, rawSection);
             await conn.query(
                 `INSERT INTO students (user_id, student_id, grade_level, section, gender)
-                 VALUES (?, ?, 'Grade 7', 'Rizal', 'Other')`,
-                [userRes.insertId, lrn]
+                 VALUES (?, ?, ?, ?, ?)`,
+                [userRes.insertId, lrn, grade_level, section, gender]
             );
             return userRes.insertId;
         });
         try {
             await query(
                 `INSERT INTO activity_logs (user_id, action, description, category, ip_address, user_agent)
-                 VALUES (?, 'Registration Submitted', 'Student account submitted for admin approval', 'account', ?, ?)`,
-                [newUserId, req.ip, (req.headers['user-agent'] || '').slice(0, 255)]
+                 VALUES (?, 'Registration Submitted', ?, 'account', ?, ?)`,
+                [newUserId, `Student account submitted for admin approval (${grade_level} - ${section})`, req.ip, (req.headers['user-agent'] || '').slice(0, 255)]
             );
         } catch {
             // Never block registration on audit-log failure.
@@ -656,6 +748,205 @@ async function verifyStudentRegister(req, res) {
     }
 }
 
+// ---- Forgot / reset password via email OTP (purpose 'password_reset') ----
+
+const RESET_INVALID_CODE = 'Code invalid or expired. Request a new code and try again.';
+// Anti-enumeration: request/verify pages never reveal whether an email exists.
+const RESET_SENT_NOTICE = 'If an account exists for that email, a verification code was sent.';
+
+function renderForgotPage(req, res, overrides = {}) {
+    const { ensureToken } = require('../middleware/csrf');
+    ensureToken(req);
+    return res.render('auth/forgot-password', {
+        title: 'Forgot Password | EduShare',
+        layout: 'layouts/auth',
+        csrfToken: req.session.csrfToken,
+        email: '',
+        codeSentTo: null,
+        forgotError: null,
+        sentNotice: RESET_SENT_NOTICE,
+        ...overrides
+    });
+}
+
+function renderForgotError(res, status, message, preserved, csrfToken) {
+    return res.status(status).render('auth/forgot-password', {
+        title: 'Forgot Password | EduShare',
+        layout: 'layouts/auth',
+        csrfToken: csrfToken || '',
+        email: preserved?.email || '',
+        codeSentTo: preserved?.codeSentTo || null,
+        forgotError: message,
+        sentNotice: RESET_SENT_NOTICE
+    });
+}
+
+function renderResetPage(req, res, email, overrides = {}) {
+    const { ensureToken } = require('../middleware/csrf');
+    ensureToken(req);
+    return res.render('auth/reset-password', {
+        title: 'Set New Password | EduShare',
+        layout: 'layouts/auth',
+        csrfToken: req.session.csrfToken,
+        email,
+        resetError: null,
+        ...overrides
+    });
+}
+
+function renderResetError(res, status, message, email, csrfToken) {
+    return res.status(status).render('auth/reset-password', {
+        title: 'Set New Password | EduShare',
+        layout: 'layouts/auth',
+        csrfToken: csrfToken || '',
+        email,
+        resetError: message
+    });
+}
+
+async function showForgot(req, res) {
+    return renderForgotPage(req, res);
+}
+
+// Step 1: mint an OTP for any syntactically valid email. Unknown addresses take
+// the same success path (no OTP minted, same notice) to avoid enumeration.
+// Rejected + pending users may still reset (they may need access to appeal).
+async function requestResetCode(req, res) {
+    try {
+        const { ensureToken } = require('../middleware/csrf');
+        ensureToken(req);
+        const csrfToken = req.session.csrfToken;
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const preserved = { email, codeSentTo: null };
+        if (!email.includes('@') || email.length > 150) {
+            return renderForgotError(res, 400, 'Enter the email address linked to your account.', preserved, csrfToken);
+        }
+        const rows = await query('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [email]);
+        if (rows.length === 0) {
+            // Pretend a code was sent — same shape/timing as the real path.
+            await delay(200);
+            return renderForgotPage(req, res, { email, codeSentTo: email, forgotError: null });
+        }
+        try {
+            await requestOtp(email, 'password_reset');
+        } catch (err) {
+            if (err instanceof RateLimited) {
+                return renderForgotError(res, 429, 'Too many code requests. Please wait 15 minutes and try again.', preserved, csrfToken);
+            }
+            throw err;
+        }
+        return renderForgotPage(req, res, { email, codeSentTo: email });
+    } catch (err) {
+        console.error('Forgot request-code error:', err);
+        try {
+            return renderForgotError(res, 500, 'Something went wrong. Please try again.', { email: String(req.body?.email || '') }, req.session?.csrfToken || '');
+        } catch {
+            setFlash(req, 'error', 'Something went wrong. Please try again.');
+            return res.redirect('/auth/forgot-password');
+        }
+    }
+}
+
+// Step 2: verify email+code+new passwords in ONE POST (mirrors register verify).
+// The code is consumed only if the password update succeeds.
+async function verifyResetCode(req, res) {
+    try {
+        const { ensureToken } = require('../middleware/csrf');
+        ensureToken(req);
+        const csrfToken = req.session.csrfToken;
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const code = String(req.body?.code || '').trim();
+        const newPassword = String(req.body?.new_password || '');
+        const confirmPassword = String(req.body?.confirm_password || '');
+        if (!email.includes('@')) {
+            return renderResetError(res, 400, 'Enter the email address linked to your account.', email, csrfToken);
+        }
+        if (!/^\d{6}$/.test(code)) {
+            return renderResetError(res, 400, RESET_INVALID_CODE, email, csrfToken);
+        }
+        if (!validPassword(newPassword)) {
+            return renderResetError(res, 400, PASSWORD_RULE_MESSAGE, email, csrfToken);
+        }
+        if (newPassword !== confirmPassword) {
+            return renderResetError(res, 400, 'New passwords do not match.', email, csrfToken);
+        }
+        try {
+            await verifyOtp(email, 'password_reset', code);
+        } catch (err) {
+            if (err instanceof InvalidCode || err instanceof ExpiredOrMissing) {
+                return renderResetError(res, 400, RESET_INVALID_CODE, email, csrfToken);
+            }
+            throw err;
+        }
+        return doResetPassword(req, res, { email, newPassword, csrfToken });
+    } catch (err) {
+        console.error('Reset verify error:', err);
+        try {
+            return renderResetError(res, 500, 'Something went wrong. Please try again.', String(req.body?.email || ''), req.session?.csrfToken || '');
+        } catch {
+            setFlash(req, 'error', 'Something went wrong. Please try again.');
+            return res.redirect('/auth/forgot-password');
+        }
+    }
+}
+
+// Step 2b: GET after a fresh code request — shows the new-password form for the
+// verified-sent address (code itself is entered in the form, no signed token).
+async function showReset(req, res) {
+    const { ensureToken } = require('../middleware/csrf');
+    ensureToken(req);
+    const email = String(req.query?.email || '').trim().toLowerCase();
+    return renderResetPage(req, res, email.includes('@') ? email : '');
+}
+
+async function doResetPassword(req, res, verified = null) {
+    try {
+        const email = verified?.email ?? String(req.body?.email || '').trim().toLowerCase();
+        const newPassword = verified?.newPassword ?? String(req.body?.new_password || '');
+        const confirmPassword = verified ? verified.newPassword : String(req.body?.confirm_password || '');
+        const csrfToken = verified?.csrfToken ?? req.session?.csrfToken ?? '';
+        if (!email.includes('@')) {
+            return renderResetError(res, 400, 'Enter the email address linked to your account.', email, csrfToken);
+        }
+        if (!validPassword(newPassword)) {
+            return renderResetError(res, 400, PASSWORD_RULE_MESSAGE, email, csrfToken);
+        }
+        if (newPassword !== confirmPassword) {
+            return renderResetError(res, 400, 'New passwords do not match.', email, csrfToken);
+        }
+        const rows = await query('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1', [email]);
+        if (rows.length === 0) {
+            // Keep the anti-enumeration promise: same generic success path.
+            setFlash(req, 'success', 'Password updated. Sign in with your new password.');
+            return res.redirect('/auth/login');
+        }
+        const hash = await bcrypt.hash(newPassword, 10);
+        await query(
+            'UPDATE users SET password_hash = ?, force_password_change = 0 WHERE id = ?',
+            [hash, rows[0].id]
+        );
+        try {
+            await query(
+                `INSERT INTO activity_logs (user_id, action, description, category, ip_address, user_agent)
+                 VALUES (?, 'Password Reset', 'Password reset via email verification code', 'security', ?, ?)`,
+                [rows[0].id, req.ip, (req.headers['user-agent'] || '').slice(0, 255)]
+            );
+        } catch {
+            // Never block a reset on audit-log failure.
+        }
+        setFlash(req, 'success', 'Password updated. Sign in with your new password.');
+        return res.redirect('/auth/login');
+    } catch (err) {
+        console.error('Reset password error:', err);
+        try {
+            return renderResetError(res, 500, 'Something went wrong. Please try again.', String(req.body?.email || verified?.email || ''), req.session?.csrfToken || '');
+        } catch {
+            setFlash(req, 'error', 'Something went wrong. Please try again.');
+            return res.redirect('/auth/forgot-password');
+        }
+    }
+}
+
 module.exports = {
     showLogin,
     login,
@@ -664,8 +955,14 @@ module.exports = {
     updateProfile,
     logout,
     showRegister,
+    suggestSections,
     requestTeacherCode,
     verifyTeacherRegister,
     requestStudentCode,
-    verifyStudentRegister
+    verifyStudentRegister,
+    showForgot,
+    requestResetCode,
+    showReset,
+    verifyResetCode,
+    doResetPassword
 };

@@ -1,4 +1,5 @@
 const { query, withTransaction } = require('../config/database');
+const notifications = require('../services/notificationService');
 const { ensureToken } = require('../middleware/csrf');
 const { setFlash } = require('../middleware/branding');
 const gradebookService = require('../services/gradebookService');
@@ -66,7 +67,7 @@ async function dashboard(req, res) {
         }
 
         res.render('student/dashboard', {
-            title: 'Student Dashboard | EduShare 2.0',
+            title: 'Student Dashboard | EduShare',
             classes,
             pendingQuizzes,
             upcomingActivities,
@@ -94,7 +95,7 @@ async function classes(req, res) {
         );
 
         res.render('student/classes', {
-            title: 'My Classes | EduShare 2.0',
+            title: 'My Classes | EduShare',
             classes: enrolledClasses
         });
     } catch (err) {
@@ -139,6 +140,18 @@ async function joinClass(req, res) {
              ON DUPLICATE KEY UPDATE status = 'active'`,
             [studentProfileId, targetClass.id]
         );
+
+        // Confirmation notification (best-effort).
+        notifications.notifyStudent({
+            studentId: studentProfileId,
+            classId: targetClass.id,
+            type: 'enrollment',
+            title: `You joined ${targetClass.class_name}`,
+            message: `${targetClass.subject || ''} ${targetClass.grade_level || ''} ${targetClass.section || ''}`.trim() || null,
+            linkUrl: `/student/classes/${targetClass.id}`,
+            refType: 'enrollment',
+            refId: targetClass.id
+        });
 
         setFlash(req, 'success', `Successfully joined ${targetClass.class_name}!`);
         res.redirect(`/student/classes/${targetClass.id}`);
@@ -193,10 +206,10 @@ async function classView(req, res) {
             [studentProfileId, classId]
         );
 
-        // Quizzes
+        // Quizzes (max_score drives "Score: x / y" display)
         const quizzes = await query(
-            `SELECT q.*, sq.start_time, sq.end_time,
-                    qa.id AS attempt_id, qa.score, qa.percentage, qa.passed, qa.status AS attempt_status
+            `SELECT q.*, q.total_questions, sq.start_time, sq.end_time, sq.is_published,
+                    qa.id AS attempt_id, qa.score, qa.max_score, qa.percentage, qa.passed, qa.status AS attempt_status
              FROM quizzes q
              JOIN section_quizzes sq ON q.id = sq.quiz_id
              LEFT JOIN quiz_attempts qa ON qa.quiz_id = q.id AND qa.student_id = ? AND qa.class_id = ?
@@ -216,13 +229,13 @@ async function classView(req, res) {
         );
 
         res.render('student/class-view', {
-            title: `${cls.class_name} | EduShare 2.0`,
+            title: `${cls.class_name} | EduShare`,
             cls,
             materials,
             activities,
             quizzes,
             announcements,
-            activeTab: req.query.tab || 'materials'
+            activeTab: ['materials', 'activities', 'quizzes', 'announcements'].includes(req.query.tab) ? req.query.tab : 'materials'
         });
     } catch (err) {
         console.error('Student class view error:', err);
@@ -263,7 +276,7 @@ async function viewActivitySubmit(req, res) {
         );
 
         res.render('student/activity-submit', {
-            title: `Submit: ${activity.title} | EduShare 2.0`,
+            title: `Submit: ${activity.title} | EduShare`,
             activity,
             cls,
             submission: submission || null
@@ -307,13 +320,20 @@ async function submitActivity(req, res) {
             [activityId, classId, studentProfileId]
         );
 
+        if (!filePath && !(note?.trim()) && !existing?.file_path && !existing?.note) {
+            setFlash(req, 'error', 'Attach a file or write a note before submitting.');
+            return res.redirect(`/student/activities/${activityId}/classes/${classId}/submit`);
+        }
+
         if (existing) {
+            const wasGraded = existing.status === 'graded';
             await query(
                 `UPDATE activity_submissions
-                 SET file_path = COALESCE(?, file_path), file_type = COALESCE(?, file_type), note = ?, submitted_at = NOW()
+                 SET file_path = COALESCE(?, file_path), file_type = COALESCE(?, file_type), note = COALESCE(?, note), submitted_at = NOW(), status = 'submitted', graded_at = NULL
                  WHERE id = ?`,
                 [filePath, fileType, note?.trim() || null, existing.id]
             );
+            setFlash(req, 'success', wasGraded ? 'Your resubmission was saved and sent back for teacher review.' : 'Your activity submission has been saved!');
         } else {
             await query(
                 `INSERT INTO activity_submissions (activity_id, class_id, student_id, file_path, file_type, note, status)
@@ -352,19 +372,38 @@ async function takeQuiz(req, res) {
             return res.redirect('/student/dashboard');
         }
 
-        // Find class for this quiz
+        // Find class for this quiz (published + within its time window)
         const [sq] = await query(
-            `SELECT sq.class_id, c.class_name
+            `SELECT sq.class_id, sq.is_published, sq.start_time, sq.end_time, c.class_name
              FROM section_quizzes sq
              JOIN classes c ON sq.class_id = c.id
              JOIN enrollments e ON e.class_id = c.id
              WHERE sq.quiz_id = ? AND e.student_id = ? AND e.status = 'active'
+               AND sq.is_published = 1
+               AND (sq.start_time IS NULL OR sq.start_time <= NOW())
+               AND (sq.end_time IS NULL OR sq.end_time >= NOW())
              LIMIT 1`,
             [quizId, studentProfileId]
         );
 
         if (!sq) {
-            setFlash(req, 'error', 'This quiz is not assigned to your class.');
+            const [assigned] = await query(
+                `SELECT sq.is_published, sq.start_time, sq.end_time
+                 FROM section_quizzes sq
+                 JOIN enrollments e ON e.class_id = sq.class_id
+                 WHERE sq.quiz_id = ? AND e.student_id = ? AND e.status = 'active'
+                 LIMIT 1`,
+                [quizId, studentProfileId]
+            );
+            if (!assigned) {
+                setFlash(req, 'error', 'This quiz is not assigned to your class.');
+            } else if (!assigned.is_published) {
+                setFlash(req, 'error', 'This quiz is not published yet. Check back later.');
+            } else if (assigned.start_time && new Date(assigned.start_time) > new Date()) {
+                setFlash(req, 'error', 'This quiz is not open yet. Check back at the scheduled time.');
+            } else {
+                setFlash(req, 'error', 'This quiz window has closed.');
+            }
             return res.redirect('/student/dashboard');
         }
 
@@ -383,7 +422,7 @@ async function takeQuiz(req, res) {
         }
 
         res.render('student/take-quiz', {
-            title: `Quiz: ${quiz.title} | EduShare 2.0`,
+            title: `Quiz: ${quiz.title} | EduShare`,
             quiz,
             classInfo: sq,
             questions,
@@ -406,10 +445,10 @@ async function submitQuiz(req, res) {
         if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
 
         const [sqRow] = await query(
-            `SELECT sq.class_id FROM section_quizzes sq JOIN enrollments e ON e.class_id = sq.class_id WHERE sq.quiz_id = ? AND e.student_id = ? AND e.status = 'active' LIMIT 1`,
+            `SELECT sq.class_id FROM section_quizzes sq JOIN enrollments e ON e.class_id = sq.class_id WHERE sq.quiz_id = ? AND e.student_id = ? AND e.status = 'active' AND sq.is_published = 1 AND (sq.start_time IS NULL OR sq.start_time <= NOW()) AND (sq.end_time IS NULL OR sq.end_time >= NOW()) LIMIT 1`,
             [quizId, studentProfileId]
         );
-        if (!sqRow) return res.status(403).json({ error: 'Access forbidden.' });
+        if (!sqRow) return res.status(403).json({ error: 'This quiz is not available right now.' });
         const class_id = sqRow.class_id;
 
         const questions = await query('SELECT * FROM quiz_questions WHERE quiz_id = ?', [quizId]);
@@ -444,15 +483,26 @@ async function submitQuiz(req, res) {
             } else if (q.question_type === 'identification') {
                 ansText = (studentAns || '').trim();
                 const correctOptions = await query(
-                    'SELECT option_text FROM quiz_options WHERE question_id = ?',
+                    'SELECT option_text FROM quiz_options WHERE question_id = ? AND is_correct = 1',
                     [q.id]
                 );
-                const match = correctOptions.some(opt =>
-                    opt.option_text.trim().toLowerCase() === ansText.toLowerCase()
-                );
-                if (match) {
-                    isCorrect = 1;
-                    awarded = questionPoints;
+
+                if (correctOptions.length > 0 && ansText) {
+                    // Normalize: lowercase, remove all whitespace, unify ² and ^2, ignore =,
+                    // strip trailing punctuation. This forgiving match avoids false negatives
+                    // when students format the same answer differently.
+                    const norm = (s) => String(s).toLowerCase()
+                        .replace(/\s+/g, '')
+                        .replace(/[²]/g, '^2')
+                        .replace(/[=]/g, '')
+                        .replace(/[.,;:]+$/g, '');
+
+                    const normalized = norm(ansText);
+                    // Any accepted alias (stored as separate is_correct=1 rows) counts.
+                    if (correctOptions.some((o) => norm(String(o.option_text || '')) === normalized)) {
+                        isCorrect = 1;
+                        awarded = questionPoints;
+                    }
                 }
             }
 
@@ -502,6 +552,18 @@ async function submitQuiz(req, res) {
         // Automatically sync quiz score to Gradebook
         await gradebookService.syncQuizScore(quizId, class_id, studentProfileId, totalScore, maxScore);
 
+        // Notify the student of their auto-graded result (best-effort; retake re-arms).
+        notifications.refreshStudent({
+            studentId: studentProfileId,
+            classId: class_id,
+            type: 'grade',
+            title: `Quiz result: ${quiz.title} — ${percentage.toFixed(0)}% (${passed ? 'Passed' : 'Failed'})`,
+            message: `Score: ${totalScore}/${maxScore}. Passing: ${quiz.passing_score || 60}%.`,
+            linkUrl: `/student/quizzes/${attemptId}/result`,
+            refType: 'grade-quiz',
+            refId: attemptId
+        });
+
         return res.json({
             success: true,
             redirectUrl: `/student/quizzes/${attemptId}/result`
@@ -548,7 +610,7 @@ async function quizResult(req, res) {
         }
 
         res.render('student/quiz-result', {
-            title: `Quiz Result: ${attempt.quiz_title} | EduShare 2.0`,
+            title: `Quiz Result: ${attempt.quiz_title} | EduShare`,
             attempt,
             answers
         });
@@ -559,10 +621,75 @@ async function quizResult(req, res) {
 }
 
 async function chatbot(req, res) {
+    // Phase 0.2: admin kill-switch (system_settings.allow_student_chat).
+    if (res.locals.school && res.locals.school.flags && res.locals.school.flags.allowStudentChat === false) {
+        setFlash(req, 'info', 'The AI Study Tutor is currently disabled by the school administrator.');
+        return res.redirect('/student/dashboard');
+    }
+    const VALID_SUBJECTS = ['English', 'Mathematics', 'Science', 'Araling Panlipunan', 'Filipino', 'General'];
+    const VALID_GRADES = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+    const gradeLevel = VALID_GRADES.includes(req.session.user.grade_level) ? req.session.user.grade_level : 'Grade 7';
     res.render('student/chatbot', {
-        title: 'AI Study Tutor | EduShare 2.0',
-        gradeLevel: req.session.user.grade_level || 'Grade 7'
+        title: 'AI Study Tutor | EduShare',
+        gradeLevel,
+        subjects: VALID_SUBJECTS
     });
+}
+
+const NOTIF_FILTERS = ['all', 'unread', 'announcement', 'activity', 'material', 'quiz', 'grade'];
+
+async function notificationsPage(req, res) {
+    try {
+        const studentProfileId = req.session.user.student_profile_id;
+        const filter = NOTIF_FILTERS.includes(req.query.filter) ? req.query.filter : 'all';
+        const items = await notifications.getForStudent(studentProfileId, {
+            limit: 50,
+            offset: 0,
+            unreadOnly: filter === 'unread'
+        });
+        const unread = await notifications.unreadCount(studentProfileId);
+        const visible = filter === 'all' || filter === 'unread'
+            ? items
+            : items.filter((n) => n.type === filter);
+        res.render('student/notifications', {
+            title: 'Notifications | EduShare',
+            items: visible,
+            unreadCount: unread,
+            filter
+        });
+    } catch (err) {
+        console.error('Student notifications page error:', err);
+        res.status(500).render('errors/500', { error: err });
+    }
+}
+
+// POST /student/notifications/:id/read — mark one read, then follow `next` if safe.
+async function readOneNotification(req, res) {
+    try {
+        const studentProfileId = req.session.user.student_profile_id;
+        await notifications.markRead(studentProfileId, req.params.id);
+        const next = typeof req.body?.next === 'string' ? req.body.next : '';
+        const safe = next.startsWith('/student/') && !next.includes('//') && !next.includes('\\');
+        if (req.xhr || (req.headers.accept || '').includes('application/json')) {
+            return res.json({ success: true });
+        }
+        return res.redirect(safe ? next : '/student/notifications');
+    } catch (err) {
+        console.error('Student notification read error:', err);
+        setFlash(req, 'error', 'Failed to update notification.');
+        return res.redirect('/student/notifications');
+    }
+}
+
+async function readAllNotifications(req, res) {
+    try {
+        await notifications.markAllRead(req.session.user.student_profile_id);
+        setFlash(req, 'success', 'All notifications marked as read.');
+    } catch (err) {
+        console.error('Student notifications read-all error:', err);
+        setFlash(req, 'error', 'Failed to update notifications.');
+    }
+    return res.redirect('/student/notifications');
 }
 
 module.exports = {
@@ -575,5 +702,8 @@ module.exports = {
     takeQuiz,
     submitQuiz,
     quizResult,
-    chatbot
+    chatbot,
+    notificationsPage,
+    readOneNotification,
+    readAllNotifications
 };

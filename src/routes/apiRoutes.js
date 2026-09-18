@@ -4,6 +4,7 @@ const searchController = require('../controllers/searchController');
 const { isAuthenticated, requireRole } = require('../middleware/auth');
 const { validateCsrf } = require('../middleware/csrf');
 const { query } = require('../config/database');
+const notifications = require('../services/notificationService');
 
 router.use(isAuthenticated);
 
@@ -64,6 +65,30 @@ router.post('/gradebook/entry', requireRole('teacher'), validateCsrf, async (req
              ON DUPLICATE KEY UPDATE score = VALUES(score), manual_override = 1`,
             [columnId, studentId, numScore]
         );
+
+        // Notify the student of the new manual grade (best-effort).
+        try {
+            const [full] = await query(
+                `SELECT gc.column_name, gc.max_score, c.class_name, c.id AS class_id
+                 FROM gradebook_columns gc JOIN classes c ON gc.class_id = c.id
+                 WHERE gc.id = ?`,
+                [columnId]
+            );
+            if (full) {
+                notifications.refreshStudent({
+                    studentId,
+                    classId: full.class_id,
+                    type: 'grade',
+                    title: `New grade in ${full.class_name}: ${full.column_name} — ${numScore}/${full.max_score}`,
+                    message: null,
+                    linkUrl: `/student/classes/${full.class_id}`,
+                    refType: 'grade-manual',
+                    refId: columnId
+                });
+            }
+        } catch (notifyErr) {
+            console.error('Gradebook notify error:', notifyErr.message || notifyErr);
+        }
 
         res.json({ success: true, score: numScore });
     } catch (err) {

@@ -1,12 +1,13 @@
 <!-- Class Header Banner -->
-<div class="glass-card p-4 mb-4" style="background: linear-gradient(135deg, rgba(13,82,44,0.1), rgba(245,158,11,0.06)), rgba(255,255,255,0.85);">
+<div class="glass-card p-4 mb-4" id="classHeaderBanner" style="background: linear-gradient(135deg, rgba(13,82,44,0.1), rgba(245,158,11,0.06)), rgba(255,255,255,0.85);">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div>
             <div class="d-flex align-items-center gap-2 mb-2">
                 <span class="badge-emerald"><%= cls.subject %></span>
                 <span class="badge-amber font-monospace fs-6 px-3 py-1 d-inline-flex align-items-center gap-2">Student Join Code: <strong><%= cls.class_code %></strong>
-                    <button type="button" class="btn btn-sm btn-glass py-0 px-1 copy-code-btn" data-code="<%= cls.class_code %>" title="Copy class code" aria-label="Copy class code"><i class="bi bi-clipboard"></i></button>
+                    <button type="button" class="btn btn-sm btn-glass py-0 px-1 copy-code-btn" data-code="<%= cls.class_code %>" data-feedback="classCodeFeedback" title="Copy class code" aria-label="Copy class code"><i class="bi bi-clipboard"></i></button>
                 </span>
+                <span class="small text-muted copy-feedback" id="classCodeFeedback" role="status" aria-live="polite"></span>
             </div>
             <h2 class="fw-bold text-dark mb-1"><%= cls.class_name %></h2>
             <div class="small text-muted">
@@ -25,16 +26,16 @@
     </div>
 </div>
 
-<!-- Sticky Class Context Bar -->
-<div class="glass-card px-3 py-2 mb-4 d-flex align-items-center gap-2 flex-wrap" style="position: sticky; top: 12px; z-index: 1020;">
+<!-- Scroll-only Sticky Context Bar: hidden at top, appears once the header scrolls away -->
+<div class="glass-card px-3 py-2 mb-4 align-items-center gap-2 flex-wrap class-sticky-bar d-none" id="classStickyBar" role="region" aria-label="Class quick actions" style="position: sticky; top: 12px; z-index: 1020; display: none;">
     <span class="fw-bold small text-dark"><i class="bi bi-mortarboard text-success me-1"></i><%= cls.class_name %></span>
     <span class="badge-amber font-monospace d-inline-flex align-items-center gap-1"><%= cls.class_code %>
-        <button type="button" class="btn btn-sm btn-glass py-0 px-1 copy-code-btn" data-code="<%= cls.class_code %>" title="Copy class code" aria-label="Copy class code"><i class="bi bi-clipboard"></i></button>
+        <button type="button" class="btn btn-sm btn-glass py-0 px-1 copy-code-btn" data-code="<%= cls.class_code %>" data-feedback="classCodeFeedbackSticky" title="Copy class code" aria-label="Copy class code"><i class="bi bi-clipboard"></i></button>
     </span>
-    <span class="small text-muted copy-feedback" id="classCodeFeedback" role="status" aria-live="polite"></span>
+    <span class="small text-muted copy-feedback" id="classCodeFeedbackSticky" role="status" aria-live="polite"></span>
     <span class="ms-auto d-flex gap-2">
-        <a href="/teacher/gradebook?classId=<%= cls.id %>" class="btn btn-sm btn-liquid-primary"><i class="bi bi-table me-1"></i>Gradebook</a>
-        <a href="/teacher/classes/<%= cls.id %>?tab=students" class="btn btn-sm btn-glass"><i class="bi bi-people me-1"></i>Students (<%= students.length %>)</a>
+        <button type="button" class="btn btn-sm btn-liquid-amber" data-bs-toggle="modal" data-bs-target="#postAnnouncementModal"><i class="bi bi-megaphone me-1"></i>Announce</button>
+        <a href="/teacher/gradebook?classId=<%= cls.id %>" class="btn btn-sm btn-glass"><i class="bi bi-table me-1"></i>Gradebook</a>
     </span>
 </div>
 
@@ -69,14 +70,17 @@
 
 <!-- TAB CONTENT -->
 <% if (activeTab === 'materials') { %>
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h5 class="fw-bold mb-0">Class Learning Materials</h5>
-        <button type="button" class="btn btn-sm btn-glass" data-bs-toggle="modal" data-bs-target="#postFromLibraryModal">
-            <i class="bi bi-plus-circle me-1"></i> Post From Library
-        </button>
+        <div class="d-flex gap-2 align-items-center">
+            <%- include('../partials/view-toggle', { scope: 'teacher-class-materials', label: 'class materials' }) %>
+            <button type="button" class="btn btn-sm btn-glass" data-bs-toggle="modal" data-bs-target="#postFromLibraryModal">
+                <i class="bi bi-plus-circle me-1"></i> Post From Library
+            </button>
+        </div>
     </div>
 
-    <div class="row g-3">
+    <div class="row g-3" data-view-cards="teacher-class-materials">
         <% if (materials.length === 0) { %>
             <div class="col-12">
                 <div class="glass-card p-5 text-center text-muted">
@@ -111,15 +115,58 @@
         <% }) %>
     </div>
 
+    <% if (materials.length > 0) { %>
+    <div class="glass-table-container d-none" data-view-table="teacher-class-materials">
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Title</th>
+                        <th scope="col">Subject</th>
+                        <th scope="col">Size</th>
+                        <th scope="col">Posted</th>
+                        <th scope="col" class="text-end">File</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% materials.forEach(m => { %>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark"><%= m.title %></div>
+                                <div class="small text-muted"><%= m.description || 'No description provided.' %></div>
+                            </td>
+                            <td><span class="badge-emerald"><%= m.subject || 'Material' %></span></td>
+                            <td class="small text-muted font-monospace"><%= m.file_size || '' %></td>
+                            <td class="small text-muted"><%= m.posted_at ? new Date(m.posted_at).toLocaleDateString() : 'N/A' %></td>
+                            <td class="text-end">
+                                <% if (m.file_path) { %>
+                                    <a href="<%= m.file_path %>" target="_blank" class="btn btn-sm btn-glass">
+                                        <i class="bi bi-download me-1"></i> View / Download
+                                    </a>
+                                <% } else { %>
+                                    <span class="small text-muted">—</span>
+                                <% } %>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <% } %>
+
 <% } else if (activeTab === 'activities') { %>
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h5 class="fw-bold mb-0">Class Activities & Assignments</h5>
-        <button type="button" class="btn btn-sm btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#createActivityModal">
-            <i class="bi bi-plus-lg me-1"></i> Add Activity
-        </button>
+        <div class="d-flex gap-2 align-items-center">
+            <%- include('../partials/view-toggle', { scope: 'teacher-class-activities', label: 'class activities' }) %>
+            <button type="button" class="btn btn-sm btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#createActivityModal">
+                <i class="bi bi-plus-lg me-1"></i> Add Activity
+            </button>
+        </div>
     </div>
 
-    <div class="row g-3">
+    <div class="row g-3" data-view-cards="teacher-class-activities">
         <% if (activities.length === 0) { %>
             <div class="col-12">
                 <div class="glass-card p-5 text-center text-muted">
@@ -140,6 +187,13 @@
                         </div>
                         <h5 class="fw-bold text-dark mb-2"><%= act.title %></h5>
                         <p class="small text-secondary mb-3" style="max-height: 80px; overflow-y: auto;"><%= act.instructions || 'Follow instructions provided.' %></p>
+                        <% if (act.file_path) { %>
+                            <div class="mb-3">
+                                <a href="<%= act.file_path %>" target="_blank" rel="noopener" class="btn btn-sm btn-glass">
+                                    <i class="bi bi-paperclip me-1"></i> Worksheet Attachment
+                                </a>
+                            </div>
+                        <% } %>
                     </div>
                     <div class="border-top pt-3 d-flex justify-content-between align-items-center">
                         <span class="small text-muted"><%= act.submission_count %> / <%= act.total_students %> Submitted</span>
@@ -152,15 +206,59 @@
         <% }) %>
     </div>
 
+    <% if (activities.length > 0) { %>
+    <div class="glass-table-container d-none" data-view-table="teacher-class-activities">
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Activity</th>
+                        <th scope="col">Points</th>
+                        <th scope="col">Due</th>
+                        <th scope="col">Submissions</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% activities.forEach(act => { %>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark"><%= act.title %></div>
+                                <div class="small text-muted"><%= act.instructions || 'Follow instructions provided.' %></div>
+                                <% if (act.file_path) { %>
+                                    <a href="<%= act.file_path %>" target="_blank" rel="noopener" class="small text-success fw-bold">
+                                        <i class="bi bi-paperclip me-1"></i> Worksheet Attachment
+                                    </a>
+                                <% } %>
+                            </td>
+                            <td><span class="badge-amber"><%= act.points %> Pts</span></td>
+                            <td class="small text-muted"><%= act.due_date ? new Date(act.due_date).toLocaleDateString() : 'No deadline' %></td>
+                            <td class="small"><%= act.submission_count %> / <%= act.total_students %></td>
+                            <td class="text-end">
+                                <a href="/teacher/activities/<%= act.id %>/classes/<%= cls.id %>/grading" class="btn btn-sm btn-liquid-primary">
+                                    Review & Grade &rarr;
+                                </a>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <% } %>
+
 <% } else if (activeTab === 'quizzes') { %>
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h5 class="fw-bold mb-0">Scheduled Online Quizzes</h5>
-        <a href="/teacher/quiz-maker" class="btn btn-sm btn-liquid-amber">
-            <i class="bi bi-plus-lg me-1"></i> AI Quiz Maker
-        </a>
+        <div class="d-flex gap-2 align-items-center">
+            <%- include('../partials/view-toggle', { scope: 'teacher-class-quizzes', label: 'class quizzes' }) %>
+            <a href="/teacher/quiz-maker" class="btn btn-sm btn-liquid-amber">
+                <i class="bi bi-plus-lg me-1"></i> AI Quiz Maker
+            </a>
+        </div>
     </div>
 
-    <div class="row g-3">
+    <div class="row g-3" data-view-cards="teacher-class-quizzes">
         <% if (quizzes.length === 0) { %>
             <div class="col-12">
                 <div class="glass-card p-5 text-center text-muted">
@@ -202,6 +300,48 @@
         <% }) %>
     </div>
 
+    <% if (quizzes.length > 0) { %>
+    <div class="glass-table-container d-none" data-view-table="teacher-class-quizzes">
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Quiz</th>
+                        <th scope="col">Questions</th>
+                        <th scope="col">Time</th>
+                        <th scope="col">Schedule</th>
+                        <th scope="col">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% quizzes.forEach(q => { %>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark"><%= q.title %></div>
+                                <div class="small text-muted"><%= q.description || 'Curriculum-aligned quiz assessment.' %> &bull; <%= q.attempt_count || 0 %> taken</div>
+                            </td>
+                            <td><span class="badge-emerald"><%= q.total_questions %></span></td>
+                            <td><span class="badge-amber"><%= q.time_limit_minutes %> min</span></td>
+                            <td class="small text-muted font-monospace">
+                                <% if (q.start_time || q.end_time) { %>
+                                    <%= q.start_time ? new Date(q.start_time).toLocaleString() : 'Open' %> &ndash; <%= q.end_time ? new Date(q.end_time).toLocaleString() : 'No close' %>
+                                <% } else { %> — <% } %>
+                            </td>
+                            <td>
+                                <% if (q.is_published == 1) { %>
+                                    <span class="badge-emerald">Published</span>
+                                <% } else { %>
+                                    <span class="badge-gray">Draft</span>
+                                <% } %>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <% } %>
+
 <% } else if (activeTab === 'announcements') { %>
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="fw-bold mb-0">Class Announcements</h5>
@@ -240,13 +380,14 @@
     </div>
 
 <% } else if (activeTab === 'students') { %>
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h5 class="fw-bold mb-0">Enrolled Student Roster</h5>
-        <div class="d-flex align-items-center gap-2">
-            <input type="search" id="studentSearch" class="glass-input py-1 small" style="max-width: 240px;" placeholder="Search LRN or name..." aria-label="Search students by LRN or name">
-            <span class="badge-emerald"><span id="studentCount"><%= students.length %></span> Enrolled</span>
-        </div>
-    </div>
+    <%- include('../partials/local-filter', {
+        scope: 'teacher-class-students',
+        searchId: 'studentSearch',
+        searchPlaceholder: 'Search LRN or name...',
+        searchLabel: 'Search students by LRN or name',
+        countId: 'studentCount',
+        countLabel: 'Enrolled'
+    }) %>
 
     <div class="glass-table-container">
         <div class="table-responsive">
@@ -269,7 +410,7 @@
                         </tr>
                     <% } %>
                     <% students.forEach(s => { %>
-                        <tr data-search="<%= ((s.last_name || '') + ' ' + (s.first_name || '') + ' ' + (s.lrn || '') + ' ' + (s.email || '')).toLowerCase() %>">
+                        <tr data-filter-scope="teacher-class-students" data-search="<%= ((s.last_name || '') + ' ' + (s.first_name || '') + ' ' + (s.lrn || '') + ' ' + (s.email || '')).toLowerCase() %>">
                             <td>
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="user-avatar-initials" style="width: 34px; height: 34px; font-size: 0.8rem;">
@@ -294,11 +435,11 @@
 <% } %>
 
 <!-- Modal: Post Announcement -->
-<div class="modal fade modal-glass" id="postAnnouncementModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade modal-glass" id="postAnnouncementModal" tabindex="-1" aria-hidden="true" aria-labelledby="postAnnouncementTitle">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold"><i class="bi bi-megaphone text-success me-2"></i>Post Class Announcement</h5>
+                <h5 class="modal-title fw-bold" id="postAnnouncementTitle"><i class="bi bi-megaphone text-success me-2"></i>Post Class Announcement</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/teacher/classes/<%= cls.id %>/announcements" method="POST">
@@ -340,11 +481,11 @@
 </div>
 
 <!-- Modal: Create Activity -->
-<div class="modal fade modal-glass" id="createActivityModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade modal-glass" id="createActivityModal" tabindex="-1" aria-hidden="true" aria-labelledby="createActivityTitle">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-plus text-success me-2"></i>Assign Class Activity</h5>
+                <h5 class="modal-title fw-bold" id="createActivityTitle"><i class="bi bi-file-earmark-plus text-success me-2"></i>Assign Class Activity</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/teacher/activities" method="POST" enctype="multipart/form-data">
@@ -371,7 +512,8 @@
                     </div>
                     <div class="mb-2">
                         <label class="form-label small fw-bold">Attach Worksheet / Guide (Optional)</label>
-                        <input type="file" name="activity_file" class="glass-input" accept=".pdf,.docx,.pptx,.xlsx,.txt,.jpg,.jpeg,.png">
+                        <input type="file" name="activity_file" class="glass-input" accept=".pdf,.docx,.pptx,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.webp">
+                        <div class="form-text small text-muted">Max 50 MB.</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -384,11 +526,11 @@
 </div>
 
 <!-- Modal: Post From Library -->
-<div class="modal fade modal-glass" id="postFromLibraryModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade modal-glass" id="postFromLibraryModal" tabindex="-1" aria-hidden="true" aria-labelledby="postFromLibraryTitle">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold"><i class="bi bi-folder-plus text-success me-2"></i>Post Material From Library</h5>
+                <h5 class="modal-title fw-bold" id="postFromLibraryTitle"><i class="bi bi-folder-plus text-success me-2"></i>Post Material From Library</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/teacher/library/repost" method="POST">
@@ -417,51 +559,5 @@
     </div>
 </div>
 
-<script>
-(function () {
-    function copyFallback(text, done) {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        var ok = false;
-        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-        document.body.removeChild(ta);
-        done(ok);
-    }
-    function flash(msg) {
-        var el = document.getElementById('classCodeFeedback');
-        if (!el) return;
-        el.textContent = msg;
-        setTimeout(function () { if (el.textContent === msg) el.textContent = ''; }, 2000);
-    }
-    document.querySelectorAll('.copy-code-btn').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            var code = btn.getAttribute('data-code') || '';
-            var done = function (ok) { flash(ok ? 'Code ' + code + ' copied' : 'Copy failed'); };
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(code).then(function () { done(true); }, function () { copyFallback(code, done); });
-            } else { copyFallback(code, done); }
-        });
-    });
-    var search = document.getElementById('studentSearch');
-    if (search) {
-        var rows = Array.prototype.slice.call(document.querySelectorAll('#studentRosterBody tr[data-search]'));
-        var count = document.getElementById('studentCount');
-        search.addEventListener('input', function () {
-            var q = search.value.trim().toLowerCase();
-            var visible = 0;
-            rows.forEach(function (r) {
-                var hit = !q || (r.getAttribute('data-search') || '').indexOf(q) !== -1;
-                r.style.display = hit ? '' : 'none';
-                if (hit) visible++;
-            });
-            if (count) count.textContent = visible;
-        });
-    }
-})();
-</script>
+<!-- Scroll-only sticky bar — external file, CSP-safe (see /js/class-detail.js). -->
+<script src="/js/class-detail.js" defer></script>

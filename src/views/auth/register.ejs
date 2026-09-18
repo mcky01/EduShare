@@ -3,7 +3,8 @@
 <% const tf = typeof teacherForm !== 'undefined' && teacherForm ? teacherForm : {}; %>
 <% const sf = typeof studentForm !== 'undefined' && studentForm ? studentForm : {}; %>
 <% const sentTo = typeof codeSentTo !== 'undefined' ? codeSentTo : null; %>
-<div class="auth-single-card">
+<% const gradeOptions = (typeof studentGrades !== 'undefined' && Array.isArray(studentGrades) && studentGrades.length) ? studentGrades : ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12']; %>
+<div class="auth-single-card" id="registerCard" data-active-tab="<%= tab %>">
     <!-- Brand header: big seal left, EduShare + school stacked right -->
     <div class="auth-brand-header">
         <div class="auth-brand-lockup">
@@ -11,6 +12,7 @@
             <div class="auth-brand-text">
                 <div class="fw-extrabold auth-brand-name">EduShare</div>
                 <div class="auth-brand-school"><%= school.name %></div>
+                <div class="auth-brand-motto">"<%= school.motto %>"</div>
             </div>
         </div>
     </div>
@@ -28,12 +30,18 @@
     </div>
     <% } %>
 
+    <!-- Client-side validation error (hidden until JS shows it) -->
+    <div id="clientError" class="alert auth-alert-error d-flex align-items-start gap-2 py-2 px-3 mb-3 d-none" role="alert" aria-live="assertive" hidden>
+        <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+        <div id="clientErrorText"></div>
+    </div>
+
     <!-- Account type tabs: no page reload, just switches visible pane -->
-    <div class="btn-group w-100 mb-3" role="tablist" aria-label="Account type">
-        <button type="button" role="tab" id="tabBtnTeacher" aria-selected="<%= tab === 'teacher' %>" aria-controls="teacherPane" class="btn <%= tab === 'teacher' ? 'btn-success' : 'btn-outline-success' %>" onclick="showRegisterTab('teacher')">
+    <div class="auth-role-tabs w-100 mb-3" role="tablist" aria-label="Account type">
+        <button type="button" role="tab" id="tabBtnTeacher" aria-selected="<%= tab === 'teacher' %>" aria-controls="teacherPane" class="auth-role-tab">
             <i class="bi bi-briefcase me-1"></i>Teacher
         </button>
-        <button type="button" role="tab" id="tabBtnStudent" aria-selected="<%= tab === 'student' %>" aria-controls="studentPane" class="btn <%= tab === 'student' ? 'btn-success' : 'btn-outline-success' %>" onclick="showRegisterTab('student')">
+        <button type="button" role="tab" id="tabBtnStudent" aria-selected="<%= tab === 'student' %>" aria-controls="studentPane" class="auth-role-tab">
             <i class="bi bi-mortarboard me-1"></i>Student
         </button>
     </div>
@@ -46,34 +54,44 @@
             <div>Code sent to <strong><%= sentTo %></strong>. Enter it below to finish creating your account.</div>
         </div>
         <div class="auth-step-summary">
-            <span><i class="bi bi-person-check me-1"></i><%= tf.first_name || '' %> <%= tf.last_name || '' %></span>
+            <span><i class="bi bi-person-check me-1"></i><%= tf.first_name || '' %> <%= tf.last_name || '' %><% if (tf.grade_level || tf.section) { %> &middot; <%= [tf.grade_level, tf.section].filter(Boolean).join(' - ') %><% } %></span>
             <a href="/auth/register">Use a different email</a>
         </div>
-        <form action="/auth/register/teacher/verify" method="POST" novalidate>
+        <form action="/auth/register/teacher/verify" method="POST" novalidate data-meter-live>
             <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
             <input type="hidden" name="first_name" value="<%= tf.first_name || '' %>">
             <input type="hidden" name="last_name" value="<%= tf.last_name || '' %>">
             <input type="hidden" name="email" value="<%= sentTo %>">
+            <input type="hidden" name="grade_level" value="<%= tf.grade_level || '' %>">
+            <input type="hidden" name="section" value="<%= tf.section || '' %>">
             <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-1" for="tPass2">Password (re-enter to confirm)</label>
+                <label class="form-label small fw-bold text-muted mb-1" for="tPass2">Choose your password</label>
                 <div class="auth-input-group input-group">
                     <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                    <input type="password" name="password" id="tPass2" class="form-control" placeholder="Same password as above" required autocomplete="new-password" autofocus>
+                    <input type="password" name="password" id="tPass2" class="form-control" placeholder="10+ chars, upper + lower + number" required autocomplete="new-password" autofocus aria-describedby="tPass2Strength tPass2Match">
+                    <button type="button" class="btn-peek" data-peek-for="tPass2" aria-label="Show password" aria-pressed="false" title="Toggle password visibility">
+                        <i class="bi bi-eye text-muted"></i>
+                    </button>
                 </div>
+                <div id="tPass2Strength" data-meter-live-label class="form-text small text-muted mt-1" aria-live="polite"></div>
+                <div id="tPass2Match" data-meter-live-match class="form-text small text-muted" aria-live="polite"></div>
             </div>
             <div class="auth-field">
                 <label class="form-label small fw-bold text-muted mb-1" for="tCode">Verification code</label>
                 <div class="auth-input-group input-group">
                     <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
-                    <input type="text" name="code" id="tCode" class="form-control" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" required>
+                    <input type="text" name="code" id="tCode" class="form-control" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" required aria-describedby="tCodeExpiry">
                 </div>
+                <div class="form-text" id="tCodeExpiry">Code expires in <span data-otp-countdown data-ttl="10" aria-hidden="true">10:00</span>.</div>
+                <span data-otp-announce class="visually-hidden" aria-live="polite"></span>
             </div>
             <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
                 <i class="bi bi-person-check me-2"></i>Verify &amp; Create Account
             </button>
+            <p class="text-center small mt-2 mb-0">Didn&apos;t get the code? <button type="submit" formaction="/auth/register/teacher/request-code" data-resend class="btn btn-link p-0 align-baseline small fw-semibold">Resend code</button></p>
         </form>
         <% } else { %>
-        <form action="/auth/register/teacher/request-code" method="POST" novalidate>
+        <form action="/auth/register/teacher/request-code" method="POST" novalidate data-meter-live>
             <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
             <div class="row g-2">
                 <div class="col-6">
@@ -103,12 +121,41 @@
                 </div>
                 <div class="form-text">Must be an @zahs.edu.ph address.</div>
             </div>
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="auth-field">
+                        <label class="form-label small fw-bold text-muted mb-1" for="tGrade">Grade level <span class="fw-normal">(optional)</span></label>
+                        <div class="auth-input-group input-group">
+                            <span class="input-group-text"><i class="bi bi-mortarboard"></i></span>
+                            <select name="grade_level" id="tGrade" class="form-control">
+                                <option value="" <%= !tf.grade_level ? 'selected' : '' %>>Select grade…</option>
+                                <% ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].forEach(function(g) { %>
+                                    <option value="<%= g %>" <%= tf.grade_level === g ? 'selected' : '' %>><%= g %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="auth-field">
+                        <label class="form-label small fw-bold text-muted mb-1" for="tSection">Section <span class="fw-normal">(optional)</span></label>
+                        <div class="auth-input-group input-group">
+                            <span class="input-group-text"><i class="bi bi-people"></i></span>
+                            <input type="text" name="section" id="tSection" class="form-control" placeholder="e.g. Rizal" maxlength="50" autocomplete="off" value="<%= tf.section || '' %>">
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="auth-field">
                 <label class="form-label small fw-bold text-muted mb-1" for="tPass">Password</label>
                 <div class="auth-input-group input-group">
                     <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                    <input type="password" name="password" id="tPass" class="form-control" placeholder="10+ chars, upper + lower + number" required autocomplete="new-password">
+                    <input type="password" name="password" id="tPass" class="form-control" placeholder="10+ chars, upper + lower + number" required autocomplete="new-password" aria-describedby="tPassStrength">
+                    <button type="button" class="btn-peek" data-peek-for="tPass" aria-label="Show password" aria-pressed="false" title="Toggle password visibility">
+                        <i class="bi bi-eye text-muted"></i>
+                    </button>
                 </div>
+                <div id="tPassStrength" data-meter-live-label class="form-text small text-muted mt-1" aria-live="polite"></div>
             </div>
             <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
                 <i class="bi bi-send me-2"></i>Send code
@@ -125,35 +172,46 @@
             <div>Code sent to <strong><%= sentTo %></strong>. Enter it below to finish creating your account.</div>
         </div>
         <div class="auth-step-summary">
-            <span><i class="bi bi-person-check me-1"></i><%= sf.first_name || '' %> <%= sf.last_name || '' %> &middot; LRN <%= sf.lrn || '' %></span>
+            <span><i class="bi bi-person-check me-1"></i><%= sf.first_name || '' %> <%= sf.last_name || '' %> &middot; LRN <%= sf.lrn || '' %><% if (sf.grade_level || sf.section) { %> &middot; <%= [sf.grade_level, sf.section].filter(Boolean).join(' - ') %><% } %></span>
             <a href="/auth/register">Use different details</a>
         </div>
-        <form action="/auth/register/student/verify" method="POST" novalidate>
+        <form action="/auth/register/student/verify" method="POST" novalidate data-meter-live>
             <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
             <input type="hidden" name="first_name" value="<%= sf.first_name || '' %>">
             <input type="hidden" name="last_name" value="<%= sf.last_name || '' %>">
             <input type="hidden" name="lrn" value="<%= sf.lrn || '' %>">
             <input type="hidden" name="email" value="<%= sentTo %>">
+            <input type="hidden" name="grade_level" value="<%= sf.grade_level || '' %>">
+            <input type="hidden" name="section" value="<%= sf.section || '' %>">
+            <input type="hidden" name="gender" value="<%= sf.gender || 'Other' %>">
             <div class="auth-field">
-                <label class="form-label small fw-bold text-muted mb-1" for="sPass2">Password (re-enter to confirm)</label>
+                <label class="form-label small fw-bold text-muted mb-1" for="sPass2">Choose your password</label>
                 <div class="auth-input-group input-group">
                     <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                    <input type="password" name="password" id="sPass2" class="form-control" placeholder="Same password as above" required autocomplete="new-password" autofocus>
+                    <input type="password" name="password" id="sPass2" class="form-control" placeholder="10+ chars, upper + lower + number" required autocomplete="new-password" autofocus aria-describedby="sPass2Strength sPass2Match">
+                    <button type="button" class="btn-peek" data-peek-for="sPass2" aria-label="Show password" aria-pressed="false" title="Toggle password visibility">
+                        <i class="bi bi-eye text-muted"></i>
+                    </button>
                 </div>
+                <div id="sPass2Strength" data-meter-live-label class="form-text small text-muted mt-1" aria-live="polite"></div>
+                <div id="sPass2Match" data-meter-live-match class="form-text small text-muted" aria-live="polite"></div>
             </div>
             <div class="auth-field">
                 <label class="form-label small fw-bold text-muted mb-1" for="sCode">Verification code</label>
                 <div class="auth-input-group input-group">
                     <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
-                    <input type="text" name="code" id="sCode" class="form-control" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" required>
+                    <input type="text" name="code" id="sCode" class="form-control" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" required aria-describedby="sCodeExpiry">
                 </div>
+                <div class="form-text" id="sCodeExpiry">Code expires in <span data-otp-countdown data-ttl="10" aria-hidden="true">10:00</span>.</div>
+                <span data-otp-announce class="visually-hidden" aria-live="polite"></span>
             </div>
             <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
                 <i class="bi bi-person-check me-2"></i>Verify &amp; Create Account
             </button>
+            <p class="text-center small mt-2 mb-0">Didn&apos;t get the code? <button type="submit" formaction="/auth/register/student/request-code" data-resend class="btn btn-link p-0 align-baseline small fw-semibold">Resend code</button></p>
         </form>
         <% } else { %>
-        <form action="/auth/register/student/request-code" method="POST" novalidate>
+        <form action="/auth/register/student/request-code" method="POST" novalidate data-meter-live>
             <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
             <div class="row g-2">
                 <div class="col-6">
@@ -189,12 +247,53 @@
                     <input type="email" name="email" id="sEmail" class="form-control" placeholder="you@example.com" required autocomplete="email" value="<%= sf.email || '' %>">
                 </div>
             </div>
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="auth-field">
+                        <label class="form-label small fw-bold text-muted mb-1" for="sGender">Gender</label>
+                        <div class="auth-input-group input-group">
+                            <span class="input-group-text"><i class="bi bi-gender-ambiguous"></i></span>
+                            <select name="gender" id="sGender" class="form-control">
+                                <% ['Male', 'Female', 'Other'].forEach(function(g) { %>
+                                    <option value="<%= g %>" <%= (sf.gender || 'Male') === g ? 'selected' : '' %>><%= g %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="auth-field">
+                        <label class="form-label small fw-bold text-muted mb-1" for="sGrade">Grade level</label>
+                        <div class="auth-input-group input-group">
+                            <span class="input-group-text"><i class="bi bi-mortarboard"></i></span>
+                            <select name="grade_level" id="sGrade" class="form-control" required data-section-for="sSection">
+                                <option value="" <%= !sf.grade_level ? 'selected' : '' %>>Select grade…</option>
+                                <% gradeOptions.forEach(function(g) { %>
+                                    <option value="<%= g %>" <%= sf.grade_level === g ? 'selected' : '' %>><%= g %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="auth-field">
+                <label class="form-label small fw-bold text-muted mb-1" for="sSection">Section</label>
+                <div class="auth-input-group input-group section-autocomplete">
+                    <span class="input-group-text"><i class="bi bi-people"></i></span>
+                    <input type="text" name="section" id="sSection" class="form-control" placeholder="Start typing…" required maxlength="50" autocomplete="off" value="<%= sf.section || '' %>" aria-describedby="sSectionHint" aria-autocomplete="list" aria-expanded="false" role="combobox" aria-controls="sSectionList">
+                </div>
+                <div class="form-text" id="sSectionHint">Select your grade, then start typing — matching sections appear below.</div>
+            </div>
             <div class="auth-field">
                 <label class="form-label small fw-bold text-muted mb-1" for="sPass">Password</label>
                 <div class="auth-input-group input-group">
                     <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                    <input type="password" name="password" id="sPass" class="form-control" placeholder="10+ chars, upper + lower + number" required autocomplete="new-password">
+                    <input type="password" name="password" id="sPass" class="form-control" placeholder="10+ chars, upper + lower + number" required autocomplete="new-password" aria-describedby="sPassStrength">
+                    <button type="button" class="btn-peek" data-peek-for="sPass" aria-label="Show password" aria-pressed="false" title="Toggle password visibility">
+                        <i class="bi bi-eye text-muted"></i>
+                    </button>
                 </div>
+                <div id="sPassStrength" data-meter-live-label class="form-text small text-muted mt-1" aria-live="polite"></div>
             </div>
             <button type="submit" class="btn btn-liquid-primary w-100 fs-6 auth-submit">
                 <i class="bi bi-send me-2"></i>Send code
@@ -204,35 +303,27 @@
     </div>
 
     <p class="text-center small mt-3 mb-0">Already have an account? <a href="/auth/login">Sign in</a></p>
-
-    <!-- Footer: motto + school year -->
-    <div class="auth-single-footer">
-        <span class="auth-single-motto">"<%= school.motto %>"</span>
-        <span class="badge rounded-pill auth-sy-badge">
-            <i class="bi bi-calendar-event me-1"></i> SY <%= school.year %> &bull; <%= school.term %>
-        </span>
-    </div>
 </div>
 
-<script>
-// Tab toggle: switches visible pane without a page reload.
-function showRegisterTab(which) {
-    const panes = { teacher: document.getElementById('teacherPane'), student: document.getElementById('studentPane') };
-    const btns = { teacher: document.getElementById('tabBtnTeacher'), student: document.getElementById('tabBtnStudent') };
-    for (const key of ['teacher', 'student']) {
-        const active = key === which;
-        const pane = panes[key];
-        const btn = btns[key];
-        if (pane) {
-            pane.hidden = !active;
-            pane.style.display = active ? '' : 'none';
-        }
-        if (btn) {
-            btn.setAttribute('aria-selected', active ? 'true' : 'false');
-            btn.classList.toggle('btn-success', active);
-            btn.classList.toggle('btn-outline-success', !active);
-        }
-    }
-}
-window.showRegisterTab = showRegisterTab;
-</script>
+<!-- Floating register guide: instructions scoped to creating an account -->
+<button type="button" class="auth-help-fab" id="registerHelpFab" aria-label="How to create an account" aria-expanded="false" aria-controls="registerHelpPanel">
+    <i class="bi bi-question-lg" aria-hidden="true"></i>
+</button>
+<div class="auth-help-panel d-none" id="registerHelpPanel" role="dialog" aria-label="How to create an account">
+    <div class="auth-help-panel-head">
+        <strong>How to create an account</strong>
+        <button type="button" class="btn-close btn-close-sm" id="registerHelpCloseBtn" aria-label="Close account help"></button>
+    </div>
+    <ol class="auth-help-steps">
+        <li><strong>Pick your account type.</strong> <span class="text-muted">Use the Teacher or Student tab above — content switches without reloading.</span></li>
+        <li><strong>Teachers:</strong> <span class="text-muted">enter your first + last name, an @zahs.edu.ph email, your grade level (7–12) and section if you know them, and a password (10+ chars, upper + lower + number).</span></li>
+        <li><strong>Students:</strong> <span class="text-muted">enter your first + last name, 12-digit LRN, email, grade level, section (start typing to pick your official section spelling), and the same password format.</span></li>
+        <li><strong>Send code, then Verify.</strong> <span class="text-muted">Press Send code, check your email for the 6-digit code (expires in 10 minutes), enter it, choose your password again if asked, and Verify &amp; Create Account.</span></li>
+        <li><strong>Wait for approval.</strong> <span class="text-muted">New accounts need admin approval before sign-in works — you'll be notified once activated.</span></li>
+    </ol>
+    <p class="auth-help-note">Already registered? <a href="/auth/login" class="fw-semibold text-success text-decoration-none">Back to sign in</a></p>
+</div>
+
+<script src="/js/register.js" defer></script>
+<script src="/js/password-meter.js" defer></script>
+<script src="/js/section-autocomplete.js" defer></script>

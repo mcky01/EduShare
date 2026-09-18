@@ -1,9 +1,107 @@
 const env = require('../config/env');
 
 const DEFAULT_TIMEOUT_MS = env.AI_TIMEOUT_MS || 120000;
+const NINE_ROUTER_TIMEOUT_MS = env.NINE_ROUTER_TIMEOUT_MS || 90000;
 
-// Health check: Probes Ollama to see if model is available
-async function isHealthy() {
+function nineRouterConfigured() {
+    return !!(env.NINE_ROUTER_BASE_URL && env.NINE_ROUTER_API_KEY && env.NINE_ROUTER_MODEL);
+}
+
+function nineRouterFirst() {
+    return (env.AI_PRIMARY || 'nine_router') !== 'ollama';
+}
+
+function baseUrl() {
+    return String(env.NINE_ROUTER_BASE_URL || '').replace(/\/$/, '');
+}
+
+// Minimal OpenAI-compatible chat call against the 9Router gateway.
+// Returns non-empty assistant text, or null when unusable (so callers fall through).
+async function nineRouterChat(messages, { json = false, temperature = 0.7, maxTokens = 4096, timeoutMs = NINE_ROUTER_TIMEOUT_MS } = {}) {
+    if (!nineRouterConfigured()) return null;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const body = { model: env.NINE_ROUTER_MODEL, messages, max_tokens: maxTokens, temperature, stream: false };
+        if (json) body.response_format = { type: 'json_object' };
+        const res = await fetch(`${baseUrl()}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.NINE_ROUTER_API_KEY}` },
+            body: JSON.stringify(body),
+            signal: controller.signal
+        });
+        if (!res.ok) {
+            console.warn(`NineRouter chat failed: HTTP ${res.status}`);
+            return null;
+        }
+        const data = await res.json();
+        const text = data?.choices?.[0]?.message?.content;
+        if (typeof text === 'string' && text.trim().length > 0) return text;
+        console.warn('NineRouter returned empty content; falling through.');
+        return null;
+    } catch (err) {
+        console.warn('NineRouter chat error:', err.message);
+        return null;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// SSE relay for OpenAI-style stream: yields delta.content chunks; resolves
+// true when at least one non-empty chunk arrived. Never throws.
+async function* nineRouterChatStream(messages, { temperature = 0.7, maxTokens = 2048, timeoutMs = NINE_ROUTER_TIMEOUT_MS, onFirstChunk } = {}) {
+    let gotContent = false;
+    if (!nineRouterConfigured()) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const res = await fetch(`${baseUrl()}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.NINE_ROUTER_API_KEY}` },
+            body: JSON.stringify({ model: env.NINE_ROUTER_MODEL, messages, max_tokens: maxTokens, temperature, stream: true }),
+            signal: controller.signal
+        });
+        if (!res.ok || !res.body) {
+            console.warn(`NineRouter stream failed: HTTP ${res.status}`);
+            return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let notifyFirst = true;
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+                const t = line.trim();
+                if (!t || !t.startsWith('data:')) continue;
+                const payload = t.slice(5).trim();
+                if (payload === '[DONE]') continue;
+                try {
+                    const evt = JSON.parse(payload);
+                    const piece = evt?.choices?.[0]?.delta?.content
+                        ?? evt?.choices?.[0]?.message?.content
+                        ?? '';
+                    if (piece) {
+                        if (notifyFirst) { notifyFirst = false; try { if (typeof onFirstChunk === 'function') onFirstChunk(); } catch { /* ignore */ } }
+                        gotContent = true;
+                        yield piece;
+                    }
+                } catch { /* ignore partial frames */ }
+            }
+        }
+    } catch (err) {
+        console.warn('NineRouter stream error:', err.message);
+    } finally {
+        clearTimeout(timer);
+    }
+    if (!gotContent) console.warn('NineRouter stream yielded nothing; falling through.');
+}
+
+async function ollamaHealthy() {
     try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 3500);
@@ -11,17 +109,52 @@ async function isHealthy() {
         clearTimeout(timer);
         if (!res.ok) return false;
         const data = await res.json();
-        return (data.models || []).some(m => m.name.toLowerCase().includes('qwen'));
+        return (data.models || []).length > 0;
     } catch {
         return false;
     }
 }
 
+// Health check: true when EITHER provider can serve. Powers the admin
+// dashboard dot and the chat status endpoint.
+async function isHealthy() {
+    if (nineRouterFirst() && nineRouterConfigured()) {
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 8000);
+            const res = await fetch(`${baseUrl()}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.NINE_ROUTER_API_KEY}` },
+                body: JSON.stringify({ model: env.NINE_ROUTER_MODEL, messages: [{ role: 'user', content: 'ping' }], max_tokens: 1, stream: false }),
+                signal: controller.signal
+            });
+            clearTimeout(timer);
+            if (res.ok) {
+                const data = await res.json().catch(() => null);
+                const text = data?.choices?.[0]?.message?.content;
+                if (typeof text === 'string') return true;
+            }
+        } catch { /* fall through to Ollama probe */ }
+    }
+    return ollamaHealthy();
+}
+
 // Non-streaming chat completion (topP/repeatPenalty forwarded only when set;
 // chatbot + quiz callers keep existing defaults)
 async function chat(messages, { json = false, temperature = 0.7, maxTokens = 4096, timeoutMs = DEFAULT_TIMEOUT_MS, topP = null, repeatPenalty = null } = {}) {
-    const healthy = await isHealthy();
+    // Provider order: 9Router first (when AI_PRIMARY != 'ollama'), else Ollama first.
+    // Either way a miss falls through to the other provider, then null (offline fallback).
+    const tryNineFirst = nineRouterFirst();
+    if (tryNineFirst) {
+        const viaNine = await nineRouterChat(messages, { json, temperature, maxTokens });
+        if (viaNine) return viaNine;
+    }
+    const healthy = await ollamaHealthy();
     if (!healthy) {
+        if (!tryNineFirst) {
+            const viaNine = await nineRouterChat(messages, { json, temperature, maxTokens });
+            if (viaNine) return viaNine;
+        }
         return null; // Will trigger graceful fallback
     }
 
@@ -55,6 +188,9 @@ async function chat(messages, { json = false, temperature = 0.7, maxTokens = 409
         return (data.message && data.message.content) || null;
     } catch (err) {
         console.warn('⚠️ Ollama chat error:', err.message);
+        if (tryNineFirst) return null;
+        const viaNine = await nineRouterChat(messages, { json, temperature, maxTokens });
+        if (viaNine) return viaNine;
         return null;
     } finally {
         clearTimeout(timer);
@@ -70,20 +206,47 @@ async function complete(prompt, options = {}) {
     return chat(messages, rest);
 }
 
-// Async generator yielding chunks for real-time streaming
-async function* chatStream(messages, { temperature = 0.7, maxTokens = 2048 } = {}) {
-    const healthy = await isHealthy();
-    if (!healthy) {
-        // Yield intelligent fallback streaming response
+// Async generator yielding chunks for real-time streaming.
+// onSource (optional) is called once with the winning provider
+// ('nine_router' | 'ollama') when the first live chunk arrives, or
+// 'fallback' when the offline engine answers instead — lets callers label
+// which provider actually produced the response.
+async function* chatStream(messages, { temperature = 0.7, maxTokens = 2048, onSource } = {}) {
+    const emit = (source) => { try { if (typeof onSource === 'function') onSource(source); } catch { /* never break streaming */ } };
+    const streamFallback = async function* () {
+        emit('fallback');
         const fallbackText = getFallbackChatResponse(messages);
         const words = fallbackText.split(' ');
         for (const word of words) {
             yield word + ' ';
             await new Promise(r => setTimeout(r, 40));
         }
+    };
+    const tryNineFirst = nineRouterFirst();
+    // Fast path: 9Router stream first when it is the primary provider.
+    if (tryNineFirst && nineRouterConfigured()) {
+        let streamed = false;
+        for await (const piece of nineRouterChatStream(messages, { temperature, maxTokens, onFirstChunk: () => emit('nine_router') })) {
+            streamed = true;
+            yield piece;
+        }
+        if (streamed) return;
+    }
+    const healthy = await ollamaHealthy();
+    if (!healthy) {
+        if (!tryNineFirst && nineRouterConfigured()) {
+            let streamed = false;
+            for await (const piece of nineRouterChatStream(messages, { temperature, maxTokens, onFirstChunk: () => emit('nine_router') })) {
+                streamed = true;
+                yield piece;
+            }
+            if (streamed) return;
+        }
+        yield* streamFallback();
         return;
     }
 
+    let usedOllama = false;
     try {
         const body = {
             model: env.OLLAMA_MODEL,
@@ -95,11 +258,19 @@ async function* chatStream(messages, { temperature = 0.7, maxTokens = 2048 } = {
             }
         };
 
-        const res = await fetch(`${env.OLLAMA_BASE_URL}/api/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
+        const streamController = new AbortController();
+        const streamTimer = setTimeout(() => streamController.abort(), DEFAULT_TIMEOUT_MS);
+        let res;
+        try {
+            res = await fetch(`${env.OLLAMA_BASE_URL}/api/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: streamController.signal
+            });
+        } finally {
+            clearTimeout(streamTimer);
+        }
 
         if (!res.ok) {
             throw new Error(`Ollama stream error: ${res.status}`);
@@ -122,6 +293,7 @@ async function* chatStream(messages, { temperature = 0.7, maxTokens = 2048 } = {
                 try {
                     const chunk = JSON.parse(trimmed);
                     if (chunk.message && chunk.message.content) {
+                        if (!usedOllama) { usedOllama = true; emit('ollama'); }
                         yield chunk.message.content;
                     }
                 } catch {
@@ -130,8 +302,20 @@ async function* chatStream(messages, { temperature = 0.7, maxTokens = 2048 } = {
             }
         }
     } catch (err) {
-        console.warn('⚠️ Ollama stream interrupted, serving fallback:', err.message);
+        console.warn('⚠️ Ollama stream interrupted:', err.message);
+        if (!usedOllama && !tryNineFirst && nineRouterConfigured()) {
+            let streamed = false;
+            for await (const piece of nineRouterChatStream(messages, { temperature, maxTokens, onFirstChunk: () => emit('nine_router') })) {
+                streamed = true;
+                yield piece;
+            }
+            if (streamed) return;
+        }
+        emit(usedOllama ? 'ollama' : 'fallback');
         const fallbackText = getFallbackChatResponse(messages);
+        if (usedOllama) {
+            yield '\n\n*(Live connection dropped — continuing with the offline study guide below.)*\n\n';
+        }
         yield fallbackText;
     }
 }
@@ -170,15 +354,25 @@ function parseLooseJson(text) {
 
 // Generate structured JSON
 async function generateJSON(prompt, fallbackGenerator, options = {}) {
+    let lastErr = null;
     try {
         const text = await complete(prompt, { json: true, ...options });
         if (text) {
             return parseLooseJson(text);
         }
+        lastErr = new Error('AI returned empty response');
     } catch (err) {
-        console.warn('⚠️ generateJSON parse issue, using smart generator:', err.message);
+        lastErr = err;
+        console.warn('generateJSON parse issue:', err.message);
     }
-    return fallbackGenerator();
+    // Signal to caller that a fallback is being used.
+    const fallback = fallbackGenerator();
+    if (fallback && typeof fallback === 'object') {
+        Object.defineProperty(fallback, '__isFallback', {
+            value: true, enumerable: false, writable: false, configurable: true
+        });
+    }
+    return fallback;
 }
 
 // ==========================================
@@ -222,7 +416,7 @@ function getFallbackChatResponse(messages) {
             `Give me an equation like $x^2 - 5x + 6 = 0$ and we can solve it step-by-step!`;
     }
 
-    return `Hello! I am your **EduShare 2.0 AI Study Tutor** here at Zeferino Arroyo High School.\n\n` +
+    return `Hello! I am your **EduShare AI Study Tutor** here at Zeferino Arroyo High School.\n\n` +
         `I am ready to help you with:\n` +
         `* Clarifying key concepts in English, Mathematics, Science, and Social Studies.\n` +
         `* Breaking down DepEd MATATAG competencies into manageable review points.\n` +
@@ -236,7 +430,7 @@ function getFallbackLesson(topic, gradeLevel, subject, competencyCode) {
     const g = gradeLevel || 'Grade 7';
     const s = subject || 'English';
     const c = String(competencyCode || 'EN7LIT-I-1').split(':')[0].slice(0, 20);
-    const B = (id, title, lines, notes = '') => ({ id, title, content: lines, notes });
+    const B = (id, title, lines, visual, script, speech = '', task = '') => ({ id, title, content: lines, bullets: lines, slide_text: lines, visual_prompt: visual, teacher_script: script, student_task: task, speaker_notes: speech, teacher_tip: '', notes: '' });
     return {
         meta: { subject: s, grade_level: g, topic: t, competency: c, term: '', duration: '60 minutes', language: '', approach: '' },
         topic: t,
@@ -245,38 +439,51 @@ function getFallbackLesson(topic, gradeLevel, subject, competencyCode) {
         competency: c,
         duration: '60 minutes',
         slides: [
-            B('intro', 'Introduction & Learning Objectives', [
+            B('objectives', 'Lesson Objectives & Why It Matters', [
                 `Today: ${t}`,
-                'Target: identify literary elements in text',
-                'Value: integrity, perseverance, excellence'
-            ], 'Offline fallback — review before class.'),
-            B('hook', 'Hook & Motivational Activity', [
-                'Scenario: wallet with P500 found in gym',
-                'What is your immediate reaction?',
-                'Share with seatmate for 3 minutes'
-            ]),
-            B('concept', 'Core Concept Presentation', [
-                'Character: who drives the narrative',
-                'Setting: where and when events happen',
-                'Conflict: internal vs external obstacle',
-                'Plot: exposition to resolution',
-                'Theme: universal truth of the work'
-            ]),
-            B('analysis', 'Exemplar Text Deep Dive', [
-                'Read the bamboo staff folktale excerpt',
+                'By the end, you can name story parts',
+                'Link: recall the last story'
+            ], 'Objectives on a chalkboard, classroom setting', 'Read the objectives aloud (1 min), then ask who remembers the last story. Offline fallback — review before class.', 'Read the objectives aloud (1 min), then ask who remembers the last story.', 'Write one objective in your own words'),
+            B('hook', 'Hook: Quick Scenario', [
+                'Wallet found in the gym',
+                'What is your reaction?',
+                'Share with a seatmate'
+            ], 'Two learners discussing, school corridor', 'Run a 3-minute pair share on the wallet scenario, then take 2 answers.', 'Run the scenario as a 3-minute pair share, then take 2 answers.', 'Discuss your reaction with a seatmate'),
+            B('explain', 'Meaning: Core Terms First', [
+                'Character drives the narrative',
+                'Setting: where and when',
+                'Conflict: inner vs outer'
+            ], 'Story map diagram on a board', 'Explain each term simply (4 min) with one familiar example each.', 'Explain each term simply (4 min) with one familiar example each.', 'List each term with one example'),
+            B('explain_2', 'Meaning: Plot and Theme', [
+                'Plot: beginning to end',
+                'Theme: universal truth',
+                'Stories teach values'
+            ], 'Open book showing story arc', 'Connect plot and theme to the wallet scenario (3 min).', 'Connect plot and theme to the wallet scenario (3 min).', 'Write one sentence linking plot to theme'),
+            B('example', 'Examples From the Text', [
+                'Bamboo staff folktale excerpt',
+                'Bamboo means humility',
+                'Humility vs arrogance'
+            ], 'Tall bamboo stalks, village background', 'Read the excerpt aloud, then point to the humility line.', 'Read the excerpt aloud, then point to the humility line.', 'Underline the line showing humility'),
+            B('discuss', 'Discuss: What Do You Notice?', [
                 'What does bamboo symbolize?',
-                'Contrast humility vs arrogance'
-            ]),
-            B('practice', 'Guided Practice & Formative Task', [
-                'Groups of 4: complete story map',
-                'Identify protagonist and antagonist',
-                'Pinpoint the climax in one sentence'
-            ]),
-            B('reflection', 'Summary & Value Reflection', [
-                'Which action reflects your values? Why?',
-                'Exit ticket on 1/4 sheet',
-                'Read Chapter 2 for recitation'
-            ])
+                'Which choice shows integrity?',
+                'Connect to real life'
+            ], 'Learners raising hands in discussion', 'Cold-call 3 learners; land on humility as the key insight.', 'Cold-call 3 learners; land on humility as the key insight.', 'Share one real-life connection'),
+            B('activity', 'Group Activity: Story Map', [
+                'Groups of 4',
+                'Complete the story map',
+                'One-sentence climax'
+            ], 'Small groups writing on manila paper', 'Give 10 minutes for group work; success means every box is filled.', 'Give 10 minutes for group work; success means every box is filled.', 'Complete the group story map'),
+            B('check', 'Quick Check Before We End', [
+                'Show fingers: 1 to 3',
+                'Name one story part',
+                'Fix one example together'
+            ], 'Learner holding up fingers', 'Use the finger check (2 min) and fix gaps on the spot.', 'Use the finger check (2 min) and fix gaps on the spot.', 'Answer the recitation prompt'),
+            B('wrap', 'Wrap-Up and Exit Ticket', [
+                'Stories reveal values',
+                'Exit ticket: one value',
+                'Next: read Chapter 2'
+            ], 'Exit tickets collected on a desk', 'Collect exit tickets on 1/4 sheet; preview Chapter 2.', 'Collect exit tickets on 1/4 sheet; preview Chapter 2.', 'Write your exit ticket')
         ]
     };
 }
@@ -310,6 +517,7 @@ function getFallbackQuiz(topic, gradeLevel, subject, count = 5) {
             question_type: 'identification',
             points: 1,
             explanation: 'Hyperbole is purposeful exaggeration used for emphasis or comedic/dramatic effect.',
+            accept: ['hyperbole'],
             options: [
                 { option_text: 'hyperbole', is_correct: 1 }
             ]
@@ -341,6 +549,8 @@ function getFallbackQuiz(topic, gradeLevel, subject, count = 5) {
 
 module.exports = {
     isHealthy,
+    ollamaHealthy,
+    nineRouterConfigured,
     chat,
     complete,
     chatStream,

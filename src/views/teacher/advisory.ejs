@@ -73,10 +73,17 @@
                             <td class="small text-muted"><%= s.email %></td>
                             <td class="small text-muted font-monospace"><%= s.created_at ? new Date(s.created_at).toLocaleString() : 'N/A' %></td>
                             <td>
-                                <form action="/teacher/advisory/approve/<%= s.user_id %>" method="POST">
-                                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
-                                    <button type="submit" class="btn btn-sm btn-success">Approve</button>
-                                </form>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <form action="/teacher/advisory/approve/<%= s.user_id %>" method="POST" class="d-inline">
+                                        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                        <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                    </form>
+                                    <form action="/teacher/advisory/reject/<%= s.user_id %>" method="POST" class="d-inline" data-confirm="Reject this registration? The student will need to re-register.">
+                                        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                        <input type="hidden" name="reason" value="Does not belong to this advisory section.">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     <% }) %>
@@ -84,6 +91,91 @@
             </table>
         </div>
     <% } %>
+</div>
+<% } %>
+
+<!-- Incoming transfer requests (addressed to my section) -->
+<% const incoming = typeof incomingTransfers !== 'undefined' ? incomingTransfers : []; %>
+<% if (teacher.is_adviser && incoming.length > 0) { %>
+<div class="glass-card p-3 mb-4" style="border-left: 4px solid var(--zahs-jade);">
+    <h5 class="fw-bold mb-3"><i class="bi bi-box-arrow-in-right text-success me-2"></i>Incoming Transfers (<%= incoming.length %>) — students requesting to join your section</h5>
+    <div class="table-responsive">
+        <table class="glass-table">
+            <thead>
+                <tr>
+                    <th>Learner</th>
+                    <th>From</th>
+                    <th>Requested By</th>
+                    <th>Reason</th>
+                    <th>Admin</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% incoming.forEach(t => { %>
+                    <tr>
+                        <td><div class="fw-bold text-dark small"><%= t.last_name %>, <%= t.first_name %></div><div class="font-monospace small text-muted"><%= t.lrn %></div></td>
+                        <td class="small text-muted"><%= t.from_grade %> - <%= t.from_section %></td>
+                        <td class="small text-muted"><%= t.req_first %> <%= t.req_last %></td>
+                        <td class="small" style="max-width: 220px;"><%= t.reason %></td>
+                        <td class="small"><span class="<%= t.admin_decision === 'approved' ? 'badge-emerald' : 'badge-gray' %>"><%= t.admin_decision === 'approved' ? 'Approved' : 'Pending' %></span></td>
+                        <td>
+                            <div class="d-flex gap-1 flex-wrap">
+                                <form action="/teacher/advisory/transfers/<%= t.id %>/decide" method="POST" class="d-inline">
+                                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                    <input type="hidden" name="decision" value="approved">
+                                    <button type="submit" class="btn btn-sm btn-success">Accept</button>
+                                </form>
+                                <form action="/teacher/advisory/transfers/<%= t.id %>/decide" method="POST" class="d-inline" data-require-reason data-reason-field="decision_reason" data-reason-alert="Give a rejection reason of at least 10 characters.">
+                                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                    <input type="hidden" name="decision" value="rejected">
+                                    <input type="text" name="decision_reason" class="glass-input py-1 px-2 small" placeholder="Rejection reason (min 10)" required minlength="10" style="max-width: 180px;" aria-label="Rejection reason">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>
+<% } %>
+
+<!-- Outgoing transfer requests I filed -->
+<% const outgoing = typeof outgoingTransfers !== 'undefined' ? outgoingTransfers : []; %>
+<% if (teacher.is_adviser && outgoing.length > 0) { %>
+<div class="glass-card p-3 mb-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-box-arrow-right text-warning me-2"></i>Outgoing Transfers (<%= outgoing.length %>) — awaiting approval</h5>
+    <div class="table-responsive">
+        <table class="glass-table">
+            <thead>
+                <tr>
+                    <th>Learner</th>
+                    <th>Destination</th>
+                    <th>Receiver</th>
+                    <th>Admin</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% outgoing.forEach(t => { %>
+                    <tr>
+                        <td><div class="fw-bold text-dark small"><%= t.last_name %>, <%= t.first_name %></div><div class="font-monospace small text-muted"><%= t.lrn %></div></td>
+                        <td class="small text-muted"><%= t.to_grade %> - <%= t.to_section %></td>
+                        <td class="small"><span class="<%= t.receiver_decision === 'approved' ? 'badge-emerald' : 'badge-gray' %>"><%= t.receiver_decision === 'approved' ? 'Accepted' : 'Pending' %></span></td>
+                        <td class="small"><span class="<%= t.admin_decision === 'approved' ? 'badge-emerald' : 'badge-gray' %>"><%= t.admin_decision === 'approved' ? 'Approved' : 'Pending' %></span></td>
+                        <td>
+                            <form action="/teacher/advisory/transfers/<%= t.id %>/cancel" method="POST" class="d-inline" data-confirm="Cancel this transfer request?">
+                                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                <button type="submit" class="btn btn-sm btn-glass">Cancel</button>
+                            </form>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
 </div>
 <% } %>
 
@@ -98,12 +190,13 @@
                     <th>Gender</th>
                     <th>Email Address</th>
                     <th>Last Active</th>
+                    <th>Manage</th>
                 </tr>
             </thead>
             <tbody>
                 <% if (students.length === 0) { %>
                     <tr>
-                        <td colspan="5" class="text-center py-5 text-muted">
+                        <td colspan="6" class="text-center py-5 text-muted">
                             No students registered under <%= teacher.advisory_grade %> - <%= teacher.advisory_section %> yet.
                         </td>
                     </tr>
@@ -123,9 +216,201 @@
                         <td class="small text-muted font-monospace">
                             <%= s.last_login ? new Date(s.last_login).toLocaleString() : 'Never' %>
                         </td>
+                        <td>
+                            <div class="d-flex gap-1 flex-wrap">
+                                <button type="button" class="btn btn-sm btn-glass" data-bs-toggle="modal" data-bs-target="#editStudent<%= s.user_id %>" title="Request info correction (admin approval)"><i class="bi bi-pencil"></i></button>
+                                <button type="button" class="btn btn-sm btn-glass" data-bs-toggle="modal" data-bs-target="#transferStudent<%= s.user_id %>" title="Request section transfer"><i class="bi bi-box-arrow-right"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#dropStudent<%= s.user_id %>" title="Request drop (admin approval)"><i class="bi bi-person-dash"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deactivateStudent<%= s.user_id %>" title="Request account deactivation (admin approval)"><i class="bi bi-person-x"></i></button>
+                            </div>
+                        </td>
                     </tr>
                 <% }) %>
             </tbody>
         </table>
     </div>
 </div>
+
+<!-- Per-student modals: edit / transfer / drop / deactivate.
+     Edit, drop, and deactivate file UNIFIED change requests (admin
+     approval with the teacher's note). Transfer keeps its own
+     dual-approval flow (receiver + admin). -->
+<% students.forEach(s => { %>
+<div class="modal fade modal-glass" id="editStudent<%= s.user_id %>" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil text-success me-2"></i>Request Correction — <%= s.first_name %> <%= s.last_name %></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/teacher/advisory/change/<%= s.user_id %>" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                <input type="hidden" name="request_type" value="edit">
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">Change only what is wrong — unchanged fields are ignored. Needs <strong>admin approval</strong> with your note below.</p>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">First Name <span class="fw-normal text-muted">(now: <%= s.first_name %>)</span></label>
+                            <input type="text" name="first_name" class="glass-input" value="<%= s.first_name %>" maxlength="100">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Last Name <span class="fw-normal text-muted">(now: <%= s.last_name %>)</span></label>
+                            <input type="text" name="last_name" class="glass-input" value="<%= s.last_name %>" maxlength="100">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Gender <span class="fw-normal text-muted">(now: <%= s.gender %>)</span></label>
+                            <select name="gender" class="glass-input">
+                                <% ['Male', 'Female', 'Other'].forEach(g => { %>
+                                    <option value="<%= g %>" <%= s.gender === g ? 'selected' : '' %>><%= g %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">LRN <span class="fw-normal text-muted">(12 digits)</span></label>
+                            <input type="text" name="lrn" class="glass-input font-monospace" value="<%= s.lrn %>" maxlength="12" inputmode="numeric">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Email</label>
+                            <input type="email" name="email" class="glass-input" value="<%= s.email %>" maxlength="150">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Note for admin (required, min 10 chars)</label>
+                            <textarea name="teacher_note" class="glass-input" rows="2" required minlength="10" maxlength="500" placeholder="e.g. LRN has a transposed digit per the SF1 birth certificate; email misspelled at registration"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-liquid-primary">File Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade modal-glass" id="transferStudent<%= s.user_id %>" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-right text-warning me-2"></i>Request Transfer — <%= s.first_name %> <%= s.last_name %></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/teacher/advisory/transfer/<%= s.user_id %>" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Destination Grade</label>
+                            <select name="to_grade" class="glass-input" data-section-for="transferSection<%= s.user_id %>">
+                                <% ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].forEach(g => { %>
+                                    <option value="<%= g %>"><%= g %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">Destination Section</label>
+                            <input type="text" name="to_section" id="transferSection<%= s.user_id %>" class="glass-input" placeholder="Start typing…" required maxlength="50" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">Reason (min 10 chars, seen by receiver + admin)</label>
+                            <input type="text" name="reason" class="glass-input" placeholder="e.g. family moved; learner lives near Rizal annex" required minlength="10" maxlength="500">
+                        </div>
+                        <div class="col-12"><div class="form-text small">The student stays in your section until BOTH the receiving adviser and an admin approve.</div></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-liquid-amber">File Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade modal-glass" id="dropStudent<%= s.user_id %>" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-dash text-warning me-2"></i>Request Drop — <%= s.first_name %> <%= s.last_name %>?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/teacher/advisory/change/<%= s.user_id %>" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                <input type="hidden" name="request_type" value="drop">
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">Enrollments flip to <strong>dropped</strong> — the account stays active and all grades, submissions, and quiz attempts are preserved. Needs <strong>admin approval</strong>. Reversible via a restore request.</p>
+                    <label class="form-label small fw-bold">Note for admin (required, min 10 chars)</label>
+                    <textarea name="teacher_note" class="glass-input" rows="2" required minlength="10" maxlength="500" placeholder="e.g. transferred out; family relocated mid-quarter — SF1 exit form filed"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-outline-warning">File Drop Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade modal-glass" id="deactivateStudent<%= s.user_id %>" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-x text-danger me-2"></i>Request Deactivation — <%= s.first_name %> <%= s.last_name %>?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/teacher/advisory/change/<%= s.user_id %>" method="POST">
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                <input type="hidden" name="request_type" value="deactivate">
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">The account will be <strong>deactivated</strong> (cannot sign in) but <strong>no records are deleted</strong> — grades, submissions, and history stay for SF1/reporting. Needs <strong>admin approval</strong>. Use for duplicate accounts or learners who left the school.</p>
+                    <label class="form-label small fw-bold">Note for admin (required, min 10 chars)</label>
+                    <textarea name="teacher_note" class="glass-input" rows="2" required minlength="10" maxlength="500" placeholder="e.g. duplicate of LRN 109876543210; this account was created twice at enrollment"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-outline-danger">File Deactivation Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<% }) %>
+
+<!-- My pending unified change requests (edit/drop/restore/deactivate) -->
+<% const myChanges = typeof outgoingChanges !== 'undefined' ? outgoingChanges : []; %>
+<% if (teacher.is_adviser && myChanges.length > 0) { %>
+<div class="glass-card p-3 mb-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-clipboard-check text-warning me-2"></i>My Change Requests (<%= myChanges.length %>) — awaiting admin decision</h5>
+    <div class="table-responsive">
+        <table class="glass-table">
+            <thead>
+                <tr>
+                    <th>Learner</th>
+                    <th>Type</th>
+                    <th>My Note</th>
+                    <th>Filed</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% myChanges.forEach(c => { %>
+                    <tr>
+                        <td><div class="fw-bold text-dark small"><%= c.last_name %>, <%= c.first_name %></div><div class="font-monospace small text-muted"><%= c.lrn %></div></td>
+                        <td><span class="badge-amber"><%= c.request_type.toUpperCase() %></span></td>
+                        <td class="small" style="max-width: 240px;"><%= c.teacher_note %></td>
+                        <td class="small text-muted font-monospace"><%= c.created_at ? new Date(c.created_at).toLocaleString() : 'N/A' %></td>
+                        <td>
+                            <form action="/teacher/advisory/changes/<%= c.id %>/cancel" method="POST" class="d-inline" data-confirm="Withdraw this request?">
+                                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                <button type="submit" class="btn btn-sm btn-glass">Withdraw</button>
+                            </form>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>
+<% } %>
+
+<script src="/js/section-autocomplete.js" defer></script>

@@ -1,63 +1,121 @@
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <div>
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="badge-emerald"><i class="bi bi-cpu me-1"></i>Ollama Qwen 2.5 7B</span>
-            <span class="badge-amber">Personalized Study Tutor</span>
+<!-- ZAHS Glass chatbot: slim header + collapsible suggestions + tall panel + pill composer -->
+<div class="chat-top d-flex align-items-center gap-2 gap-md-3 mb-3 flex-wrap">
+    <div class="chat-identity d-flex align-items-center gap-2 min-w-0">
+        <div class="chat-avatar chat-avatar-ai chat-identity-avatar" aria-hidden="true">
+            <i class="bi bi-robot"></i>
         </div>
-        <h2 class="fw-bold mb-0 text-dark">AI Study Buddy & Tutor</h2>
-        <p class="text-muted small mb-0">Ask questions about your subjects, practice exercises, or clarify tough concepts.</p>
+        <div class="min-w-0">
+            <h2 class="fw-bold text-dark mb-0 text-truncate chat-identity-title">AI Study Tutor</h2>
+            <div class="d-flex align-items-center gap-2">
+                <span id="chatStatusPill" class="badge-gray" role="status" aria-live="polite">
+                    <span class="chat-status-dot" aria-hidden="true"></span><span id="chatStatusText">Connecting…</span>
+                </span>
+            </div>
+        </div>
     </div>
-    <div class="d-flex align-items-center gap-2">
-        <select id="subjectSelect" class="glass-input py-1 px-3 fw-semibold text-dark" style="width: 170px;">
-            <option value="English">English</option>
-            <option value="Mathematics">Mathematics</option>
-            <option value="Science">Science</option>
-            <option value="Araling Panlipunan">Araling Panlipunan</option>
-            <option value="General" selected>General</option>
+    <div class="d-flex align-items-center gap-2 ms-auto flex-shrink-0">
+        <label class="visually-hidden" for="subjectSelect">Study subject</label>
+        <select id="subjectSelect" class="glass-input py-2 px-3 fw-semibold text-dark" aria-label="Study subject">
+            <% const _subs = typeof subjects !== 'undefined' && subjects.length ? subjects : ['English', 'Mathematics', 'Science', 'Araling Panlipunan', 'Filipino', 'General']; %>
+            <% _subs.forEach(s => { %>
+                <option value="<%= s %>" <%= s === 'General' ? 'selected' : '' %>><%= s %></option>
+            <% }) %>
         </select>
-        <button type="button" id="clearHistoryBtn" class="btn btn-glass btn-sm text-danger" title="Clear Chat History">
-            <i class="bi bi-trash3"></i>
+        <button type="button" id="exportChatBtn" class="btn btn-glass btn-sm" title="Download this conversation as a study note (.md)">
+            <i class="bi bi-download" aria-hidden="true"></i><span class="visually-hidden">Export chat</span>
+        </button>
+        <button type="button" id="clearHistoryBtn" class="btn btn-glass btn-sm text-danger" title="Clear chat history">
+            <i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Clear chat history</span>
         </button>
     </div>
 </div>
 
-<!-- Suggestion Chips Bar -->
-<div class="d-flex gap-2 mb-3 overflow-x-auto pb-2">
-    <button type="button" class="btn btn-sm btn-glass rounded-pill suggestion-chip" data-prompt="Explain the difference between a simile and a metaphor with examples.">
-        <i class="bi bi-lightbulb text-warning me-1"></i> Simile vs Metaphor
+<!-- Suggestions: open row on desktop, collapsed toggle on mobile -->
+<div class="chat-suggest mb-3">
+    <button type="button" id="suggestToggle" class="btn btn-sm btn-glass rounded-pill" aria-expanded="false" aria-controls="suggestRow">
+        <i class="bi bi-stars text-warning me-1" aria-hidden="true"></i>Suggestions
+        <i class="bi bi-chevron-down ms-1 suggest-caret" aria-hidden="true"></i>
     </button>
-    <button type="button" class="btn btn-sm btn-glass rounded-pill suggestion-chip" data-prompt="How does photosynthesis work in plants?">
-        <i class="bi bi-lightbulb text-warning me-1"></i> Photosynthesis
-    </button>
-    <button type="button" class="btn btn-sm btn-glass rounded-pill suggestion-chip" data-prompt="Give me a step-by-step guide to solving quadratic equations.">
-        <i class="bi bi-lightbulb text-warning me-1"></i> Quadratic Formula
-    </button>
-    <button type="button" class="btn btn-sm btn-glass rounded-pill suggestion-chip" data-prompt="What are the five core elements of a short story?">
-        <i class="bi bi-lightbulb text-warning me-1"></i> Short Story Elements
-    </button>
+    <div id="suggestRow" class="gap-2 flex-wrap pt-2">
+        <button type="button" class="btn btn-sm btn-glass rounded-pill suggestion-chip" data-prompt="Explain the difference between a simile and a metaphor with examples.">
+            <i class="bi bi-lightbulb text-warning me-1"></i>Simile vs Metaphor
+        </button>
+        <button type="button" class="btn btn-sm btn-glass rounded-pill suggestion-chip" data-prompt="How does photosynthesis work in plants? Explain it simply with the chemical equation.">
+            <i class="bi bi-lightbulb text-warning me-1"></i>Photosynthesis
+        </button>
+        <button type="button" class="btn btn-sm btn-glass rounded-pill suggestion-chip" data-prompt="Give me a step-by-step guide to solving quadratic equations using the quadratic formula.">
+            <i class="bi bi-lightbulb text-warning me-1"></i>Quadratic Formula
+        </button>
+        <button type="button" class="btn btn-sm btn-glass rounded-pill suggestion-chip" data-prompt="What are the five core elements of a short story? Give one example for each.">
+            <i class="bi bi-lightbulb text-warning me-1"></i>Short Story Elements
+        </button>
+        <button type="button" class="btn btn-sm btn-glass rounded-pill suggestion-chip" data-prompt="Quiz me: ask me 3 review questions about Philippine history, one at a time.">
+            <i class="bi bi-lightbulb text-warning me-1"></i>Quiz Me
+        </button>
+        <button type="button" class="btn btn-sm btn-glass rounded-pill suggestion-chip" data-prompt="Help me make a 30-minute study plan for my exams tonight.">
+            <i class="bi bi-lightbulb text-warning me-1"></i>Study Plan
+        </button>
+    </div>
 </div>
 
-<!-- Chat Messages Container -->
-<div class="glass-card p-4 mb-3 d-flex flex-column" style="height: 520px;">
-    <div id="chatMessages" class="flex-grow-1 overflow-y-auto pe-2" style="scroll-behavior: smooth;">
-        <div class="text-center text-muted p-4">
-            <div class="user-avatar-initials mx-auto mb-2" style="width: 56px; height: 56px; font-size: 1.5rem; background: linear-gradient(135deg, var(--zahs-emerald-primary), var(--zahs-amber));">
-                <i class="bi bi-robot"></i>
+<!-- Chat panel -->
+<div class="glass-card chat-panel d-flex flex-column mb-3" aria-label="AI Study Tutor conversation" data-grade="<%= typeof gradeLevel !== 'undefined' ? gradeLevel : 'Grade 7' %>">
+    <div id="chatLiveRegion" class="visually-hidden" aria-live="polite"></div>
+
+    <div id="chatMessages" class="chat-messages flex-grow-1 overflow-y-auto" tabindex="0" aria-label="Conversation messages">
+        <div class="chat-empty text-center p-4" id="chatEmptyState">
+            <div class="user-avatar-initials mx-auto mb-3 chat-empty-avatar">
+                <i class="bi bi-robot" aria-hidden="true"></i>
             </div>
-            <h5 class="fw-bold text-dark mb-1">Hello, Zeferinian!</h5>
-            <p class="small mb-0" style="max-width: 420px; margin: 0 auto;">
-                I am your 24/7 AI Study Tutor. Pick a suggestion above or ask any question below to begin studying.
+            <h5 class="fw-bold text-dark mb-1">What can I help you study today?</h5>
+            <p class="small text-muted mb-0" style="max-width: 460px; margin: 0 auto;">
+                Ask about any subject — I'll explain, quiz you, or help you plan.
             </p>
         </div>
     </div>
 
-    <!-- Message Input Bar -->
-    <form id="chatForm" class="d-flex gap-2 pt-3 border-top" style="border-color: rgba(16,185,129,0.15) !important;">
-        <input type="text" id="chatInput" class="glass-input py-2 px-3 flex-grow-1" placeholder="Type your question here (e.g. Explain photosynthesis)..." required autocomplete="off">
-        <button type="submit" id="sendBtn" class="btn btn-liquid-primary px-4">
-            <i class="bi bi-send-fill me-1"></i> Send
+    <div id="chatTypingBar" class="chat-typing-bar d-none" role="status" aria-live="polite">
+        <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span id="chatTypingText">Tutor is thinking…</span>
+        <button type="button" id="stopStreamBtn" class="btn btn-sm btn-glass text-danger ms-auto">
+            <i class="bi bi-stop-circle me-1" aria-hidden="true"></i>Stop
         </button>
+    </div>
+
+    <!-- Pill composer: textarea + round send share one box -->
+    <form id="chatForm" class="chat-composer" autocomplete="off">
+        <label class="visually-hidden" for="chatInput">Type your question</label>
+        <div class="chat-composer-pill">
+            <textarea id="chatInput" class="chat-input" rows="1"
+                placeholder="Message AI Study Tutor…"
+                maxlength="2000" aria-describedby="chatComposerHint"></textarea>
+            <button type="submit" id="sendBtn" class="btn btn-liquid-primary chat-send-btn" aria-label="Send message">
+                <i class="bi bi-arrow-up" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="chat-composer-meta">
+            <span id="chatCharCount" class="chat-char-count" aria-hidden="true">0 / 2000</span>
+        </div>
+        <div id="chatComposerHint" class="visually-hidden">Press Enter to send, Shift plus Enter for a new line. Maximum 2000 characters.</div>
     </form>
 </div>
 
-<script src="/js/chatbot.js"></script>
+<script src="/js/chatbot.js?v=20260918"></script>
+
+<!-- Clear history confirmation: scoped per subject or everything -->
+<div class="modal fade" id="clearHistoryModal" tabindex="-1" aria-labelledby="clearHistoryTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center p-4">
+                <i class="bi bi-trash3 fs-1 text-danger d-block mb-3" aria-hidden="true"></i>
+                <h5 class="fw-bold mb-2" id="clearHistoryTitle">Clear chat history?</h5>
+                <p class="small text-muted mb-4">Saved exchanges are removed permanently. Choose what to clear.</p>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-liquid-primary" id="clearSubjectBtn">Clear <span id="clearSubjectName">this subject</span> only</button>
+                    <button type="button" class="btn btn-glass text-danger" id="clearAllBtn">Clear everything</button>
+                    <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Keep my chats</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

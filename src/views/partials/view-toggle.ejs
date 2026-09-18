@@ -1,0 +1,10 @@
+<%# Reusable card/table view toggle. Locals: scope (required, unique per list), label (optional, used in aria-label). %>
+<%# Requires /js/view-toggle.js (loaded globally in layouts/main.ejs). Pair with [data-view-cards="scope"] + [data-view-table="scope"] containers. %>
+<div class="btn-group view-toggle-group" role="group" aria-label="Change <%= typeof label !== 'undefined' && label ? label : 'list' %> view" data-view-toggle="<%= scope %>">
+    <button type="button" class="btn btn-glass btn-sm view-toggle-btn is-active" data-view-btn="card" aria-pressed="true" title="Card view">
+        <i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Cards</span>
+    </button>
+    <button type="button" class="btn btn-glass btn-sm view-toggle-btn" data-view-btn="table" aria-pressed="false" title="Table view">
+        <i class="bi bi-table" aria-hidden="true"></i><span class="d-none d-sm-inline ms-1">Table</span>
+    </button>
+</div>

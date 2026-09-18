@@ -32,7 +32,7 @@
     </div>
 
     <div class="col-sm-6 col-xl-3">
-        <a href="/teacher/classes?tab=activities" class="text-decoration-none text-reset d-block">
+        <div class="d-block">
         <div class="glass-card stat-card-glass glass-card-hover">
             <div class="stat-icon-wrapper stat-icon-emerald">
                 <i class="bi bi-people"></i>
@@ -42,7 +42,7 @@
                 <div class="stat-label">Total Students</div>
             </div>
         </div>
-        </a>
+        </div>
     </div>
 
     <div class="col-sm-6 col-xl-3">
@@ -62,7 +62,7 @@
     <div class="col-sm-6 col-xl-3">
         <a href="/teacher/quiz-maker" class="text-decoration-none text-reset d-block">
         <div class="glass-card stat-card-glass glass-card-hover">
-            <div class="stat-icon-wrapper stat-icon-amber">
+            <div class="stat-icon-wrapper stat-icon-emerald">
                 <i class="bi bi-question-diamond"></i>
             </div>
             <div>
@@ -75,19 +75,22 @@
 </div>
 
 <!-- Classes Grid Preview -->
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h5 class="fw-bold mb-0">My Active Classes</h5>
-    <a href="/teacher/classes" class="small text-success fw-bold text-decoration-none">Manage All Classes &rarr;</a>
+    <div class="d-flex align-items-center gap-2">
+        <%- include('../partials/view-toggle', { scope: 'teacher-dashboard-classes', label: 'dashboard classes' }) %>
+        <a href="/teacher/classes" class="small text-success fw-bold text-decoration-none">Manage All Classes &rarr;</a>
+    </div>
 </div>
 
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-4" data-view-cards="teacher-dashboard-classes">
     <% if (classes.length === 0) { %>
         <div class="col-12">
             <div class="glass-card p-5 text-center text-muted">
                 <i class="bi bi-journal-plus fs-1 text-success d-block mb-2"></i>
                 <h5>No Classes Created Yet</h5>
                 <p class="small">Click "Create Class" to establish your first section with an auto-generated student join code.</p>
-                <a href="/teacher/classes" class="btn btn-liquid-primary">Create Your First Class</a>
+                <a href="/teacher/classes" class="btn btn-liquid-primary">Go to Classes to create your first section</a>
             </div>
         </div>
     <% } %>
@@ -118,6 +121,40 @@
         </div>
     <% }) %>
 </div>
+
+<% if (classes.length > 0) { %>
+<div class="glass-table-container d-none mb-4" data-view-table="teacher-dashboard-classes">
+    <div class="table-responsive">
+        <table class="glass-table">
+            <thead>
+                <tr>
+                    <th scope="col">Class</th>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Code</th>
+                    <th scope="col">Schedule</th>
+                    <th scope="col" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% classes.forEach(c => { %>
+                    <tr>
+                        <td>
+                            <div class="fw-bold text-dark"><%= c.class_name %></div>
+                            <div class="small text-muted"><%= c.grade_level %> &bull; Section <%= c.section %></div>
+                        </td>
+                        <td><span class="badge-emerald"><%= c.subject %></span></td>
+                        <td class="font-monospace fw-semibold small"><%= c.class_code %></td>
+                        <td class="small text-muted"><%= c.schedule || 'Flexible' %></td>
+                        <td class="text-end">
+                            <a href="/teacher/classes/<%= c.id %>" class="btn btn-sm btn-liquid-primary">Open Class Hub &rarr;</a>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>
+<% } %>
 
 <!-- Pending Submissions Queue -->
 <div class="glass-card p-4">
@@ -158,42 +195,9 @@
             <i class="bi bi-inbox fs-2 d-block mb-2 text-success"></i>
             <h6 class="fw-bold text-dark">All caught up</h6>
             <p class="small mb-3">No submissions awaiting grading right now.</p>
-            <a href="/teacher/classes?tab=activities" class="btn btn-sm btn-liquid-primary">View Activities</a>
+            <a href="/teacher/classes" class="btn btn-sm btn-liquid-primary">View Classes</a>
         </div>
     <% } %>
 </div>
+<!-- Copy-to-clipboard handled globally by /js/app.js (covers .copy-code-btn + #copyFeedback). -->
 <span class="small text-muted copy-feedback" id="copyFeedback" role="status" aria-live="polite"></span>
-<script>
-(function () {
-    function copyFallback(text, done) {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        var ok = false;
-        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
-        document.body.removeChild(ta);
-        done(ok);
-    }
-    function flash(msg) {
-        var el = document.getElementById('copyFeedback');
-        if (!el) return;
-        el.textContent = msg;
-        setTimeout(function () { if (el.textContent === msg) el.textContent = ''; }, 2000);
-    }
-    document.querySelectorAll('.copy-code-btn').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            var code = btn.getAttribute('data-code') || '';
-            var done = function (ok) { flash(ok ? 'Code ' + code + ' copied' : 'Copy failed'); };
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(code).then(function () { done(true); }, function () { copyFallback(code, done); });
-            } else { copyFallback(code, done); }
-        });
-    });
-})();
-</script>

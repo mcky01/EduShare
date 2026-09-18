@@ -1,34 +1,34 @@
-<div class="liquid-toast-container">
+<div class="liquid-toast-container" role="status" aria-live="polite">
     <% if (success) { %>
         <div class="liquid-toast border-start border-4 border-success">
-            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+            <i class="bi bi-check-circle-fill text-success fs-4" aria-hidden="true"></i>
             <div>
                 <div class="fw-bold text-dark small">Success</div>
                 <div class="small text-secondary"><%= success %></div>
             </div>
-            <button type="button" class="btn-close ms-auto small" onclick="this.parentElement.remove()"></button>
+            <button type="button" class="btn-close ms-auto small" data-dismiss-toast aria-label="Dismiss success message"></button>
         </div>
     <% } %>
 
     <% if (error) { %>
-        <div class="liquid-toast border-start border-4 border-danger">
-            <i class="bi bi-exclamation-triangle-fill text-danger fs-4"></i>
+        <div class="liquid-toast border-start border-4 border-danger" role="alert">
+            <i class="bi bi-exclamation-triangle-fill text-danger fs-4" aria-hidden="true"></i>
             <div>
                 <div class="fw-bold text-dark small">Notice</div>
                 <div class="small text-secondary"><%= error %></div>
             </div>
-            <button type="button" class="btn-close ms-auto small" onclick="this.parentElement.remove()"></button>
+            <button type="button" class="btn-close ms-auto small" data-dismiss-toast aria-label="Dismiss error message"></button>
         </div>
     <% } %>
 
     <% if (info) { %>
         <div class="liquid-toast border-start border-4 border-warning">
-            <i class="bi bi-info-circle-fill text-warning fs-4"></i>
+            <i class="bi bi-info-circle-fill text-warning fs-4" aria-hidden="true"></i>
             <div>
                 <div class="fw-bold text-dark small">Information</div>
                 <div class="small text-secondary"><%= info %></div>
             </div>
-            <button type="button" class="btn-close ms-auto small" onclick="this.parentElement.remove()"></button>
+            <button type="button" class="btn-close ms-auto small" data-dismiss-toast aria-label="Dismiss information message"></button>
         </div>
     <% } %>
 </div>

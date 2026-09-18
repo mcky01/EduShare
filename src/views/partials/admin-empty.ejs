@@ -1,0 +1,11 @@
+<% /* Shared admin empty state. Expects: icon (bi class), title, hint, optional action {label, href}. */ %>
+<div class="glass-card p-5 text-center text-muted">
+    <i class="bi <%= typeof icon !== 'undefined' ? icon : 'bi-inbox' %> fs-2 d-block mb-2 text-success"></i>
+    <h6><%= typeof title !== 'undefined' ? title : 'Nothing here yet' %></h6>
+    <% if (typeof hint !== 'undefined' && hint) { %>
+        <p class="small mb-0"><%= hint %></p>
+    <% } %>
+    <% if (typeof action !== 'undefined' && action) { %>
+        <a href="<%= action.href %>" class="btn btn-sm btn-glass mt-3"><%= action.label %></a>
+    <% } %>
+</div>

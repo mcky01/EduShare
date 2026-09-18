@@ -21,11 +21,16 @@ async function search(req, res) {
             [searchTerm, searchTerm, searchTerm]
         );
         for (const c of classes) {
+            // Phase 1.6: admins open the read-only oversight detail, not the
+            // teacher/student pages (requireRole would 403 them there).
+            const classUrl = user.role === 'admin'
+                ? `/admin/classes/${c.id}`
+                : (user.role === 'teacher' ? `/teacher/classes/${c.id}` : `/student/classes/${c.id}`);
             results.push({
                 type: 'Class',
                 title: c.class_name,
                 subtitle: `${c.grade_level} - ${c.section} (${c.subject}) • Code: ${c.class_code}`,
-                url: user.role === 'teacher' ? `/teacher/classes/${c.id}` : `/student/classes/${c.id}`,
+                url: classUrl,
                 badge: 'badge-emerald'
             });
         }
@@ -58,11 +63,15 @@ async function search(req, res) {
             [searchTerm, searchTerm]
         );
         for (const qz of quizzes) {
+            // Phase 1.6: admins open the read-only quiz oversight page.
+            const quizUrl = user.role === 'admin'
+                ? `/admin/quizzes/${qz.id}`
+                : (user.role === 'teacher' ? '/teacher/quiz-maker' : `/student/quizzes/${qz.id}/take`);
             results.push({
                 type: 'Quiz',
                 title: qz.title,
                 subtitle: `${qz.grade_level} ${qz.subject} • ${qz.total_questions} Questions`,
-                url: user.role === 'teacher' ? '/teacher/quiz-maker' : `/student/quizzes/${qz.id}/take`,
+                url: quizUrl,
                 badge: 'badge-emerald'
             });
         }

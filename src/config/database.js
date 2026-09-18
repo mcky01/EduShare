@@ -23,7 +23,7 @@ function getPool() {
 
         // Catch idle connection drops, sleep/wake network resets, and wait_timeout
         pool.on('error', (err) => {
-            console.error('⚠️ [EduShare 2.0] MySQL pool connection error (handled):', err.message || err);
+            console.error('⚠️ [EduShare] MySQL pool connection error (handled):', err.message || err);
             if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
                 pool = null; // Recreate pool on next query
             }

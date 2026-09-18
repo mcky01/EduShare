@@ -81,6 +81,27 @@ const uploadSubmission = multer({
     fileFilter: documentFilter
 });
 
+function planFileFilter(req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase().slice(1);
+    const mime = file.mimetype || '';
+    // .doc may arrive as binary msword OR html-masquerading export.
+    const pdfOk = ext === 'pdf' && mime === 'application/pdf';
+    const docxOk = ext === 'docx' && mime === DOC_MIME_MAP.docx;
+    const docOk = ext === 'doc' && (mime === 'application/msword' || mime === 'text/html' || mime.startsWith('text/'));
+    const txtOk = ext === 'txt' && (mime === 'text/plain' || mime.startsWith('text/plain;'));
+    if (pdfOk || docxOk || docOk || txtOk) {
+        cb(null, true);
+    } else {
+        cb(new Error('Lesson plan must be .pdf, .docx, .doc, or .txt.'));
+    }
+}
+
+const uploadPlan = multer({
+    storage: makeStorage('plans'),
+    limits: { fileSize: 8 * 1024 * 1024 },
+    fileFilter: planFileFilter
+});
+
 const textOnlyFilter = (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase().slice(1);
     const mime = file.mimetype || '';
@@ -109,6 +130,7 @@ module.exports = {
     uploadAvatar,
     uploadMaterial,
     uploadSubmission,
+    uploadPlan,
     uploadCurriculum,
     uploadLogo,
     uploadsBase,

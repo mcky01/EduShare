@@ -1,13 +1,16 @@
 {
-  "name": "edushare2.0",
+  "name": "edushare",
   "version": "2.0.0",
-  "description": "EduShare 2.0 - Next-Gen Learning Management System for Zeferino Arroyo High School",
+  "description": "EduShare - Next-Gen Learning Management System for Zeferino Arroyo High School",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
     "init-db": "node src/config/initDatabase.js",
-    "test": "node tests/smoke-test.js"
+    "test": "node tests/smoke-test.js",
+    "test:smoke": "node tests/smoke-test.js",
+    "test:registration": "node tests/registration-test.js",
+    "test:integration": "node tests/integration-test.js"
   },
   "keywords": [
     "lms",
@@ -17,7 +20,7 @@
     "liquid-glass",
     "ai"
   ],
-  "author": "EduShare 2.0 Team",
+  "author": "EduShare Team",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -30,9 +33,12 @@
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.18.1",
     "helmet": "^8.0.0",
+    "mammoth": "^1.12.2",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.12.0",
-    "pdf-parse": "^2.4.5"
+    "nodemailer": "^10.0.10",
+    "pdf-parse": "^2.4.5",
+    "pptxgenjs": "^4.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

@@ -3,13 +3,26 @@
         <h2 class="fw-bold mb-1" style="color: var(--zahs-emerald-deep);">My Teaching Classes</h2>
         <p class="text-muted small mb-0">Create new sections, view student rosters, and distribute learning activities.</p>
     </div>
-    <button type="button" class="btn btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#createClassModal">
-        <i class="bi bi-plus-lg me-1"></i> Create Class Section
-    </button>
+    <div class="d-flex gap-2 align-items-center ms-auto">
+        <button type="button" class="btn btn-liquid-primary" data-bs-toggle="modal" data-bs-target="#createClassModal">
+            <i class="bi bi-plus-lg me-1"></i> Create Class Section
+        </button>
+    </div>
 </div>
 
+<!-- Unified Filter Bar (shared pattern: search + live count) -->
+<%- include('../partials/local-filter', {
+    scope: 'teacher-classes',
+    searchId: 'classesSearch',
+    searchPlaceholder: 'Search class, code, subject...',
+    searchLabel: 'Filter classes',
+    countId: 'classesCount',
+    countLabel: 'classes',
+    viewToggle: { scope: 'teacher-classes', label: 'classes' }
+}) %>
+
 <!-- Class Cards Grid -->
-<div class="row g-3">
+<div class="row g-3" data-view-cards="teacher-classes">
     <% if (classes.length === 0) { %>
         <div class="col-12">
             <div class="glass-card p-5 text-center text-muted">
@@ -21,7 +34,7 @@
     <% } %>
 
     <% classes.forEach(c => { %>
-        <div class="col-md-6 col-lg-4">
+        <div class="col-md-6 col-lg-4" data-filter-scope="teacher-classes" data-search="<%= ((c.class_name || '') + ' ' + (c.subject || '') + ' ' + (c.class_code || '') + ' ' + (c.grade_level || '') + ' ' + (c.section || '')).toLowerCase() %>">
             <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between glass-card-hover">
                 <div>
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -46,12 +59,52 @@
     <% }) %>
 </div>
 
+<% if (classes.length > 0) { %>
+<div class="glass-table-container d-none mt-0" data-view-table="teacher-classes">
+    <div class="table-responsive">
+        <table class="glass-table">
+            <thead>
+                <tr>
+                    <th scope="col">Class</th>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Code</th>
+                    <th scope="col">Students</th>
+                    <th scope="col">Room</th>
+                    <th scope="col">Schedule</th>
+                    <th scope="col" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% classes.forEach(c => { %>
+                    <tr data-filter-scope="teacher-classes" data-search="<%= ((c.class_name || '') + ' ' + (c.subject || '') + ' ' + (c.class_code || '') + ' ' + (c.grade_level || '') + ' ' + (c.section || '')).toLowerCase() %>">
+                        <td>
+                            <div class="fw-bold text-dark"><%= c.class_name %></div>
+                            <div class="small text-muted"><%= c.grade_level %> &bull; Section <%= c.section %></div>
+                        </td>
+                        <td><span class="badge-emerald"><%= c.subject %></span></td>
+                        <td class="font-monospace fw-semibold small"><%= c.class_code %></td>
+                        <td class="small"><i class="bi bi-people me-1 text-success"></i><%= c.student_count || 0 %> enrolled</td>
+                        <td class="small text-muted"><%= c.room || 'Room 201' %></td>
+                        <td class="small text-muted"><%= c.schedule || 'Regular Schedule' %></td>
+                        <td class="text-end">
+                            <a href="/teacher/classes/<%= c.id %>" class="btn btn-sm btn-liquid-primary">
+                                Open Class Hub &rarr;
+                            </a>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>
+<% } %>
+
 <!-- Modal: Create Class -->
-<div class="modal fade modal-glass" id="createClassModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade modal-glass" id="createClassModal" tabindex="-1" aria-hidden="true" aria-labelledby="createClassTitle">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold"><i class="bi bi-mortarboard text-success me-2"></i>Create New Class Section</h5>
+                <h5 class="modal-title fw-bold" id="createClassTitle"><i class="bi bi-mortarboard text-success me-2"></i>Create New Class Section</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/teacher/classes" method="POST">
@@ -68,18 +121,16 @@
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-bold">Grade Level</label>
+                            <% const _classGrade = (typeof teacherProfile !== 'undefined' && teacherProfile && teacherProfile.grade_level) ? teacherProfile.grade_level : 'Grade 7'; %>
                             <select name="grade_level" class="glass-input">
-                                <option value="Grade 7">Grade 7</option>
-                                <option value="Grade 8">Grade 8</option>
-                                <option value="Grade 9">Grade 9</option>
-                                <option value="Grade 10">Grade 10</option>
-                                <option value="Grade 11">Grade 11</option>
-                                <option value="Grade 12">Grade 12</option>
+                                <% ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'].forEach(function(g) { %>
+                                    <option value="<%= g %>" <%= _classGrade === g ? 'selected' : '' %>><%= g %></option>
+                                <% }); %>
                             </select>
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-bold">Section Name</label>
-                            <input type="text" name="section" class="glass-input" placeholder="e.g. Rizal" required>
+                            <input type="text" name="section" class="glass-input" placeholder="e.g. Rizal" value="<%= (typeof teacherProfile !== 'undefined' && teacherProfile && teacherProfile.section) ? teacherProfile.section : '' %>" required>
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-bold">Classroom / Room</label>
@@ -93,7 +144,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-glass" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-liquid-primary">Create Class</button>
+                    <button type="submit" class="btn btn-liquid-primary" data-create-class-submit>Create Class</button>
                 </div>
             </form>
         </div>

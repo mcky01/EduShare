@@ -1,5 +1,5 @@
-const EXPECTED_ORDER = ['intro', 'hook', 'concept', 'analysis', 'practice', 'reflection'];
-const VALID_TYPES = new Set(EXPECTED_ORDER);
+const EXPECTED_ORDER = ['objectives', 'hook', 'explain', 'example', 'discuss', 'activity', 'check', 'wrap', 'declaration'];
+const VALID_TYPES = new Set([...EXPECTED_ORDER, 'intro', 'concept', 'analysis', 'practice', 'reflection']);
 
 const STOPWORDS = new Set('a,an,the,and,or,of,in,on,for,to,with,by,from,as,at,is,are,was,were,be,been,being,it,its,this,that,these,those,into,through,between,across,within,without,under,over,about,into,per,via,using,use,used,meaning,purpose,clarity,target,audience,original,various,appropriate,significant,learners,demonstrate,learners,grade'.split(','));
 
@@ -21,13 +21,26 @@ function asLines(v) {
     return [];
 }
 
-// Dual-read: new shape (bullets/student_task/teacher_tip) + legacy (content/notes).
+// Dual-read: new shape (slide_text/student_task) + legacy (bullets/content).
+// Projection = slide_text, then student_task. Legacy bullets/content only as fallback.
 // New fields win when present, so normalized slides (which carry both the
 // merged `content` and the original fields) never double-count lines.
 function slideLines(s) {
-    const fromNew = [...asLines(s.bullets), ...asLines(s.student_task)];
+    const fromNew = [...asLines(s.slide_text), ...asLines(s.student_task)];
     if (fromNew.length) return fromNew;
+    const legacy = [...asLines(s.bullets), ...asLines(s.student_task)];
+    if (legacy.length) return legacy;
     return asLines(s.content);
+}
+
+function slideScript(s) {
+    if (typeof s.teacher_script === 'string' && s.teacher_script) return s.teacher_script;
+    return '';
+}
+
+function slideSpeech(s) {
+    if (typeof s.speaker_notes === 'string' && s.speaker_notes) return s.speaker_notes;
+    return '';
 }
 
 function slideTip(s) {
@@ -69,8 +82,12 @@ function normalizeLesson(raw) {
         type: String(s.type || s.id || EXPECTED_ORDER[i] || '').toLowerCase(),
         title: s.title || '',
         content: slideLines(s),
+        slide_text: asLines(s.slide_text),
+        visual_prompt: typeof s.visual_prompt === 'string' ? s.visual_prompt : '',
+        teacher_script: typeof s.teacher_script === 'string' ? s.teacher_script : '',
         bullets: asLines(s.bullets),
         student_task: typeof s.student_task === 'string' ? s.student_task : '',
+        speaker_notes: slideSpeech(s),
         notes: slideTip(s),
         teacher_tip: typeof s.teacher_tip === 'string' ? s.teacher_tip : ''
     }));
@@ -99,14 +116,34 @@ function validateLesson(lesson, prefs = {}) {
     const issues = [];
     if (!lesson || typeof lesson !== 'object') return { valid: false, issues: ['empty_lesson'] };
     const norm = normalizeLesson(lesson);
-    const slides = norm.slides;
-    if (slides.length !== 6) issues.push(`slide_count_${slides.length}_ne_6`);
+    // Optional appended declaration slide is metadata, not deck content.
+    const declIdx = norm.slides.findIndex((s) => String(s.id || '').toLowerCase() === 'declaration');
+    const decl = declIdx >= 0 ? norm.slides[declIdx] : null;
+    const slides = declIdx >= 0 ? norm.slides.filter((_, i) => i !== declIdx) : norm.slides;
+    if (decl && (!decl.title || !String(decl.title).trim())) issues.push('declaration_missing_title');
+    if (slides.length < 8 || slides.length > 12) issues.push(`slide_count_${slides.length}_want_8_to_12`);
     const ids = slides.map((s) => String(s.id || '').toLowerCase());
-    EXPECTED_ORDER.forEach((t, i) => {
-        if (ids[i] !== t) issues.push(`slide_${i + 1}_expected_${t}_got_${ids[i] || 'missing'}`);
+    const baseRole = (id) => String(id || '').split('_')[0];
+    const roles = ids.map(baseRole);
+    const hasRole = (r) => roles.includes(r);
+    ['objectives', 'hook', 'explain', 'example', 'discuss', 'activity', 'check', 'wrap'].forEach((r) => {
+        if (!hasRole(r)) issues.push(`missing_${r}_slide`);
     });
+    // Order check: first occurrence of each required role must follow the deck order
+    // (declaration excluded — it always closes the deck when present).
+    let lastPos = -1;
+    let orderOk = true;
+    EXPECTED_ORDER.forEach((r) => {
+        const pos = roles.indexOf(r);
+        if (pos !== -1) {
+            if (pos < lastPos) orderOk = false;
+            lastPos = Math.max(lastPos, pos);
+        }
+    });
+    if (orderOk === false) issues.push('slide_order_wrong');
     slides.forEach((s, i) => {
-        if (!VALID_TYPES.has(String(s.id || '').toLowerCase())) issues.push(`slide_${i + 1}_bad_id`);
+        const role = baseRole(s.id);
+        if (!VALID_TYPES.has(role) && !/^[a-z]+_\d+$/.test(String(s.id || ''))) issues.push(`slide_${i + 1}_bad_id`);
         if (!s.title || !String(s.title).trim()) issues.push(`slide_${i + 1}_missing_title`);
         const lines = slideLines(s).filter((x) => x.trim());
         if (!lines.length) issues.push(`slide_${i + 1}_missing_content`);
@@ -115,24 +152,67 @@ function validateLesson(lesson, prefs = {}) {
         slideLines(s).forEach((line) => {
             if (SCRIPT_LINE_PATTERNS.some((re) => re.test(line))) issues.push(`slide_${i + 1}_script_line`);
         });
-        // New-shape structural checks (only when the model used the new fields).
-        if (Array.isArray(s.bullets) && s.bullets.length) {
-            if (s.bullets.length > 6) issues.push(`slide_${i + 1}_too_many_bullets`);
-            if (s.bullets.some((x) => String(x).split(/\s+/).filter(Boolean).length > 25)) issues.push(`slide_${i + 1}_bullet_too_long`);
+        // Visual-first structural checks (slide_text replaces bullets; legacy bullets fall back).
+        const hasTextShape = (Array.isArray(s.slide_text) && s.slide_text.length)
+            || (Array.isArray(s.bullets) && s.bullets.length);
+        const textLines = (Array.isArray(s.slide_text) && s.slide_text.length)
+            ? s.slide_text
+            : (Array.isArray(s.bullets) && s.bullets.length ? s.bullets : []);
+        if (textLines.length) {
+            if (textLines.length < 2 || textLines.length > 4) issues.push(`slide_${i + 1}_want_2_to_4_lines`);
+            if (textLines.some((x) => String(x).split(/\s+/).filter(Boolean).length > 12)) issues.push(`slide_${i + 1}_text_too_long`);
         }
+        // Citations must never appear on projection (slide_text, title, student_task).
+        if (/\[P\d+\]|\[S\d+\]/.test([...asLines(s.slide_text), String(s.title || ''), String(s.student_task || '')].join(' '))) issues.push(`slide_${i + 1}_citation_on_projection`);
+        if (!s.visual_prompt || !String(s.visual_prompt).trim()) issues.push(`slide_${i + 1}_missing_visual`);
+        if (!s.teacher_script || !String(s.teacher_script).trim()) issues.push(`slide_${i + 1}_missing_script`);
         if (typeof s.student_task === 'string' && s.student_task) {
-            if (!/^[A-Z][a-z]*/.test(s.student_task.trim()) || !/^(identify|solve|write|discuss|compare|explain|analyze|create|list|describe|underline|complete|answer|share|present|demonstrate|illustrate|examine|evaluate|design|draw|match|sort|predict|infer|justify|reflect)\b/i.test(s.student_task.trim())) issues.push(`slide_${i + 1}_task_not_verb_led`);
-        } else if (Array.isArray(s.bullets) && s.bullets.length) {
+            if (!/^(identify|solve|write|discuss|compare|explain|analyze|create|list|describe|underline|complete|answer|share|present|demonstrate|illustrate|examine|evaluate|design|draw|match|sort|predict|infer|justify|reflect|restate)\b/i.test(s.student_task.trim())) issues.push(`slide_${i + 1}_task_not_verb_led`);
+        } else if (hasTextShape) {
             issues.push(`slide_${i + 1}_missing_task`);
         }
         if (typeof s.teacher_tip === 'string' && s.teacher_tip && s.teacher_tip.split(/\s+/).filter(Boolean).length > 30) issues.push(`slide_${i + 1}_tip_too_long`);
+        if (typeof s.speaker_notes === 'string' && s.speaker_notes) {
+            if (s.speaker_notes.split(/\s+/).filter(Boolean).length > 40) issues.push(`slide_${i + 1}_notes_too_long`);
+        } else if (hasTextShape) {
+            issues.push(`slide_${i + 1}_missing_notes`);
+        }
+        // check/wrap slides must not introduce new content.
+        if ((role === 'check' || role === 'wrap') && /(new (term|concept|definition|example)|first (introduc|defin|explain))/i.test(slideLines(s).join(' '))) issues.push(`slide_${i + 1}_${role}_adds_new_content`);
     });
     const comp = String(norm.meta.competency || norm.competency || '');
-    if (comp.length > 60) issues.push('competency_bloated');
-    if (!/^[A-Z0-9-]{3,20}/.test(comp.trim()) && comp !== 'General Standard') issues.push('competency_not_code');
-    const uncited = slides.filter((s) => !/\[S\d+\]/.test(slideLines(s).join(' '))).length;
-    if (slides.length > 0 && uncited === slides.length) issues.push('no_citations');
-    const allText = slides.map((s) => `${s.title || ''} ${slideLines(s).join(' ')} ${slideTip(s)}`.toLowerCase()).join('\n');
+    // Plan-carried competency: descriptive text verbatim is valid. The code
+    // format check is advisory-only when no code pattern is present.
+    const looksLikeCode = /^[A-Z0-9-]{3,20}/.test(comp.trim());
+    if (comp.length > 500) issues.push('competency_bloated');
+    if (looksLikeCode && comp.length > 60) issues.push('competency_bloated');
+    if (!comp.trim()) issues.push('competency_missing');
+    // [P#] plan refs replace [S#] curriculum refs. Old [S#] decks still pass.
+    // Citations live in teacher_script (never on projection).
+    const planCited = slides.filter((s) => /\[P\d+\]/.test(slideScript(s))).length;
+    const legacyCited = slides.filter((s) => /\[S\d+\]/.test(slideScript(s))).length;
+    const uncited = slides.length - planCited - legacyCited;
+    if (slides.length > 0 && uncited > Math.floor(slides.length / 2)) issues.push('citations_too_sparse');
+    // Plan coverage gate: every ILAW/DLL/DLP section represented for the lesson.
+    const planRefs = new Set();
+    slides.forEach((s) => {
+        const m = `${slideScript(s)} ${slideSpeech(s)} ${slideLines(s).join(' ')}`.match(/\[P(\d+)\]/g) || [];
+        m.forEach((x) => planRefs.add(x));
+    });
+    const coverage = prefs.plan_coverage || null;
+    if (coverage && typeof coverage === 'object') {
+        const need = ['intentions', 'experiences', 'assessment', 'ways'].filter((k) => coverage[k]);
+        if (need.length && planRefs.size === 0 && legacyCited === 0) issues.push('plan_coverage_untraced');
+    } else if (prefs.require_plan_coverage && planRefs.size === 0 && legacyCited === 0) {
+        issues.push('plan_coverage_untraced');
+    }
+    const objectives = slides.filter((s) => baseRole(s.id) === 'objectives');
+    const objText = objectives.map((s) => `${s.title || ''} ${slideLines(s).join(' ')}`.toLowerCase()).join('\n');
+    if (objectives.length && !/(by the end|you can|objective)/i.test(objText)) issues.push('objectives_not_measurable');
+    const wraps = slides.filter((s) => baseRole(s.id) === 'wrap');
+    const wrapText = wraps.map((s) => slideLines(s).join(' ')).join(' ').toLowerCase();
+    if (wraps.length && !/(exit ticket|assignment|next)/i.test(wrapText)) issues.push('wrap_missing_exit');
+    const allText = slides.map((s) => `${s.title || ''} ${slideLines(s).join(' ')} ${slideTip(s)} ${slideSpeech(s)} ${slideScript(s)}`.toLowerCase()).join('\n');
     const has = (terms) => terms.some((w) => w && allText.includes(String(w).toLowerCase().slice(0, 24)));
     // Concept-level match: approach/integration count as applied when the lesson
     // shows their pedagogy, not just their literal label (e.g. inquiry-based
@@ -163,7 +243,59 @@ function validateLesson(lesson, prefs = {}) {
     return { valid: issues.length === 0, issues };
 }
 
-function validateQuiz(questions, expectedTotal) {
+// Split a comma- or pipe-separated list, or accept an array directly.
+function splitAliases(value) {
+    if (Array.isArray(value)) return value.map((v) => String(v || '').trim()).filter(Boolean);
+    if (typeof value === 'string' && value.trim()) {
+        return value.split(/[|,]/).map((v) => String(v).trim()).filter(Boolean);
+    }
+    return [];
+}
+
+// Conservative explanation answer extraction. Label-anchored only: the loose
+// "X is Y" pattern previously grabbed the wrong fragment and is gone.
+const EXPLANATION_ANSWER_PATTERNS = [
+    /(?:correct\s+answer|the\s+answer|answer)\s*(?:is|:|=)\s*["'`]?\s*([^,.;\[\]"`]{2,90})/i,
+    /standard\s+form\s*(?:is|:|=)?\s*["'`]?\s*([^,.;\[\]"`]{2,90})/i,
+    /^(?:it\s+is|this\s+is)\s+["'`]?\s*([^,.;\[\]"`]{2,90})/i
+];
+
+function extractAnswerFromExplanation(q) {
+    const expl = String((q && q.explanation) || '');
+    if (!expl.trim()) return '';
+    for (const re of EXPLANATION_ANSWER_PATTERNS) {
+        const m = expl.match(re);
+        if (m && m[1]) {
+            const candidate = m[1].trim().replace(/[.,;:"'`]+$/, '').trim();
+            if (candidate.length >= 2) return candidate;
+        }
+    }
+    return '';
+}
+
+// Resolve the expected answer(s) for an identification question no matter how
+// the model phrased them (accept[]/answer/correct_answer/correct/single option
+// / explanation). Returns [] when nothing recoverable exists.
+function resolveIdentificationAnswer(q) {
+    if (!q || typeof q !== 'object') return [];
+    const aliases = splitAliases(q.accept !== undefined ? q.accept : (q.acceptable_answers !== undefined ? q.acceptable_answers : q.answers));
+    if (aliases.length) return aliases;
+    const single = q.answer ?? q.correct_answer ?? q.correct;
+    if (typeof single === 'string' && single.trim()) return [single.trim()];
+    if (Array.isArray(q.options) && q.options.length) {
+        const isStringArr = typeof q.options[0] === 'string';
+        const marked = q.options.filter((o) => !isStringArr && Number(o.is_correct) === 1);
+        const markedTexts = marked.map((o) => String(o.option_text != null ? o.option_text : o.text || '').trim()).filter(Boolean);
+        if (markedTexts.length) return markedTexts;
+        const texts = q.options.map((o) => String(isStringArr ? o : (o.option_text != null ? o.option_text : o.text || '')).trim()).filter(Boolean);
+        if (texts.length === 1) return texts;
+    }
+    const fromExplanation = extractAnswerFromExplanation(q);
+    if (fromExplanation) return [fromExplanation];
+    return [];
+}
+
+function validateQuiz(questions, expectedTotal, opts = {}) {
     const issues = [];
     if (!Array.isArray(questions)) return { valid: false, issues: ['not_array'] };
     if (expectedTotal && questions.length !== expectedTotal) issues.push(`count_${questions.length}_expected_${expectedTotal}`);
@@ -171,11 +303,28 @@ function validateQuiz(questions, expectedTotal) {
         if (!q.question_text || !String(q.question_text).trim()) issues.push(`q${i + 1}_missing_text`);
         if (!['multiple_choice', 'true_false', 'identification'].includes(q.question_type)) issues.push(`q${i + 1}_bad_type`);
         if (q.question_type === 'multiple_choice') {
-            const opts = Array.isArray(q.options) ? q.options : [];
-            if (opts.length < 2) issues.push(`q${i + 1}_mc_needs_options`);
-            if (opts.filter((o) => o.is_correct).length !== 1) issues.push(`q${i + 1}_mc_needs_one_correct`);
+            const o = Array.isArray(q.options) ? q.options : [];
+            if (o.length < 2) issues.push(`q${i + 1}_mc_needs_options`);
+            if (o.filter((x) => x.is_correct).length !== 1) issues.push(`q${i + 1}_mc_needs_one_correct`);
+        }
+        if (q.question_type === 'identification' && resolveIdentificationAnswer(q).length === 0) {
+            issues.push(`q${i + 1}_ident_needs_answer`);
         }
     });
+    // Dual-grounded quizzes cite [P#] plan sections. Legacy [S#] still passes.
+    if (opts.require_plan_refs) {
+        const cited = questions.filter((q) => /\[P\d+\]/.test(String(q.explanation || '')) || /\[S\d+\]/.test(String(q.explanation || ''))).length;
+        if (questions.length > 0 && cited < Math.ceil(questions.length / 2)) issues.push('quiz_refs_too_sparse');
+    }
+    // Verify the returned type mix matches what the teacher requested.
+    if (opts.expected_mix && typeof opts.expected_mix === 'object') {
+        const actual = { multiple_choice: 0, true_false: 0, identification: 0 };
+        questions.forEach((q) => { if (q && actual[q.question_type] !== undefined) actual[q.question_type] += 1; });
+        Object.keys(actual).forEach((type) => {
+            const want = Number(opts.expected_mix[type]) || 0;
+            if (actual[type] !== want) issues.push(`mix_${type}_${actual[type]}_want_${want}`);
+        });
+    }
     return { valid: issues.length === 0, issues };
 }
 
@@ -184,7 +333,12 @@ module.exports = {
     validateQuiz,
     normalizeLesson,
     slideLines,
+    slideSpeech,
+    slideScript,
     topicAlignment,
     topicTokens,
+    splitAliases,
+    resolveIdentificationAnswer,
+    extractAnswerFromExplanation,
     EXPECTED_ORDER
 };

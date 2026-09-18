@@ -1,6 +1,5 @@
-<div class="mb-4">
-    <h2 class="fw-bold mb-1" style="color: var(--zahs-emerald-deep);">Institutional Settings</h2>
-    <p class="text-muted small mb-0">Configure school branding, academic calendar, and system policies.</p>
+<div class="admin-page-head">
+    <h2>Institutional Settings</h2>
 </div>
 
 <div class="row g-4">
@@ -41,13 +40,37 @@
                     </div>
                     <div class="col-12">
                         <label class="form-label small fw-bold">Replace Official School Logo Crest</label>
-                        <input type="file" name="school_logo" id="logoUpload" class="glass-input" accept="image/jpeg,image/png,image/gif,image/webp" onchange="previewLogo(this)">
-                        <div class="form-text small">Recommended: Transparent PNG (min 200x200).</div>
+                        <input type="file" name="school_logo" id="logoUpload" class="glass-input" accept="image/jpeg,image/png,image/gif,image/webp">
+                        <div class="form-text small">Recommended: Transparent PNG (min 200x200). Max 5 MB.</div>
                     </div>
                 </div>
 
-                <div class="mt-4 pt-3 border-top d-flex justify-content-end align-items-center gap-2" style="border-color: rgba(16,185,129,0.15) !important;">
+                <!-- Phase 0.2: security + AI feature controls (persisted to system_settings) -->
+                <h6 class="fw-bold mt-4 mb-3 border-bottom pb-2" style="border-color: rgba(16,185,129,0.15) !important;">
+                    <i class="bi bi-shield-lock text-success me-2"></i>Security & AI Features
+                </h6>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold" for="sessionTimeout">Session Timeout (minutes)</label>
+                        <input type="number" name="session_timeout" id="sessionTimeout" class="glass-input" min="5" max="1440" step="1" value="<%= settings.session_timeout || '120' %>" required>
+                        <div class="form-text small">Auto sign-out after inactivity. Range 5&ndash;1440 minutes.</div>
+                    </div>
+                    <div class="col-md-6 d-flex flex-column gap-2 justify-content-center">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="allow_student_chat" value="1" id="flagStudentChat" <%= (settings.allow_student_chat === undefined || settings.allow_student_chat === '1') ? 'checked' : '' %>>
+                            <label class="form-check-label small fw-bold" for="flagStudentChat">AI Study Tutor for students</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="allow_ai_lesson" value="1" id="flagAiLesson" <%= (settings.allow_ai_lesson === undefined || settings.allow_ai_lesson === '1') ? 'checked' : '' %>>
+                            <label class="form-check-label small fw-bold" for="flagAiLesson">AI Lesson Generator for teachers</label>
+                        </div>
+                        <div class="form-text small">Turning a feature off blocks its page and API with a notice.</div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-top d-flex justify-content-end align-items-center gap-2 flex-wrap" style="border-color: rgba(16,185,129,0.15) !important;">
                     <span id="dirtyBadge" class="badge-amber d-none">Unsaved changes</span>
+                    <input type="text" name="reason" class="glass-input py-1 px-3 small" style="max-width: 260px;" placeholder="Reason (min 10 chars, audited)" required minlength="10" aria-label="Reason for settings change">
                     <button type="submit" class="btn btn-liquid-primary">
                         <i class="bi bi-check2-circle me-1"></i> Save Configuration
                     </button>
@@ -64,25 +87,10 @@
                 <img src="<%= settings.school_logo || '/images/zahs-logo.png' %>" alt="School Crest" style="width: 110px; height: 110px; object-fit: contain;">
             </div>
             <h5 class="fw-bold text-dark mb-1"><%= settings.school_name %></h5>
-            <div class="badge-amber mb-2"><%= settings.school_abbr %> &bull; 1981</div>
+            <div class="badge-amber mb-2"><%= settings.school_abbr %> &bull; <%= settings.school_year || '' %></div>
             <p class="small text-muted fst-italic mb-0">"<%= settings.school_motto %>"</p>
         </div>
     </div>
 </div>
 
-<script>
-// Instant logo preview + dirty-state badge (client-side only, no upload until Save)
-function previewLogo(input) {
-    const file = input && input.files && input.files[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    const preview = document.querySelector('.glass-card img[alt="School Crest"]');
-    if (preview) preview.src = url;
-    markSettingsDirty();
-}
-function markSettingsDirty() {
-    const badge = document.getElementById('dirtyBadge');
-    if (badge) badge.classList.remove('d-none');
-}
-document.querySelector('form[action="/admin/settings"]')?.addEventListener('input', markSettingsDirty);
-</script>
+<script src="/js/settings.js" defer></script>

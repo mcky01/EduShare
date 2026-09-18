@@ -18,7 +18,7 @@ function normalizeEmail(raw) {
 async function requestOtp(emailRaw, purpose) {
     const email = normalizeEmail(emailRaw);
     if (!email.includes('@')) throw new InvalidCode('Invalid email.');
-    if (!['teacher_register', 'student_register'].includes(purpose)) throw new Error('Invalid OTP purpose.');
+    if (!['teacher_register', 'student_register', 'password_reset'].includes(purpose)) throw new Error('Invalid OTP purpose.');
     const recent = await query(
         `SELECT COUNT(*) AS n FROM otp_verifications
          WHERE email = ? AND purpose = ? AND consumed_at IS NULL AND created_at > (NOW() - INTERVAL 10 MINUTE)`,

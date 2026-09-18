@@ -21,9 +21,8 @@ function requireRole(role) {
             if (req.xhr || req.headers.accept?.includes('application/json')) {
                 return res.status(403).json({ error: 'Access forbidden: Insufficient permissions.' });
             }
-            return res.status(403).render('errors/404', {
-                title: 'Access Forbidden',
-                message: 'You do not have permission to access this portal page.'
+            return res.status(403).render('errors/403', {
+                title: 'Access Forbidden'
             });
         }
         next();

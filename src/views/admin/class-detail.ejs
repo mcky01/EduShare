@@ -1,0 +1,342 @@
+<!-- Class Header Banner (read-only oversight variant) -->
+<%- include('../partials/admin-crumbs', { trail: [{ label: 'Classes', href: '/admin/classes' }, { label: cls.class_name }] }) %>
+<div class="glass-card p-4 mb-4" style="background: linear-gradient(135deg, rgba(13,82,44,0.1), rgba(245,158,11,0.06)), rgba(255,255,255,0.85);">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span class="badge-emerald"><%= cls.subject %></span>
+                <span class="badge-amber font-monospace fs-6 px-3 py-1 d-inline-flex align-items-center gap-2">Student Join Code: <strong><%= cls.class_code %></strong>
+                    <button type="button" class="btn btn-sm btn-glass py-0 px-1 copy-code-btn" data-code="<%= cls.class_code %>" title="Copy class code" aria-label="Copy class code"><i class="bi bi-clipboard"></i></button>
+                    <span class="small copy-feedback" role="status" aria-live="polite"></span>
+                </span>
+                <span class="badge-gray"><i class="bi bi-eye me-1"></i>Read-only oversight</span>
+            </div>
+            <h2 class="fw-bold text-dark mb-1" style="font-size: 1.25rem;"><%= cls.class_name %></h2>
+            <div class="small text-muted">
+                <%= cls.grade_level %> &bull; Section <%= cls.section %> &bull; <%= cls.room || 'Room 201' %> &bull; <%= cls.schedule || 'Regular Schedule' %>
+            </div>
+            <div class="small text-muted mt-1">
+                <i class="bi bi-person-badge me-1"></i>Teacher: <strong class="text-dark"><%= cls.teacher_first %> <%= cls.teacher_last %></strong> (<%= cls.teacher_email %>)
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <span class="badge-gray align-self-center"><i class="bi bi-eye me-1"></i>Read-only oversight</span>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card px-3 py-2 mb-4">
+    <span class="small text-muted"><i class="bi bi-info-circle me-1"></i>Oversight with intervention powers — routine changes stay with the class teacher. Every admin action below requires a reason and is audit-logged.</span>
+</div>
+
+<!-- Phase 2: Administration card (transfer / archive) -->
+<div class="glass-card p-4 mb-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-shield-lock text-success me-2"></i>Class Administration</h5>
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <form action="/admin/classes/<%= cls.id %>/transfer" method="POST" data-confirm="Transfer this class to the selected teacher? Roster, gradebook and postings move with it; authored content stays with the original teacher." data-require-reason>
+                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                <label class="form-label small fw-bold" for="transferTeacher">Transfer to teacher (continuity handover)</label>
+                <div class="d-flex gap-2 flex-wrap">
+                    <select name="new_teacher_id" id="transferTeacher" class="glass-input" style="max-width: 260px;" required>
+                        <option value="">Select receiving teacher...</option>
+                        <% activeTeachers.forEach(t => { %>
+                            <option value="<%= t.id %>"><%= t.last_name %>, <%= t.first_name %> (<%= t.email %>)</option>
+                        <% }) %>
+                    </select>
+                    <input type="text" name="reason" class="glass-input flex-grow-1" style="min-width: 220px;" placeholder="Reason (min 10 chars, e.g. teacher resignation handover)" required minlength="10">
+                    <button type="submit" class="btn btn-liquid-primary">Transfer</button>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-5">
+            <% if (cls.is_active) { %>
+                <form action="/admin/classes/<%= cls.id %>/archive" method="POST" data-confirm="Archive this class? Join-code enrollment closes immediately." data-require-reason>
+                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                    <label class="form-label small fw-bold" for="archiveReason">Archive class</label>
+                    <div class="d-flex gap-2">
+                        <input type="text" name="reason" id="archiveReason" class="glass-input flex-grow-1" placeholder="Reason (min 10; 20 if students enrolled)" required minlength="10">
+                        <button type="submit" class="btn btn-glass">Archive</button>
+                    </div>
+                </form>
+            <% } else { %>
+                <form action="/admin/classes/<%= cls.id %>/unarchive" method="POST">
+                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                    <label class="form-label small fw-bold" for="unarchiveReason">Restore archived class</label>
+                    <div class="d-flex gap-2">
+                        <input type="text" name="reason" id="unarchiveReason" class="glass-input flex-grow-1" placeholder="Reason (min 10 chars)" required minlength="10">
+                        <button type="submit" class="btn btn-liquid-primary">Restore</button>
+                    </div>
+                </form>
+            <% } %>
+        </div>
+    </div>
+    <% if (interventions.length > 0) { %>
+        <div class="mt-3 pt-3 border-top">
+            <div class="small fw-bold text-muted mb-2">Recent interventions on this class</div>
+            <% interventions.forEach(iv => { %>
+                <div class="small text-secondary"><strong class="text-dark"><%= iv.action %></strong> — <%= iv.description %> <span class="text-muted">(<%= iv.first_name %> <%= iv.last_name %>, <%= new Date(iv.created_at).toLocaleString() %>)</span></div>
+            <% }) %>
+        </div>
+    <% } %>
+</div>
+
+<!-- Navigation Tabs (filter-pill idiom, matches classes/users bars) -->
+<nav class="glass-card p-3 mb-4 d-flex gap-1 flex-wrap align-items-center" aria-label="Class sections">
+    <a class="filter-pill <%= activeTab === 'materials' ? 'active' : '' %>"<%= activeTab === 'materials' ? ' aria-current="page"' : '' %> href="/admin/classes/<%= cls.id %>?tab=materials">
+        <i class="bi bi-folder me-1"></i> Materials (<%= materials.length %>)
+    </a>
+    <a class="filter-pill <%= activeTab === 'activities' ? 'active' : '' %>"<%= activeTab === 'activities' ? ' aria-current="page"' : '' %> href="/admin/classes/<%= cls.id %>?tab=activities">
+        <i class="bi bi-pencil-square me-1"></i> Activities (<%= activities.length %>)
+    </a>
+    <a class="filter-pill <%= activeTab === 'quizzes' ? 'active' : '' %>"<%= activeTab === 'quizzes' ? ' aria-current="page"' : '' %> href="/admin/classes/<%= cls.id %>?tab=quizzes">
+        <i class="bi bi-card-checklist me-1"></i> Quizzes (<%= quizzes.length %>)
+    </a>
+    <a class="filter-pill <%= activeTab === 'announcements' ? 'active' : '' %>"<%= activeTab === 'announcements' ? ' aria-current="page"' : '' %> href="/admin/classes/<%= cls.id %>?tab=announcements">
+        <i class="bi bi-megaphone me-1"></i> Announcements (<%= announcements.length %>)
+    </a>
+    <a class="filter-pill <%= activeTab === 'students' ? 'active' : '' %>"<%= activeTab === 'students' ? ' aria-current="page"' : '' %> href="/admin/classes/<%= cls.id %>?tab=students">
+        <i class="bi bi-people me-1"></i> Students (<%= students.length %>)
+    </a>
+    <span class="ms-auto"></span>
+    <a href="/admin/gradebook?classId=<%= cls.id %>" class="btn btn-sm btn-glass">
+        <i class="bi bi-table me-1"></i>Gradebook
+    </a>
+</nav>
+
+<!-- TAB CONTENT -->
+<% if (activeTab === 'materials') { %>
+    <h5 class="fw-bold mb-3">Class Learning Materials</h5>
+    <div class="row g-3">
+        <% if (materials.length === 0) { %>
+            <div class="col-12">
+                <div class="glass-card p-5 text-center text-muted">
+                    <i class="bi bi-file-earmark-text fs-2 d-block mb-2 text-success"></i>
+                    <h6>No Materials Posted Yet</h6>
+                </div>
+            </div>
+        <% } %>
+        <% materials.forEach(m => { %>
+            <div class="col-md-6 col-lg-4">
+                <div class="glass-card p-3 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge-emerald"><%= m.subject || 'Material' %></span>
+                            <span class="small text-muted font-monospace"><%= m.file_size || '' %></span>
+                        </div>
+                        <h6 class="fw-bold text-dark mb-1"><%= m.title %></h6>
+                        <p class="small text-muted mb-3"><%= m.description || 'No description provided.' %></p>
+                    </div>
+                    <div class="border-top pt-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span class="small text-muted"><%= new Date(m.posted_at).toLocaleDateString() %></span>
+                        <div class="d-flex gap-1">
+                            <% if (m.file_path) { %>
+                                <a href="<%= m.file_path %>" target="_blank" class="btn btn-sm btn-glass">
+                                    <i class="bi bi-download me-1"></i> View / Download
+                                </a>
+                            <% } %>
+                            <form action="/admin/materials/<%= m.id %>/unpost" method="POST" class="d-flex gap-1 align-items-center" data-confirm="Unpost this material from the class? The teacher library copy is kept." data-require-reason>
+                                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                <input type="hidden" name="class_id" value="<%= cls.id %>">
+                                <input type="text" name="reason" class="glass-input py-1 px-2 small reason-input" placeholder="Reason (min 10)" required minlength="10" aria-label="Reason">
+                                <button type="submit" class="btn btn-sm btn-glass" title="Unpost from class">
+                                    <i class="bi bi-eye-slash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        <% }) %>
+    </div>
+
+<% } else if (activeTab === 'activities') { %>
+    <h5 class="fw-bold mb-3">Class Activities & Assignments</h5>
+    <div class="glass-table-container">
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Activity</th>
+                        <th scope="col">Points</th>
+                        <th scope="col">Due</th>
+                        <th scope="col">Submissions</th>
+                        <th scope="col">Inspect</th>
+                        <th scope="col">Takedown</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (activities.length === 0) { %>
+                        <tr><td colspan="6" class="text-center py-4 text-muted">No activities posted in this class.</td></tr>
+                    <% } %>
+                    <% activities.forEach(a => { %>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark"><%= a.title %></div>
+                                <div class="small text-muted"><%= (a.instructions || '').slice(0, 120) %></div>
+                            </td>
+                            <td><%= a.points %></td>
+                            <td class="small text-muted"><%= a.due_date ? new Date(a.due_date).toLocaleString() : 'No deadline' %></td>
+                            <td><span class="badge-emerald"><%= a.submission_count %> / <%= a.total_students %></span></td>
+                            <td>
+                                <a href="/admin/activities/<%= a.id %>" class="btn btn-sm btn-glass">
+                                    <i class="bi bi-eye me-1"></i>Submissions
+                                </a>
+                            </td>
+                            <td>
+                                <form action="/admin/activities/<%= a.id %>/unpost" method="POST" class="d-flex gap-1 align-items-center" data-confirm="Unpost this activity from the class? Submissions and grades are preserved." data-require-reason>
+                                    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                    <input type="hidden" name="class_id" value="<%= cls.id %>">
+                                    <input type="text" name="reason" class="glass-input py-1 px-2 small reason-input" placeholder="Reason (min 10)" required minlength="10" aria-label="Reason">
+                                    <button type="submit" class="btn btn-sm btn-glass" title="Unpost from class">
+                                        <i class="bi bi-eye-slash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<% } else if (activeTab === 'quizzes') { %>
+    <h5 class="fw-bold mb-3">Posted Quizzes</h5>
+    <div class="glass-table-container">
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Quiz</th>
+                        <th scope="col">Questions</th>
+                        <th scope="col">Window</th>
+                        <th scope="col">Attempts</th>
+                        <th scope="col">Inspect</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (quizzes.length === 0) { %>
+                        <tr><td colspan="5" class="text-center py-4 text-muted">No quizzes posted in this class.</td></tr>
+                    <% } %>
+                    <% quizzes.forEach(q => { %>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark"><%= q.title %></div>
+                                <div class="small text-muted"><%= (q.description || '').slice(0, 120) %></div>
+                            </td>
+                            <td><%= q.total_questions %></td>
+                            <td class="small text-muted"><%= q.is_published ? 'Published' : 'Hidden' %><%= q.end_time ? ' · ends ' + new Date(q.end_time).toLocaleString() : '' %></td>
+                            <td><span class="badge-emerald"><%= q.attempt_count %></span></td>
+                            <td>
+                                <a href="/admin/quizzes/<%= q.id %>" class="btn btn-sm btn-glass">
+                                    <i class="bi bi-eye me-1"></i>Attempts
+                                </a>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<% } else if (activeTab === 'announcements') { %>
+    <h5 class="fw-bold mb-3">Class Announcements</h5>
+    <div class="d-flex flex-column gap-3">
+        <% if (announcements.length === 0) { %>
+            <div class="glass-card p-5 text-center text-muted">No announcements yet.</div>
+        <% } %>
+        <% announcements.forEach(a => { %>
+            <div class="glass-card p-3" style="border-left: 3px solid var(--zahs-jade);">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span class="fw-bold text-dark"><%= a.title %></span>
+                    <span class="d-flex gap-2 align-items-center">
+                        <span class="small text-muted"><%= new Date(a.created_at).toLocaleString() %> &bull; <%= a.read_count %> reads</span>
+                        <% if (a.is_published) { %>
+                            <form action="/admin/announcements/<%= a.id %>/hide" method="POST" class="d-flex gap-1 align-items-center" data-confirm="Hide this announcement from the student feed? Reversible." data-require-reason>
+                                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                <input type="text" name="reason" class="glass-input py-1 px-2 small reason-input" placeholder="Reason (min 10)" required minlength="10" aria-label="Reason">
+                                <button type="submit" class="btn btn-sm btn-glass" title="Hide announcement"><i class="bi bi-eye-slash"></i></button>
+                            </form>
+                        <% } else { %>
+                            <form action="/admin/announcements/<%= a.id %>/show" method="POST" class="d-flex gap-1 align-items-center" data-require-reason>
+                                <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                <input type="text" name="reason" class="glass-input py-1 px-2 small reason-input" placeholder="Reason (min 10)" required minlength="10" aria-label="Reason">
+                                <button type="submit" class="btn btn-sm btn-liquid-primary" title="Restore announcement"><i class="bi bi-eye"></i></button>
+                            </form>
+                        <% } %>
+                    </span>
+                </div>
+                <div class="small text-secondary mt-1"><%= a.message %></div>
+                <div class="mt-1">
+                    <% if (a.is_pinned) { %><span class="badge-amber">Pinned</span><% } %>
+                    <span class="badge-emerald"><%= a.category %></span>
+                    <% if (!a.is_published) { %><span class="badge-gray">Hidden by admin</span><% } %>
+                </div>
+            </div>
+        <% }) %>
+    </div>
+
+<% } else if (activeTab === 'students') { %>
+    <h5 class="fw-bold mb-3">Enrollments (<%= students.length %>)</h5>
+    <p class="text-muted small">Moving starts a clean grade slate in the destination class — grade history stays in the source class. Dropping is reversible via Restore.</p>
+    <div class="glass-table-container">
+        <div class="table-responsive">
+            <table class="glass-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Student</th>
+                        <th scope="col">LRN</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Enrolled</th>
+                        <th scope="col">Move / Drop</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (students.length === 0) { %>
+                        <tr><td colspan="5" class="text-center py-4 text-muted">No enrollments.</td></tr>
+                    <% } %>
+                    <% students.forEach(s => { %>
+                        <tr>
+                            <td>
+                                <a href="/admin/users/<%= s.user_id %>" class="fw-bold text-dark text-decoration-none"><%= s.first_name %> <%= s.last_name %></a>
+                                <div class="small text-muted"><%= s.email %></div>
+                            </td>
+                            <td class="font-monospace small"><%= s.lrn %></td>
+                            <td>
+                                <span class="<%= s.enrollment_status === 'active' ? 'badge-emerald' : 'badge-gray' %>"><%= s.enrollment_status %></span>
+                            </td>
+                            <td class="small text-muted"><%= s.enrollment_date ? new Date(s.enrollment_date).toLocaleDateString() : 'N/A' %></td>
+                            <td>
+                                <% if (s.enrollment_status === 'active') { %>
+                                    <form action="/admin/enrollments/<%= s.enrollment_id %>/move" method="POST" class="d-flex gap-1 flex-wrap" data-require-reason>
+                                        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                        <select name="class_id" class="glass-input py-1 px-2 small" style="width: auto; max-width: 170px;" required aria-label="Destination class">
+                                            <option value="">Move to...</option>
+                                            <% otherClasses.forEach(c => { %>
+                                                <option value="<%= c.id %>"><%= c.class_name %> (<%= c.class_code %>)</option>
+                                            <% }) %>
+                                        </select>
+                                        <input type="text" name="reason" class="glass-input py-1 px-2 small reason-input" placeholder="Reason (min 10)" required minlength="10" aria-label="Reason">
+                                        <button type="submit" class="btn btn-sm btn-glass" title="Move enrollment"><i class="bi bi-arrow-left-right"></i></button>
+                                    </form>
+                                    <form action="/admin/enrollments/<%= s.enrollment_id %>/drop" method="POST" class="d-flex gap-1 mt-1 align-items-center" data-confirm="Drop this student from the class? Reversible." data-require-reason>
+                                        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                        <input type="text" name="reason" class="glass-input py-1 px-2 small reason-input" placeholder="Reason (min 10)" required minlength="10" aria-label="Reason">
+                                        <button type="submit" class="btn btn-sm btn-glass" title="Drop enrollment"><i class="bi bi-person-dash"></i> Drop</button>
+                                    </form>
+                                <% } else { %>
+                                    <form action="/admin/enrollments/<%= s.enrollment_id %>/restore" method="POST" class="d-flex gap-1 align-items-center" data-confirm="Restore this enrollment?" data-require-reason>
+                                        <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
+                                        <input type="text" name="reason" class="glass-input py-1 px-2 small reason-input" placeholder="Reason (min 10)" required minlength="10" aria-label="Reason">
+                                        <button type="submit" class="btn btn-sm btn-liquid-primary"><i class="bi bi-person-check me-1"></i>Restore</button>
+                                    </form>
+                                <% } %>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+<% } %>

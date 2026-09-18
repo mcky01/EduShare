@@ -5,7 +5,7 @@ const path = require('path');
 const env = require('./env');
 
 async function initDatabase() {
-    console.log('🔄 [EduShare 2.0] Initializing database...');
+    console.log('🔄 [EduShare] Initializing database...');
 
     // Connect to MySQL server without selecting database
     const conn = await mysql.createConnection({
@@ -18,7 +18,7 @@ async function initDatabase() {
     try {
         // 1. Ensure database exists
         await conn.query(`CREATE DATABASE IF NOT EXISTS \`${env.DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-        console.log(`✅ [EduShare 2.0] Database '${env.DB_NAME}' ensured.`);
+        console.log(`✅ [EduShare] Database '${env.DB_NAME}' ensured.`);
         await conn.query(`USE \`${env.DB_NAME}\``);
 
         // 2. Read and run schema.sql
@@ -50,7 +50,7 @@ async function initDatabase() {
                     }
                 }
             }
-            console.log('✅ [EduShare 2.0] Database schema applied successfully.');
+            console.log('✅ [EduShare] Database schema applied successfully.');
         }
 
         // 2b. Idempotent column upgrades (MySQL-safe; ALTER ... IF NOT EXISTS is MariaDB-only)
@@ -63,7 +63,26 @@ async function initDatabase() {
             await conn.query(
                 `ALTER TABLE \`users\` ADD COLUMN \`status\` ENUM('pending','active','rejected') NOT NULL DEFAULT 'active' AFTER \`is_active\``
             );
-            console.log('✅ [EduShare 2.0] users.status column added.');
+            console.log('✅ [EduShare] users.status column added.');
+        }
+
+        // 2c1. OTP upgrades: password_reset purpose for the forgot/reset flow.
+        // Idempotent information_schema gate — runs every boot, ALTERs only when
+        // the value is missing, so fresh installs and migrated DBs stay silent.
+        try {
+            const [otpCol] = await conn.query(
+                `SELECT COLUMN_TYPE AS col_type FROM information_schema.COLUMNS
+                  WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'otp_verifications' AND COLUMN_NAME = 'purpose'`,
+                [env.DB_NAME]
+            );
+            if (otpCol.length > 0 && !String(otpCol[0].col_type).includes('password_reset')) {
+                await conn.query(
+                    `ALTER TABLE \`otp_verifications\` MODIFY COLUMN \`purpose\` ENUM('teacher_register','student_register','password_reset') NOT NULL`
+                );
+                console.log('✅ [EduShare] otp_verifications.purpose enum extended with password_reset.');
+            }
+        } catch (err) {
+            console.warn('⚠️ OTP purpose upgrade warning:', err.message);
         }
 
         // 2c. RAG upgrades: term columns + document_chunks (existing DBs predate Phase 1)
@@ -80,8 +99,191 @@ async function initDatabase() {
             );
             if (cols[0].cnt === 0) {
                 await conn.query(`ALTER TABLE \`${tbl}\` ${ddl}`);
-                console.log(`✅ [EduShare 2.0] ${tbl}.${col} column added.`);
+                console.log(`✅ [EduShare] ${tbl}.${col} column added.`);
             }
+        }
+
+        // 2d. Teacher self-registration upgrades: optional grade_level + section
+        // declared at signup (subject/strand deferred until SHS offerings known).
+        // information_schema-gated so old DBs migrate on boot.
+        // 2e. Enrollment backfill: students created/approved before the
+        // auto-enroll fix have users+students rows but no enrollments rows,
+        // so they are invisible in every roster/gradebook (which all read
+        // via enrollments). Idempotent INSERT IGNORE — re-runs are no-ops.
+        // Runs inline here (same connection, post-schema) so it also heals
+        // DBs that boot with the server already running.
+        // 2f. Section transfer requests table (adviser lifecycle, dual approval).
+        // Created via the schema.sql runner above on fresh installs; ensured
+        // here explicitly so existing DBs migrate on boot.
+        const teacherUpgrades = [
+            ['teachers', 'grade_level', 'ADD COLUMN `grade_level` VARCHAR(20) DEFAULT NULL'],
+            ['teachers', 'section', 'ADD COLUMN `section` VARCHAR(50) DEFAULT NULL']
+        ];
+        for (const [tbl, col, ddl] of teacherUpgrades) {
+            const [cols] = await conn.query(
+                `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+                [env.DB_NAME, tbl, col]
+            );
+            if (cols[0].cnt === 0) {
+                await conn.query(`ALTER TABLE \`${tbl}\` ${ddl}`);
+                console.log(`✅ [EduShare] ${tbl}.${col} column added.`);
+            }
+        }
+
+        // 2e. Enrollment backfill (inline, same connection): heal students
+        // created/approved before the auto-enroll fix.
+        try {
+            const [orphans] = await conn.query(
+                `SELECT s.id, s.grade_level, s.section
+                 FROM students s
+                 JOIN users u ON s.user_id = u.id
+                 WHERE u.status = 'active' AND u.is_active = 1
+                   AND NOT EXISTS (
+                       SELECT 1 FROM enrollments e
+                       WHERE e.student_id = s.id AND e.status = 'active'
+                   )`
+            );
+            let fixed = 0; let added = 0;
+            for (const o of orphans) {
+                const grade = String(o.grade_level || '').trim();
+                const section = String(o.section || '').trim();
+                if (!grade || !section) continue;
+                const [mates] = await conn.query(
+                    `SELECT id FROM classes
+                     WHERE is_active = 1
+                       AND LOWER(TRIM(grade_level)) = LOWER(?)
+                       AND LOWER(TRIM(section)) = LOWER(?)`,
+                    [grade, section]
+                );
+                for (const m of mates) {
+                    const [ins] = await conn.query(
+                        "INSERT IGNORE INTO enrollments (student_id, class_id, status) VALUES (?, ?, 'active')",
+                        [o.id, m.id]
+                    );
+                    if (ins.affectedRows > 0) added += 1;
+                }
+                if (mates.length > 0) fixed += 1;
+            }
+            if (orphans.length > 0) {
+                console.log(`✅ [EduShare] Enrollment backfill: ${fixed}/${orphans.length} unenrolled active student(s) matched (${added} row(s) added).`);
+            }
+        } catch (err) {
+            console.warn('⚠️ Enrollment backfill warning:', err.message);
+        }
+
+        // 2f. Section transfer requests table (explicit ensure for existing DBs).
+        try {
+            const [tTables] = await conn.query(
+                `SELECT COUNT(*) AS cnt FROM information_schema.TABLES
+                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'section_transfer_requests'`,
+                [env.DB_NAME]
+            );
+            if (tTables[0].cnt === 0) {
+                await conn.query(
+                    `CREATE TABLE \`section_transfer_requests\` (
+                        \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+                        \`student_id\` INT NOT NULL,
+                        \`from_grade\` VARCHAR(20) NOT NULL,
+                        \`from_section\` VARCHAR(50) NOT NULL,
+                        \`to_grade\` VARCHAR(20) NOT NULL,
+                        \`to_section\` VARCHAR(50) NOT NULL,
+                        \`requested_by\` INT NOT NULL,
+                        \`reason\` VARCHAR(500) NOT NULL,
+                        \`status\` ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+                        \`receiver_decided_by\` INT DEFAULT NULL,
+                        \`receiver_decision\` ENUM('approved','rejected') DEFAULT NULL,
+                        \`receiver_decided_at\` DATETIME DEFAULT NULL,
+                        \`admin_decided_by\` INT DEFAULT NULL,
+                        \`admin_decision\` ENUM('approved','rejected') DEFAULT NULL,
+                        \`admin_decided_at\` DATETIME DEFAULT NULL,
+                        \`decision_reason\` VARCHAR(500) DEFAULT NULL,
+                        \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        UNIQUE KEY \`unique_pending_student\` (\`student_id\`, \`status\`),
+                        INDEX \`idx_transfer_status\` (\`status\`),
+                        FOREIGN KEY (\`student_id\`) REFERENCES \`students\` (\`id\`) ON DELETE CASCADE,
+                        FOREIGN KEY (\`requested_by\`) REFERENCES \`users\` (\`id\`) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+                );
+                console.log('✅ [EduShare] section_transfer_requests table added.');
+            }
+        } catch (err) {
+            console.warn('⚠️ Transfer table upgrade warning:', err.message);
+        }
+
+        // 2g. Student change requests table (unified adviser → admin
+        // approval queue for edit/drop/restore/deactivate). Explicit
+        // ensure so existing DBs migrate on boot.
+        try {
+            const [cTables] = await conn.query(
+                `SELECT COUNT(*) AS cnt FROM information_schema.TABLES
+                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'student_change_requests'`,
+                [env.DB_NAME]
+            );
+            if (cTables[0].cnt === 0) {
+                await conn.query(
+                    `CREATE TABLE \`student_change_requests\` (
+                        \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+                        \`student_id\` INT NOT NULL,
+                        \`request_type\` ENUM('edit','drop','restore','deactivate') NOT NULL,
+                        \`payload\` JSON DEFAULT NULL,
+                        \`teacher_note\` VARCHAR(500) NOT NULL,
+                        \`requested_by\` INT NOT NULL,
+                        \`status\` ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+                        \`decided_by\` INT DEFAULT NULL,
+                        \`decision_note\` VARCHAR(500) DEFAULT NULL,
+                        \`decided_at\` DATETIME DEFAULT NULL,
+                        \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        UNIQUE KEY \`unique_pending_change\` (\`student_id\`, \`status\`),
+                        INDEX \`idx_change_status\` (\`status\`),
+                        INDEX \`idx_change_type\` (\`request_type\`),
+                        FOREIGN KEY (\`student_id\`) REFERENCES \`students\` (\`id\`) ON DELETE CASCADE,
+                        FOREIGN KEY (\`requested_by\`) REFERENCES \`users\` (\`id\`) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+                );
+                console.log('✅ [EduShare] student_change_requests table added.');
+            }
+        } catch (err) {
+            console.warn('⚠️ Change-request table upgrade warning:', err.message);
+        }
+
+        // 2h. Notifications table (student notification center). Fresh installs
+        // get it from the schema.sql runner above; this ensures existing DBs
+        // migrate on boot. information_schema-gated, runs every start.
+        try {
+            const [nTables] = await conn.query(
+                `SELECT COUNT(*) AS cnt FROM information_schema.TABLES
+                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'notifications'`,
+                [env.DB_NAME]
+            );
+            if (nTables[0].cnt === 0) {
+                await conn.query(
+                    `CREATE TABLE \`notifications\` (
+                        \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+                        \`student_id\` INT NOT NULL,
+                        \`class_id\` INT DEFAULT NULL,
+                        \`type\` ENUM('announcement','activity','material','quiz','grade','enrollment','reminder','system') NOT NULL DEFAULT 'announcement',
+                        \`title\` VARCHAR(255) NOT NULL,
+                        \`message\` VARCHAR(500) DEFAULT NULL,
+                        \`link_url\` VARCHAR(500) DEFAULT NULL,
+                        \`ref_type\` VARCHAR(50) NOT NULL DEFAULT '',
+                        \`ref_id\` INT NOT NULL DEFAULT 0,
+                        \`is_read\` TINYINT(1) NOT NULL DEFAULT 0,
+                        \`read_at\` DATETIME DEFAULT NULL,
+                        \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE KEY \`unique_student_ref\` (\`student_id\`, \`ref_type\`, \`ref_id\`, \`class_id\`),
+                        INDEX \`idx_notifications_student\` (\`student_id\`, \`is_read\`, \`created_at\`),
+                        INDEX \`idx_notifications_class\` (\`class_id\`),
+                        FOREIGN KEY (\`student_id\`) REFERENCES \`students\` (\`id\`) ON DELETE CASCADE,
+                        FOREIGN KEY (\`class_id\`) REFERENCES \`classes\` (\`id\`) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+                );
+                console.log('✅ [EduShare] notifications table added.');
+            }
+        } catch (err) {
+            console.warn('⚠️ Notifications table upgrade warning:', err.message);
         }
 
         // 3. Seed Default System Settings
@@ -105,7 +307,7 @@ async function initDatabase() {
                 [key, value, cat, desc]
             );
         }
-        console.log('✅ [EduShare 2.0] System settings configured.');
+        console.log('✅ [EduShare] System settings configured.');
 
         // 4. Seed Default Admin User
         const [adminRows] = await conn.query('SELECT id FROM users WHERE email = ?', ['admin@edushare.com']);
@@ -118,7 +320,7 @@ async function initDatabase() {
                 [adminHash]
             );
             adminId = adminResult.insertId;
-            console.log('👑 [EduShare 2.0] Default Administrator account ensured.');
+            console.log('👑 [EduShare] Default Administrator account ensured.');
         } else {
             adminId = adminRows[0].id;
         }
@@ -139,7 +341,7 @@ async function initDatabase() {
                  VALUES (?, 'EMP-2024-001', 'Junior High School', 'English & Literature', 1, 'Grade 7', 'Rizal')`,
                 [teacherUserId]
             );
-            console.log('👩‍🏫 [EduShare 2.0] Default Teacher account ensured.');
+            console.log('👩‍🏫 [EduShare] Default Teacher account ensured.');
         } else {
             teacherUserId = teacherRows[0].id;
         }
@@ -184,7 +386,7 @@ async function initDatabase() {
                     [sUserId, s.lrn, s.grade, s.section, s.gender]
                 );
                 studentProfileIds.push(spRes.insertId);
-                console.log(`🎒 [EduShare 2.0] Default Student account ensured: ${s.email}`);
+                console.log(`🎒 [EduShare] Default Student account ensured: ${s.email}`);
             } else {
                 sUserId = sRows[0].id;
                 const [sp] = await conn.query('SELECT id FROM students WHERE user_id = ?', [sUserId]);
@@ -202,7 +404,7 @@ async function initDatabase() {
                 [teacherUserId]
             );
             classId = cRes.insertId;
-            console.log('🏫 [EduShare 2.0] Sample Class created: English 7 - Section Rizal (Code: ENG7RZ)');
+            console.log('🏫 [EduShare] Sample Class created: English 7 - Section Rizal (Code: ENG7RZ)');
 
             // Enroll students
             for (const spId of studentProfileIds) {
@@ -307,7 +509,7 @@ async function initDatabase() {
                     [classId, catRows[0].id, quizId]
                 );
             }
-            console.log('📝 [EduShare 2.0] Sample Quiz created and linked to Class & Gradebook.');
+            console.log('📝 [EduShare] Sample Quiz created and linked to Class & Gradebook.');
         }
 
         // 10. Seed Sample Class Activity
@@ -337,7 +539,7 @@ async function initDatabase() {
                     [classId, ptCat[0].id, actId]
                 );
             }
-            console.log('📋 [EduShare 2.0] Sample Activity created and linked to Class & Gradebook.');
+            console.log('📋 [EduShare] Sample Activity created and linked to Class & Gradebook.');
         }
 
         // 11. Seed DepEd Competencies
@@ -358,9 +560,9 @@ async function initDatabase() {
                 [code, desc, subj, gr, qtr, term]
             );
         }
-        console.log('📚 [EduShare 2.0] DepEd Competencies seeded.');
+        console.log('📚 [EduShare] DepEd Competencies seeded.');
 
-        console.log('✨ [EduShare 2.0] Database initialization fully completed! Ready for deployment.');
+        console.log('✨ [EduShare] Database initialization fully completed! Ready for deployment.');
     } finally {
         await conn.end();
     }

@@ -15,19 +15,22 @@
 
 <!-- Filter Bar -->
 <% const _subjects = [...new Set((items || []).map(i => (i.subject || 'General')))]; %>
-<div class="glass-card p-3 mb-3 d-flex align-items-center gap-2 flex-wrap">
-    <input type="search" id="librarySearch" class="glass-input py-1 small" style="max-width: 260px;" placeholder="Filter by title or description..." aria-label="Filter library by text">
-    <select id="librarySubject" class="glass-input py-1 small" style="max-width: 200px;" aria-label="Filter library by subject">
-        <option value="">All subjects</option>
-        <% _subjects.forEach(s => { %>
-            <option value="<%= s %>"><%= s %></option>
-        <% }) %>
-    </select>
-    <span class="small text-muted ms-auto"><span id="libraryCount"><%= items.length %></span> items</span>
-</div>
+<%- include('../partials/local-filter', {
+    scope: 'library',
+    searchId: 'librarySearch',
+    searchPlaceholder: 'Filter by title or description...',
+    searchLabel: 'Filter library by text',
+    selectId: 'librarySubject',
+    selectLabel: 'Filter library by subject',
+    selectOptions: _subjects,
+    selectAllLabel: 'All subjects',
+    countId: 'libraryCount',
+    countLabel: 'items',
+    viewToggle: { scope: 'library', label: 'library' }
+}) %>
 
-<!-- Material Items Grid -->
-<div class="row g-3" id="libraryGrid">
+<!-- Material Items: card grid + table view of the same items -->
+<div class="row g-3" id="libraryGrid" data-view-cards="library">
     <% if (items.length === 0) { %>
         <div class="col-12">
             <div class="glass-card p-5 text-center text-muted">
@@ -42,7 +45,7 @@
     <% } %>
 
     <% items.forEach(item => { %>
-        <div class="col-md-6 col-lg-4 library-card" data-search="<%= ((item.title || '') + ' ' + (item.description || '')).toLowerCase() %>" data-subject="<%= item.subject || 'General' %>">
+        <div class="col-md-6 col-lg-4 library-card" data-filter-scope="library" data-search="<%= ((item.title || '') + ' ' + (item.description || '')).toLowerCase() %>" data-filter-group="<%= item.subject || 'General' %>" data-created="<%= item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A' %>" data-file-type="<%= item.file_type || 'Document' %>" data-source="<%= item.source %>">
             <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between glass-card-hover">
                 <div>
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -80,12 +83,62 @@
     <% }) %>
 </div>
 
+<div class="glass-table-container d-none" id="libraryTableWrap" data-view-table="library">
+    <div class="table-responsive">
+        <table class="glass-table" id="libraryTable">
+            <thead>
+                <tr>
+                    <th scope="col">Title</th>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Size</th>
+                    <th scope="col">Posted</th>
+                    <th scope="col">Source</th>
+                    <th scope="col" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="libraryTableBody">
+                <% items.forEach(item => { %>
+                    <tr class="library-row" data-filter-scope="library" data-search="<%= ((item.title || '') + ' ' + (item.description || '')).toLowerCase() %>" data-filter-group="<%= item.subject || 'General' %>">
+                        <td>
+                            <div class="fw-bold text-dark"><%= item.title %></div>
+                            <div class="small text-muted"><%= item.description || 'Instructional resource.' %></div>
+                        </td>
+                        <td><span class="badge-emerald"><%= item.subject || 'General' %></span></td>
+                        <td class="small"><%= item.file_type || 'Document' %></td>
+                        <td class="small text-muted font-monospace"><%= item.file_size || 'N/A' %></td>
+                        <td class="small text-muted"><%= item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A' %></td>
+                        <td><span class="badge-amber text-uppercase" style="font-size: 0.7rem;"><%= item.source %></span></td>
+                        <td>
+                            <div class="d-flex gap-1 justify-content-end flex-wrap">
+                                <button type="button" class="btn btn-sm btn-liquid-primary repost-picker" data-item-id="<%= item.id %>" data-item-title="<%= item.title %>" data-bs-toggle="modal" data-bs-target="#repostSharedModal">
+                                    <i class="bi bi-share me-1"></i> Post
+                                </button>
+                                <% if (item.source === 'ai_lesson' && item.lesson_content) { %>
+                                    <button type="button" class="btn btn-sm btn-glass lesson-viewer" data-lesson="<%= encodeURIComponent(item.lesson_content) %>" data-lesson-title="<%= item.title %>" data-bs-toggle="modal" data-bs-target="#lessonViewModal">
+                                        <i class="bi bi-eye me-1"></i> Slides
+                                    </button>
+                                <% } %>
+                                <% if (item.file_path) { %>
+                                    <a href="<%= item.file_path %>" target="_blank" class="btn btn-sm btn-glass" title="View / download <%= item.title %>" aria-label="View or download <%= item.title %>">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                <% } %>
+                            </div>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <!-- Modal: Repost to Class (shared) -->
-<div class="modal fade modal-glass" id="repostSharedModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade modal-glass" id="repostSharedModal" tabindex="-1" aria-hidden="true" aria-labelledby="repostSharedTitle">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold">Post "<span id="repostItemTitle"></span>" to Class</h5>
+                <h5 class="modal-title fw-bold" id="repostSharedTitle">Post "<span id="repostItemTitle"></span>" to Class</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/teacher/library/repost" method="POST">
@@ -114,7 +167,7 @@
 </div>
 
 <!-- Modal: Lesson Slide Viewer -->
-<div class="modal fade modal-glass" id="lessonViewModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade modal-glass" id="lessonViewModal" tabindex="-1" aria-hidden="true" aria-labelledby="lessonViewTitle">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
@@ -134,11 +187,11 @@
 <script src="/js/library-viewer.js"></script>
 
 <!-- Modal: Upload Material -->
-<div class="modal fade modal-glass" id="uploadMaterialModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade modal-glass" id="uploadMaterialModal" tabindex="-1" aria-hidden="true" aria-labelledby="uploadMaterialTitle">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold"><i class="bi bi-cloud-arrow-up text-success me-2"></i>Upload Material</h5>
+                <h5 class="modal-title fw-bold" id="uploadMaterialTitle"><i class="bi bi-cloud-arrow-up text-success me-2"></i>Upload Material</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="/teacher/library/upload" method="POST" enctype="multipart/form-data">
@@ -170,8 +223,9 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Select File (PDF, DOCX, PPTX, XLSX, TXT, JPG, PNG)</label>
-                        <input type="file" name="material_file" class="glass-input" accept=".pdf,.docx,.pptx,.xlsx,.txt,.jpg,.jpeg,.png" required>
+                        <label class="form-label small fw-bold">Select File (PDF, DOCX, PPTX, XLSX, TXT, JPG, PNG, GIF, WEBP)</label>
+                        <input type="file" name="material_file" class="glass-input" accept=".pdf,.docx,.pptx,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.webp" required>
+                        <div class="form-text small text-muted">Max 50 MB.</div>
                     </div>
                 </div>
                 <div class="modal-footer">

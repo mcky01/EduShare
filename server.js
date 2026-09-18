@@ -1,9 +1,9 @@
 process.on('uncaughtException', (err) => {
-    console.error('⚠️ [EduShare 2.0] Uncaught Exception:', err);
+    console.error('⚠️ [EduShare] Uncaught Exception:', err);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('⚠️ [EduShare 2.0] Unhandled Rejection:', reason);
+    console.error('⚠️ [EduShare] Unhandled Rejection:', reason);
 });
 
 const app = require('./src/app');
@@ -13,7 +13,7 @@ const initDatabase = require('./src/config/initDatabase');
 async function startServer() {
     console.log('');
     console.log('╔═══════════════════════════════════════════════════════════════╗');
-    console.log('║                   EDUSHARE 2.0 LMS BOOTSTRAP                 ║');
+    console.log('║                   EduShare LMS BOOTSTRAP                 ║');
     console.log('║        Zeferino Arroyo High School (Iriga City, 1981)         ║');
     console.log('║                 "Basta Zeferinian, Magaling Yan!"            ║');
     console.log('╚═══════════════════════════════════════════════════════════════╝');
@@ -25,7 +25,7 @@ async function startServer() {
 
         const server = app.listen(env.PORT, () => {
             console.log('');
-            console.log(`🚀 [EduShare 2.0] Server running at: http://localhost:${env.PORT}`);
+            console.log(`🚀 [EduShare] Server running at: http://localhost:${env.PORT}`);
             console.log(`📁 Environment: ${env.NODE_ENV}`);
             console.log(`🗄️  Database: MySQL (${env.DB_NAME}) at ${env.DB_HOST}:${env.DB_PORT}`);
             console.log(`🤖 AI Provider: Local Ollama (${env.OLLAMA_MODEL}) at ${env.OLLAMA_BASE_URL}`);
@@ -36,9 +36,9 @@ async function startServer() {
 
         // Graceful shutdown
         const shutdown = () => {
-            console.log('\n🛑 [EduShare 2.0] Shutting down gracefully...');
+            console.log('\n🛑 [EduShare] Shutting down gracefully...');
             server.close(() => {
-                console.log('👋 [EduShare 2.0] Closed remaining connections.');
+                console.log('👋 [EduShare] Closed remaining connections.');
                 process.exit(0);
             });
         };
@@ -47,7 +47,7 @@ async function startServer() {
         process.on('SIGTERM', shutdown);
 
     } catch (err) {
-        console.error('❌ [EduShare 2.0] Fatal startup error:', err);
+        console.error('❌ [EduShare] Fatal startup error:', err);
         process.exit(1);
     }
 }

@@ -22,4 +22,8 @@ router.get('/quizzes/:attemptId/result', studentController.quizResult);
 
 router.get('/chatbot', studentController.chatbot);
 
+router.get('/notifications', studentController.notificationsPage);
+router.post('/notifications/read-all', validateCsrf, studentController.readAllNotifications);
+router.post('/notifications/:id/read', validateCsrf, studentController.readOneNotification);
+
 module.exports = router;
