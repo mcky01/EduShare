@@ -5,10 +5,10 @@
 This document describes the **implemented** data flows of EduShare 2.0. It provides:
 
 1. a Context DFD for the complete LMS;
-2. a Level 1 DFD for the major runtime processes and logical data stores; and
-3. focused Level 2 DFDs for identity, teaching-learning-grading, AI/curriculum, and cross-cutting support.
+2. a Level 1 DFD for the six top-level processes and the seven logical data stores; and
+3. focused Level 2 DFDs for user management, teaching and AI authoring, student learning, assessment and gradebook, and cross-cutting support services.
 
-The diagrams are derived from the current source tree rather than from older product descriptions. In particular, grounded lesson and quiz generation uses the teacher's lesson plan as its content source; curriculum retrieval is a separate source-preview capability and is not injected into those generation prompts.
+The diagrams are derived from the current source tree rather than from older product descriptions. In particular, grounded lesson and quiz generation uses the teacher's lesson plan as its content source; curriculum retrieval is a separate source-preview capability (3.5) and is not injected into those generation prompts.
 
 ## Scope and notation
 
@@ -31,7 +31,25 @@ The following are outside the boundary and therefore are not expanded into proce
 - network transport; and
 - version control and deployment tooling.
 
-Of the eight Level 1 processes, this document decomposes 1.0 (as 1.1–1.3), 3.0–6.0 (combined as 3.1–3.6), 7.0 (as 7.1–7.6), and 8.0 (as 8.1–8.4) into focused Level 2 diagrams; 2.0 Administration and oversight is retained as a single Level 1 process and is not expanded.
+The ten modules of the official EduShare module list are grouped into **six** top-level processes at Level 1, and each module maps to exactly one process as shown below.
+
+| # | Official module | Level 1 process |
+|---|---|---|
+| 1 | User Management | **1.0 User Management** |
+| 2 | System Administration | **2.0 System Administration** |
+| 3 | Teacher Portal | **3.0 Teaching & AI Authoring** |
+| 4 | AI Lesson Generator | **3.0 Teaching & AI Authoring** |
+| 5 | AI Quiz Generator | **3.0 Teaching & AI Authoring** |
+| 6 | AI Activity & Assignment Generator | **3.0 Teaching & AI Authoring** |
+| 7 | Student Portal Module | **4.0 Student Learning** |
+| 8 | Online Quiz System | **5.0 Assessment & Gradebook** |
+| 9 | AI Learning Assistant | **4.0 Student Learning** |
+| 10 | Integrated Gradebook | **5.0 Assessment & Gradebook** |
+| — | Cross-cutting platform capabilities: notifications, file delivery, search, branding, audit | **6.0 Support Services** |
+
+The grouping is functional rather than one-process-per-module: modules 3–6 are all teacher-facing authoring features reached from the Teacher Portal, modules 7 and 9 are both student-facing learning experiences, and modules 8 and 10 are both assessment records. This yields six top-level processes, each of which is decomposed into at most five focused Level 2 sub-processes.
+
+Of the six Level 1 processes, this document decomposes 1.0 (as 1.1–1.3), 3.0 (as 3.1–3.5), 4.0 (as 4.1–4.2), 5.0 (as 5.1–5.2), and 6.0 (as 6.1–6.4) into focused Level 2 diagrams; 2.0 System Administration is retained as a single Level 1 process and is not expanded.
 
 ### External entities and systems
 
@@ -43,7 +61,9 @@ Of the eight Level 1 processes, this document decomposes 1.0 (as 1.1–1.3), 3.0
 - **Ollama API** — alternate generation/chat provider and the provider used for curriculum embeddings.
 - **SMTP service** — transports registration and password-reset email.
 
-Ollama plays a dual role as an external system: it is a generation/chat provider, and it is also the mandatory provider for curriculum embeddings and retrieval queries, which never route through 9Router.
+All seven external entities are required by the six-process structure, so none was removed when the processes were regrouped: **Administrator, Teacher, Student, and Guest** remain the human actors of 1.0–5.0; **9Router** and **Ollama** remain the model providers of 3.2–3.5 and 4.2; and **SMTP** remains the delivery channel of 1.1 and 1.3.
+
+Ollama plays a dual role as an external system: it is a generation/chat provider for 3.2–3.4 and 4.2, and it is also the mandatory provider for the curriculum embeddings and retrieval queries of 3.5, which never route through 9Router.
 
 ### Symbols
 
@@ -56,7 +76,7 @@ Ollama plays a dual role as an external system: it is a generation/chat provider
 | Dotted arrow | Control, event, or optional flow |
 | Two-headed arrow | Paired request/response or read/write flows represented as one logical exchange |
 
-Mermaid diagrams use rounded process nodes, rectangular external nodes, and cylindrical store nodes for consistency with the legend. A two-headed arrow is drawn instead of two separate one-way arrows when both directions belong to a single logical exchange — a request and its response, or a process reading and updating the same record — so the reader sees one round trip rather than disconnected flows.
+Mermaid diagrams use rounded process nodes, rectangular external nodes, and cylindrical store nodes for consistency with the legend. A two-headed arrow is drawn instead of two separate one-way arrows when both directions belong to a single logical exchange — a request and its response, or a process reading and updating the same record — so the reader sees one round trip rather than disconnected flows. Dotted arrows are reserved for non-data control context, such as the AI feature-flag settings that D7 supplies to a generator.
 
 ---
 
@@ -99,6 +119,8 @@ flowchart LR
     class LMS process
 ```
 
+*Figure 1. DFD Level 0 Context Diagram (EduShare LMS).*
+
 ### Context flow summary
 
 | External entity | Inputs to EduShare | Outputs from EduShare |
@@ -110,6 +132,8 @@ flowchart LR
 | 9Router | Model responses for configured chat/generation requests | Chat, lesson, and quiz generation requests |
 | Ollama | Model responses and embedding vectors | Chat/generation requests and curriculum embedding requests |
 | SMTP | SMTP transaction outcome | OTP and password-reset messages |
+
+Every entity in Figure 1 is still required after the process regrouping: the Guest and SMTP flows exist only because 1.0 User Management owns registration and recovery, and the two model providers exist because 3.0 and 4.0 call them. No entity was dropped, added, or merged.
 
 ---
 
@@ -125,14 +149,12 @@ flowchart TB
     OL["Ollama API"]
     SMTP["SMTP service"]
 
-    P1(("1.0 Identity and access"))
-    P2(("2.0 Administration and oversight"))
-    P3(("3.0 Classes and enrollment"))
-    P4(("4.0 Instructional content"))
-    P5(("5.0 Assessment and gradebook"))
-    P6(("6.0 Student learning"))
-    P7(("7.0 AI and curriculum"))
-    P8(("8.0 Support services"))
+    P1(("1.0 User Management"))
+    P2(("2.0 System Administration"))
+    P3(("3.0 Teaching & AI Authoring"))
+    P4(("4.0 Student Learning"))
+    P5(("5.0 Assessment & Gradebook"))
+    P6(("6.0 Support Services"))
 
     D1[("D1 Identity, sessions, and OTP")]
     D2[("D2 Academic structure and enrollment")]
@@ -148,23 +170,20 @@ flowchart TB
     G <-->|"registration, verification, and recovery"| P1
 
     A <-->|"administration, oversight, interventions"| P2
-    A <-->|"curriculum ingestion and AI status/controls"| P7
+    A <-->|"curriculum ingestion and AI feature controls"| P3
+    T <-->|"classes, content, AI authoring, and source preview"| P3
+    S <-->|"join code and class participation"| P3
 
-    T <-->|"classes and enrollment administration"| P3
-    T <-->|"materials, lessons, activities, announcements"| P4
-    T <-->|"grading and gradebook administration"| P5
-    T <-->|"AI authoring, chat, and source preview"| P7
+    A <-->|"AI study chat and provider status"| P4
+    T <-->|"AI study chat"| P4
+    S <-->|"dashboard, course learning, submissions, and AI study chat"| P4
 
-    S <-->|"join and class participation"| P3
-    S <-->|"materials, activities, submissions"| P4
+    T <-->|"quiz publication, grading, and gradebook administration"| P5
     S <-->|"quiz attempts, results, and grades"| P5
-    S <-->|"dashboard and course learning"| P6
-    A <-->|"AI chat and status"| P7
-    S <-->|"AI study chat"| P7
-    S <-->|"notifications and authorized files"| P8
 
-    A <-->|"authorized oversight files"| P8
-    T <-->|"authorized instructional files"| P8
+    S <-->|"notifications and authorized files"| P6
+    A <-->|"authorized oversight files"| P6
+    T <-->|"authorized instructional files"| P6
 
     P1 <-->|"accounts, profiles, sessions, OTPs"| D1
     P1 <-->|"account and security audit records"| D7
@@ -181,62 +200,61 @@ flowchart TB
     P2 <-->|"settings, logo metadata, and audit records"| D7
 
     P3 <-->|"profile and role data"| D1
-    P3 <-->|"classes, memberships, requests"| D2
-    P3 <-->|"enrollment and advisory audit records"| D7
-    P3 -->|"enrollment notification events"| P8
+    P3 <-->|"classes, memberships, and requests"| D2
+    P3 <-->|"library, postings, activities, announcements, generated lessons"| D3
+    P3 <-->|"generated quizzes, assignments, and gradebook links"| D4
+    P3 <-->|"AI drafts, curriculum documents, chunks, and vectors"| D5
+    P3 <-->|"posted, uploaded, and temporary plan/curriculum files"| D6
+    P3 <-->|"enrollment, content, and AI audit records"| D7
+    D7 -.->|"AI feature-flag settings"| P3
+    P3 -->|"generation and embedding requests"| NR
+    NR -->|"model response"| P3
+    P3 -->|"generation and embedding requests"| OL
+    OL -->|"model response or vectors"| P3
+    P3 -->|"enrollment, content, and quiz notification events"| P6
 
-    P4 <-->|"materials, activities, announcements"| D3
-    P4 <-->|"submission and attachment data"| D4
-    P4 <-->|"uploaded and posted files"| D6
-    P4 -->|"content notification events"| P8
+    P4 <-->|"enrollment and class context"| D2
+    P4 <-->|"published learning content"| D3
+    P4 <-->|"submissions, results, and grade summaries"| D4
+    P4 <-->|"chat history"| D5
+    D7 -.->|"AI feature-flag settings"| P4
+    P4 -->|"chat requests"| NR
+    NR -->|"streamed model response"| P4
+    P4 -->|"chat requests"| OL
+    OL -->|"streamed model response"| P4
+    P4 -->|"submission and result notification events"| P6
 
     P5 <-->|"quizzes, attempts, submissions, grades"| D4
     P5 <-->|"attachment references"| D6
-    P5 -->|"grade notification events"| P8
+    P5 -->|"grade notification events"| P6
 
-    P6 <-->|"enrollment and class context"| D2
-    P6 <-->|"published learning content"| D3
-    P6 <-->|"results and grade summaries"| D4
-    P6 <-->|"branding and notification context"| P8
-
-    P7 <-->|"generated and published lessons/quizzes"| D3
-    P7 <-->|"published quizzes and assessment data"| D4
-    P7 <-->|"AI drafts, chat, curriculum, vectors"| D5
-    P7 <-->|"temporary plans and curriculum files"| D6
-    P7 <-->|"AI flags and audit records"| D7
-    P7 -->|"generation and chat requests"| NR
-    NR -->|"model response"| P7
-    P7 -->|"generation, chat, and embedding requests"| OL
-    OL -->|"model response or vectors"| P7
-    P7 -->|"quiz publication notification events"| P8
-
-    P8 <-->|"session, user, and flash context"| D1
-    P8 <-->|"search and enrollment ownership lookups"| D2
-    P8 <-->|"search and content ownership lookups"| D3
-    P8 <-->|"search and submission ownership lookups"| D4
-    P8 <-->|"authorized file bytes"| D6
-    P8 <-->|"notifications and unread counts"| D7
+    P6 <-->|"session, user, and flash context"| D1
+    P6 <-->|"search and enrollment ownership lookups"| D2
+    P6 <-->|"search and content ownership lookups"| D3
+    P6 <-->|"search and submission ownership lookups"| D4
+    P6 <-->|"authorized file bytes"| D6
+    P6 <-->|"notifications and unread counts"| D7
 
     classDef external fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px
     classDef process fill:#ecfeff,stroke:#0e7490,color:#164e63,stroke-width:2px
     classDef store fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
     class A,T,S,G,NR,OL,SMTP external
-    class P1,P2,P3,P4,P5,P6,P7,P8 process
+    class P1,P2,P3,P4,P5,P6 process
     class D1,D2,D3,D4,D5,D6,D7 store
 ```
+
+*Figure 2. DFD Level 1 EduShare LMS — six top-level processes (1.0–6.0) and seven logical data stores (D1–D7).*
 
 ### Level 1 process dictionary
 
 | Process | Implemented responsibility | Principal implementation evidence |
 |---|---|---|
-| **1.0 Identity and access** | Public teacher/student OTP registration, account-state checks, login, logout, role redirects, password change/reset, profile update, session creation, and CSRF-backed form handling | `src/routes/authRoutes.js:44-82`; `src/controllers/authController.js:88-947`; `src/services/otpService.js:18-63`; `src/middleware/auth.js:1-46`; `src/middleware/csrf.js:3-68` |
-| **2.0 Administration and oversight** | Dashboard statistics; user lifecycle; school and AI feature settings; read-only class, gradebook, quiz, activity, user, curriculum, and competency oversight; session oversight; logged/reason-gated interventions; exports | `src/routes/adminRoutes.js:9-68`; `src/controllers/adminController.js:9-715`; `src/controllers/adminOversightController.js:11-665`; `src/controllers/adminInterventionController.js:17-1459` |
-| **3.0 Classes and enrollment** | Teacher class creation and rosters, student code-based joining, advisory approval, enrollment changes, transfer/change-request state, and enrollment notifications | `src/routes/teacherRoutes.js:11-14`; `src/routes/teacherRoutes.js:28-38`; `src/routes/studentRoutes.js:12-13`; `src/controllers/teacherController.js:91-1580`; `src/controllers/studentController.js:107-164`; `src/services/enrollmentService.js:33-113` |
-| **4.0 Instructional content** | Material library, material posting, file-backed activities, announcements/read state, student class view, activity submission, and content notifications | `src/routes/teacherRoutes.js:15-17`; `src/routes/teacherRoutes.js:21-23`; `src/routes/studentRoutes.js:14-17`; `src/controllers/teacherController.js:177-713`; `src/controllers/studentController.js:165-353` |
-| **5.0 Assessment and gradebook** | Assignment grading, quiz authoring/attempt grading, DepEd category computation, transmutation, teacher gradebook entries, student result views, and grade-linked notification refreshes | `src/routes/teacherRoutes.js:18-19`; `src/routes/teacherRoutes.js:25-26`; `src/routes/studentRoutes.js:19-21`; `src/routes/apiRoutes.js:13-98`; `src/controllers/teacherController.js:409-766`; `src/controllers/studentController.js:354-622`; `src/services/gradebookService.js:4-259`; `src/config/initDatabase.js:420-424` |
-| **6.0 Student learning** | Student dashboard, enrolled-class list, and request-scoped learning context; class detail, deadlines, materials, announcements, submissions, and result views are composed by 3.0, 4.0, and 5.0 | `src/routes/studentRoutes.js:11-12`; `src/controllers/studentController.js:7-106`; `src/middleware/branding.js:65-119` |
-| **7.0 AI and curriculum** | AI chat for authenticated users, provider health/fallback, plan parsing, lesson generation/validation/save/export, quiz generation/validation/save, curriculum file ingestion, chunking, embeddings, retrieval, and the teacher-scoped source-preview endpoint | `src/routes/aiRoutes.js:8-47`; `src/routes/curriculumRoutes.js:8-18`; `src/routes/studentRoutes.js:23-24`; `src/routes/teacherRoutes.js:39-40`; `src/controllers/aiController.js:36-931`; `src/controllers/curriculumController.js:39-220`; `src/controllers/teacherController.js:1582-1646`; `src/services/aiService.js:6-562`; `src/services/embeddingService.js:3-48`; `src/services/retrievalService.js:5-110` |
-| **8.0 Support services** | Request branding/flash context, unread notification state, notification fan-out/read state, authenticated search, and ownership-checked file delivery | `src/middleware/branding.js:12-132`; `src/services/notificationService.js:24-202`; `src/routes/apiRoutes.js:9-12`; `src/routes/filesRoutes.js:10-144`; `src/routes/notificationRoutes.js:7-13`; `src/routes/studentRoutes.js:25-27` |
+| **1.0 User Management** | Public teacher/student OTP registration, account-state checks, login, logout, role redirects, password change/reset, profile update, session creation, and CSRF-backed form handling | `src/routes/authRoutes.js:44-82`; `src/controllers/authController.js:88-947`; `src/services/otpService.js:18-63`; `src/middleware/auth.js:1-46`; `src/middleware/csrf.js:3-68` |
+| **2.0 System Administration** | Dashboard statistics; user lifecycle; school and AI feature settings; read-only class, gradebook, quiz, activity, user, curriculum, and competency oversight; session oversight; logged/reason-gated interventions; exports | `src/routes/adminRoutes.js:9-68`; `src/controllers/adminController.js:9-715`; `src/controllers/adminOversightController.js:11-665`; `src/controllers/adminInterventionController.js:17-1459` |
+| **3.0 Teaching & AI Authoring** | Teacher class creation and rosters, code-based student joining, advisory approval, transfer/change-request state, material library and posting, file-backed activities, announcements and read state, AI lesson and quiz authoring, curriculum ingestion/retrieval, and the resulting enrollment, content, and quiz notifications | `src/routes/teacherRoutes.js:11-14`; `src/routes/teacherRoutes.js:15-17`; `src/routes/teacherRoutes.js:21-23`; `src/routes/teacherRoutes.js:28-38`; `src/routes/teacherRoutes.js:39-40`; `src/routes/studentRoutes.js:12-13`; `src/routes/aiRoutes.js:8-47`; `src/routes/curriculumRoutes.js:8-18`; `src/controllers/teacherController.js:91-1580`; `src/controllers/teacherController.js:1582-1646`; `src/controllers/studentController.js:107-164`; `src/controllers/aiController.js:36-931`; `src/controllers/curriculumController.js:39-220`; `src/services/aiService.js:6-562`; `src/services/embeddingService.js:3-48`; `src/services/retrievalService.js:5-110`; `src/services/enrollmentService.js:33-113` |
+| **4.0 Student Learning** | Student dashboard, enrolled-class list, class detail, deadlines, materials, announcements, activity submissions, result summaries, and the authenticated AI study chat (available to every role, not only students) | `src/routes/studentRoutes.js:11-12`; `src/routes/studentRoutes.js:14-17`; `src/routes/studentRoutes.js:23-24`; `src/routes/studentRoutes.js:25-27`; `src/routes/aiRoutes.js:8-47`; `src/controllers/studentController.js:7-106`; `src/controllers/studentController.js:165-353`; `src/controllers/studentController.js:354-622`; `src/controllers/aiController.js:36-931`; `src/services/aiService.js:6-562`; `src/middleware/branding.js:65-119` |
+| **5.0 Assessment & Gradebook** | Quiz publication and attempt grading, activity-submission grading and feedback, DepEd category computation, transmutation, teacher gradebook entries and exports, and the gradebook-backed student result views consumed by 4.0 | `src/routes/teacherRoutes.js:18-19`; `src/routes/teacherRoutes.js:25-26`; `src/routes/studentRoutes.js:19-21`; `src/routes/apiRoutes.js:13-98`; `src/controllers/teacherController.js:409-766`; `src/services/gradebookService.js:4-259`; `src/config/initDatabase.js:420-424` |
+| **6.0 Support Services** | Request branding/flash context, unread notification state, notification fan-out/read state, authenticated search, audit views and export, and ownership-checked file delivery | `src/middleware/branding.js:12-132`; `src/services/notificationService.js:24-202`; `src/routes/apiRoutes.js:9-12`; `src/routes/filesRoutes.js:10-144`; `src/routes/notificationRoutes.js:7-13`; `src/routes/studentRoutes.js:25-27` |
 
 ### Level 1 logical stores
 
@@ -254,13 +272,15 @@ Student `activity_submissions` live in D4 rather than D3 because a submission is
 
 The `attendance` table stores per-class, per-day student attendance status with a `recorded_by` user reference, but no current route or controller reads or writes it, so it carries no DFD flow.
 
-Activity-log writes are made directly by the identity, administration/oversight, advisory/enrollment, and AI/curriculum controllers. The support layer owns notification fan-out/read state and provides audit filtering/export over those records; it is not the sole audit writer.
+D5 is written and read by 3.0 (AI drafts, curriculum documents, chunks, and vectors) and by 4.0 (chat history), and it is read by 2.0 only for curriculum and competency oversight.
+
+Activity-log writes are made directly by the 1.0, 2.0, and 3.0 controllers (identity, administration/oversight, and teacher portal with AI authoring). The 6.0 support layer owns notification fan-out/read state and provides audit filtering/export over those records; it is not the sole audit writer.
 
 ---
 
-## Focused Level 2 DFD — 1.0 Identity and access
+## Focused Level 2 DFD — 1.0 User Management
 
-This decomposition preserves the Context/L1 identity flows: a guest can register and recover a password, the three authenticated roles can log in and manage identity data, records are stored in D1, and OTP/reset messages cross the SMTP boundary.
+This decomposition preserves the Context/Level 1 identity flows: a guest can register and recover a password, the three authenticated roles can log in and manage identity data, records are stored in D1, and OTP/reset messages cross the SMTP boundary.
 
 ```mermaid
 flowchart LR
@@ -271,9 +291,9 @@ flowchart LR
     D6[("D6 Server-local files")]
     D7[("D7 Settings, notifications, and audit")]
 
-    P11(("1.1 Registration and verification"))
-    P12(("1.2 Login and session lifecycle"))
-    P13(("1.3 Password, profile, and recovery"))
+    P11(("1.1 Registration & verification"))
+    P12(("1.2 Login & session"))
+    P13(("1.3 Password & profile recovery"))
 
     G <-->|"registration and verification data"| P11
     G <-->|"password-recovery request and result"| P13
@@ -301,94 +321,23 @@ flowchart LR
     class D1,D6,D7 store
 ```
 
-| Subprocess | Responsibility |
-|---|---|
-| **1.1 Registration and verification** | Accept teacher/student identity data, mint and hash purpose-bound OTPs, create pending accounts on successful verification, and return onboarding/account state. |
-| **1.2 Login and session lifecycle** | Validate credentials and account state, apply role-specific redirects, create the server session, enforce rate limits, record login activity, and support logout. |
-| **1.3 Password, profile, and recovery** | Authenticate a signed-in password change, execute OTP-backed password reset, and update profile/avatar data. |
-
----
-
-## Focused Level 2 DFD — 3.0–6.0 Teaching, learning, and grading
-
-This focused decomposition expands the four Level 1 processes that together implement the teaching-learning-grading lifecycle. The `8.0 Support services` node shown here is a sibling process inside the same system boundary — drawn in a different shape to indicate a cross-cutting reference, not an external entity — and is expanded separately in its own Level 2 package.
-
-```mermaid
-flowchart TB
-    T["Teacher"]
-    S["Student"]
-    SUP(("8.0 Support services"))
-
-    P31(("3.1 Class and enrollment management"))
-    P32(("3.2 Content and assignment authoring"))
-    P33(("3.3 Learning and submission workflow"))
-    P34(("3.4 Assessment and feedback"))
-    P35(("3.5 Gradebook computation"))
-    P36(("3.6 Student learning workspace"))
-
-    D1[("D1 Identity, sessions, and OTP")]
-    D2[("D2 Academic structure and enrollment")]
-    D3[("D3 Instructional content")]
-    D4[("D4 Assessment and gradebook")]
-    D6[("D6 Server-local files")]
-    D7[("D7 Settings, notifications, and audit")]
-
-    T <-->|"class creation, rosters, advisory and transfer actions"| P31
-    S <-->|"join code, enrollment state, class view"| P31
-    T <-->|"materials, announcements, activities"| P32
-    S <-->|"published content and activity work"| P33
-    T <-->|"quiz publication, grading, manual scores"| P34
-    S <-->|"quiz attempt and submission state"| P34
-    T <-->|"gradebook views and exports"| P35
-    S <-->|"grade summaries and results"| P35
-    S <-->|"dashboard, deadlines, course workspace"| P36
-
-    P31 <-->|"user role and profile"| D1
-    P31 <-->|"classes, enrollments, requests"| D2
-    P31 <-->|"enrollment and advisory audit records"| D7
-    P32 <-->|"library, postings, activities, announcements"| D3
-    P32 <-->|"material and activity files"| D6
-    P33 <-->|"membership and class scope"| D2
-    P33 <-->|"learning content and read state"| D3
-    P33 <-->|"submissions, attempts, attachment refs"| D4
-    P33 <-->|"submission and material files"| D6
-    P34 <-->|"quizzes, attempts, answers, submissions, grades"| D4
-    P34 <-->|"attachment references"| D6
-    P35 <-->|"gradebook categories, columns, entries, results"| D4
-    P36 <-->|"classes and enrollments"| D2
-    P36 <-->|"published content"| D3
-    P36 <-->|"results and grade summaries"| D4
-    P36 <-->|"branding and notification context"| SUP
-
-    P31 -->|"enrollment notification event"| SUP
-    P32 -->|"content notification event"| SUP
-    P34 -->|"grade notifications after quiz submission and activity grading"| SUP
-    P35 -->|"grade notification after manual gradebook entry"| SUP
-
-    classDef external fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px
-    classDef process fill:#ecfeff,stroke:#0e7490,color:#164e63,stroke-width:2px
-    classDef store fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
-    classDef sibling fill:#f5f3ff,stroke:#6d28d9,color:#2e1065,stroke-width:1.5px
-    class T,S external
-    class P31,P32,P33,P34,P35,P36 process
-    class D1,D2,D3,D4,D6,D7 store
-    class SUP sibling
-```
+*Figure 3. DFD Level 2 Process 1.0 (User Management).*
 
 | Subprocess | Responsibility |
 |---|---|
-| **3.1 Class and enrollment management** | Generate/manage class codes, create classes, join by code, maintain active enrollment, approve students, and process transfer/change requests. |
-| **3.2 Content and assignment authoring** | Maintain the teacher library, upload/repost materials, publish announcements, create file-backed activities, and control teacher ownership. |
-| **3.3 Learning and submission workflow** | Present enrolled class content, enforce posting/ownership state, accept activity files, and track student submission state. |
-| **3.4 Assessment and feedback** | Publish quizzes, record attempts and answers, auto-grade supported items, grade activity submissions, publish feedback, and update gradebook-linked scores. |
-| **3.5 Gradebook computation** | Combine Written Works (20%), Performance Tasks (50%), and Quarterly Exams (30%), apply overrides and transmutation, and produce views/exports. |
-| **3.6 Student learning workspace** | Assemble dashboard deadlines, class materials, activities, announcements, and result summaries from authorized records. |
+| **1.1 Registration & verification** | Accept teacher/student identity data, mint and hash purpose-bound OTPs, create pending accounts on successful verification, and return onboarding/account state. |
+| **1.2 Login & session** | Validate credentials and account state, apply role-specific redirects, create the server session, enforce rate limits, record login activity, and support logout. |
+| **1.3 Password & profile recovery** | Authenticate a signed-in password change, execute OTP-backed password reset, and update profile/avatar data. |
 
 ---
 
-## Focused Level 2 DFD — 7.0 AI and curriculum
+## Focused Level 2 DFD — 3.0 Teaching & AI Authoring
 
-The diagram deliberately separates **plan-based generation** from **curriculum ingestion/retrieval**. `7.2` and `7.3` do not read D5 for generation grounding; `7.4` and `7.5` provide curriculum indexing and the teacher-scoped source-preview endpoint independently. The `/ai/chat/*` routes require authentication but do not impose a role restriction, so each authenticated role is shown as a chat actor. The shipped curriculum page is admin-scoped and its client attempts the teacher-only preview endpoint; successful teacher source preview is therefore a route-level capability, not currently reachable from the shipped teacher UI, while the admin UI renders the blocked response as a notice.
+This process absorbs the teacher-facing classroom work (classes, enrollment, materials, activities, announcements) together with the three AI authoring features reached from the Teacher Portal. The diagram deliberately separates **plan-based generation** from **curriculum ingestion/retrieval**: `3.2`, `3.3`, and `3.4` do not read D5 for generation grounding, while `3.5` provides curriculum indexing and the teacher-scoped source-preview endpoint independently. `3.5` is the single sub-process beyond the 3.1–3.4 authoring template because curriculum retrieval is not a generation input and would otherwise be drawn inside a generator that never reads it.
+
+The `6.0 Support services` and `5.0 Assessment & Gradebook` nodes shown here are sibling processes inside the same system boundary — drawn in a different shape to indicate a cross-cutting reference, not an external entity — and are expanded in their own Level 2 packages.
+
+The shipped curriculum page is admin-scoped and its client attempts the teacher-only preview endpoint; successful teacher source preview is therefore a route-level capability of 3.5, not currently reachable from the shipped teacher UI, while the admin UI renders the blocked response as a notice.
 
 ```mermaid
 flowchart TB
@@ -397,109 +346,247 @@ flowchart TB
     S["Student"]
     NR["9Router API"]
     OL["Ollama API"]
-    SUP(("8.0 Support services"))
+    SUP(("6.0 Support services"))
+    ASMT(("5.0 Assessment & Gradebook"))
 
-    P71(("7.1 Provider orchestration and chat"))
-    P72(("7.2 Lesson plan parsing and generation"))
-    P73(("7.3 Quiz generation"))
-    P74(("7.4 Curriculum ingestion and indexing"))
-    P75(("7.5 Curriculum retrieval and source preview"))
-    P76(("7.6 Validation, publication, and export"))
+    P31(("3.1 Teacher Portal"))
+    P32(("3.2 AI Lesson Generator"))
+    P33(("3.3 AI Quiz Generator"))
+    P34(("3.4 AI Activity & Assignment Generator"))
+    P35(("3.5 Curriculum ingestion and retrieval"))
 
+    D1[("D1 Identity, sessions, and OTP")]
+    D2[("D2 Academic structure and enrollment")]
     D3[("D3 Instructional content")]
     D4[("D4 Assessment and gradebook")]
     D5[("D5 AI and curriculum knowledge")]
     D6[("D6 Server-local files")]
     D7[("D7 Settings, notifications, and audit")]
 
-    A <-->|"curriculum upload, chunk review, ingestion audit"| P74
-    A <-->|"AI status requests"| P71
-    T <-->|"teacher-scoped source query and citation preview"| P75
-    T <-->|"plan text/file, preferences, generation request"| P72
-    T <-->|"quiz plan/deck, type mix, generation request"| P73
-    T <-->|"confirmed lesson/quiz, publication, PPTX export"| P76
-    T <-->|"chat and status requests"| P71
-    S <-->|"study messages and streamed answer"| P71
+    T <-->|"class codes, rosters, advisory and transfer actions"| P31
+    S <-->|"join code and enrollment state"| P31
+    T <-->|"library, postings, activities, announcements"| P31
 
-    P72 -->|"normalized generation request"| P71
-    P71 -->|"model JSON or provider-miss signal"| P72
-    P73 -->|"normalized generation request"| P71
-    P71 -->|"model JSON or provider-miss signal"| P73
+    T <-->|"plan text/file, preferences, and generation request"| P32
+    T <-->|"quiz plan/deck, type mix, and generation request"| P33
+    T <-->|"activity/assignment brief and confirmation"| P34
+    A <-->|"curriculum upload, chunk review, and ingestion audit"| P35
+    T <-->|"teacher-scoped source query and citation preview"| P35
 
-    P71 <-->|"chat history"| D5
-    D7 -.->|"AI feature-flag settings"| P71
-    D7 -.->|"AI feature-flag settings"| P72
-    D7 -.->|"AI feature-flag settings"| P76
-    P71 -->|"chat and generation request"| NR
-    NR -->|"streamed or JSON model response"| P71
-    P71 -->|"chat, generation, and embedding request"| OL
-    OL -->|"streamed/JSON model response or vectors"| P71
+    P31 -->|"authored activity context and target class"| P34
+    P32 -->|"optional generated lesson deck"| P33
 
-    P72 -->|"AI lesson draft and metadata"| D5
-    P72 <-->|"temporary plan file read/delete"| D6
-    P72 -->|"lesson-generation audit"| D7
-    P73 <-->|"temporary plan file read/delete"| D6
+    P31 <-->|"user role and profile"| D1
+    P31 <-->|"classes, enrollments, and requests"| D2
+    P31 <-->|"library, postings, activities, and announcements"| D3
+    P31 <-->|"material and activity files"| D6
+    P31 -->|"enrollment and advisory audit records"| D7
+    P31 -->|"enrollment and content notification events"| SUP
 
-    P74 -->|"chunk text for embedding"| P71
-    P71 -->|"embedding vectors"| P74
-    P74 <-->|"documents, chunks, competency metadata"| D5
-    P74 <-->|"curriculum source file"| D6
-    P74 -->|"ingestion audit"| D7
+    P32 <-->|"AI lesson draft and metadata"| D5
+    P32 <-->|"temporary plan file read/delete"| D6
+    P32 <-->|"library item and class posting"| D3
+    P32 -->|"lesson-generation and export audit records"| D7
+    D7 -.->|"AI feature-flag settings"| P32
+    P32 -->|"generation request"| NR
+    NR -->|"model JSON or provider-miss signal"| P32
+    P32 -->|"generation request"| OL
+    OL -->|"model JSON or provider-miss signal"| P32
 
-    P75 -->|"query text for embedding"| P71
-    P71 -->|"query vector"| P75
-    P75 <-->|"candidate chunks, vectors, citations"| D5
+    P33 <-->|"AI quiz draft and metadata"| D5
+    P33 <-->|"temporary plan file read/delete"| D6
+    P33 <-->|"quiz, questions, options, assignment, and gradebook link"| D4
+    P33 -->|"quiz-generation audit record"| D7
+    D7 -.->|"AI feature-flag settings"| P33
+    P33 -->|"quiz publication notification event"| SUP
+    P33 -->|"generation request"| NR
+    NR -->|"model JSON or provider-miss signal"| P33
+    P33 -->|"generation request"| OL
+    OL -->|"model JSON or provider-miss signal"| P33
 
-    P76 <-->|"library item and class posting"| D3
-    P76 <-->|"quiz, questions, options, assignment, gradebook link"| D4
-    P76 -->|"draft metadata verification"| D5
-    P76 -->|"quiz publication notification event"| SUP
-    P76 -->|"export audit"| D7
+    P34 <-->|"AI activity and assignment draft"| D5
+    P34 <-->|"published activity, posting, and attachment"| D3
+    P34 <-->|"generated activity file and temporary plan file"| D6
+    P34 -->|"activity-generation audit record"| D7
+    D7 -.->|"AI feature-flag settings"| P34
+    P34 -->|"content notification event"| SUP
+    P34 -->|"generation request"| NR
+    NR -->|"model JSON or provider-miss signal"| P34
+    P34 -->|"generation request"| OL
+    OL -->|"model JSON or provider-miss signal"| P34
+
+    P35 <-->|"documents, chunks, competency metadata, and vectors"| D5
+    P35 <-->|"curriculum source file"| D6
+    P35 -->|"ingestion audit record"| D7
+    P35 -->|"chunk-text and query embedding request"| OL
+    OL -->|"embedding vectors"| P35
 
     classDef external fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px
     classDef process fill:#ecfeff,stroke:#0e7490,color:#164e63,stroke-width:2px
     classDef store fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
     classDef sibling fill:#f5f3ff,stroke:#6d28d9,color:#2e1065,stroke-width:1.5px
     class A,T,S,NR,OL external
-    class P71,P72,P73,P74,P75,P76 process
-    class D3,D4,D5,D6,D7 store
-    class SUP sibling
+    class P31,P32,P33,P34,P35 process
+    class D1,D2,D3,D4,D5,D6,D7 store
+    class SUP,ASMT sibling
 ```
+
+*Figure 4. DFD Level 2 Process 3.0 (Teaching & AI Authoring).*
 
 | Subprocess | Responsibility |
 |---|---|
-| **7.1 Provider orchestration and chat** | Try 9Router first when configured, fall through to Ollama, signal a provider miss to generation callers, and stream/persist authenticated chat. |
-| **7.2 Lesson plan parsing and generation** | Parse pasted or uploaded ILAW/DLL/DLP plans, rebuild teacher grid edits, build a closed-world plan-grounded prompt, generate/normalize slides, and save an AI draft. |
-| **7.3 Quiz generation** | Ground questions in the teacher plan and optional generated deck, enforce the requested item mix and answer keys, validate traceability, and flag fallback/ungrounded output. |
-| **7.4 Curriculum ingestion and indexing** | Accept admin text/PDF curriculum files, normalize and chunk them, request Ollama embeddings, and persist document/chunk metadata and vectors. |
-| **7.5 Curriculum retrieval and source preview** | Expose the teacher-scoped source-preview endpoint, full-text prefilter stored chunks, rerank with an Ollama query embedding when possible, and return citations. |
-| **7.6 Validation, publication, and export** | Reject unsafe or untraceable output unless the teacher explicitly confirms review, publish lessons/quizzes transactionally, link quizzes to gradebook columns, notify students for quiz publication, and generate PPTX output. |
+| **3.1 Teacher Portal** | Generate/manage class codes, create classes, maintain rosters, approve advisory students, process transfer/change requests, maintain the teacher library, upload/repost materials, publish announcements, and create file-backed activities. |
+| **3.2 AI Lesson Generator** | Parse pasted or uploaded ILAW/DLL/DLP plans, rebuild teacher grid edits, build a closed-world plan-grounded prompt, try 9Router then Ollama then the offline fallback, generate/normalize slides, save an AI draft, post it to the library/class, and export PPTX. |
+| **3.3 AI Quiz Generator** | Ground questions in the teacher plan and the optional generated deck from 3.2, enforce the requested item mix and answer keys, validate traceability, flag fallback/ungrounded output, and save the quiz with its questions, options, assignment, and gradebook-column link. |
+| **3.4 AI Activity & Assignment Generator** | Produce the activity/assignment content for a class from the same plan-grounded generation and validation service used by 3.2 and 3.3, require explicit teacher confirmation, and post the confirmed activity with its attachment to class content. |
+| **3.5 Curriculum ingestion and retrieval** | Accept admin text/PDF curriculum files, normalize and chunk them, request Ollama embeddings, persist document/chunk metadata and vectors, and expose the teacher-scoped source-preview endpoint with full-text prefilter, Ollama query-embedding rerank, and citations. |
 
-### AI provider and grounding invariants
+Implementation note for 3.4: the shipped build exposes no dedicated activity-generator route. The activity and assignment content of Module 6 is produced by the shared plan-grounded generation and validation service — the `activity` slide role of the 3.2 deck and the assignment/gradebook row written by 3.3 — and is created through the 3.1 authoring endpoints. The sub-process is drawn so that the Module 6 grouping inside 3.0 stays visible without inventing a route that does not exist.
+
+---
+
+## AI provider and grounding invariants
+
+These invariants govern 3.2, 3.3, 3.4, 3.5, and 4.2. The text is unchanged from the original AI process package; only the sub-process numbers were renumbered to the current structure (chat = 4.2, lesson generation = 3.2, quiz generation = 3.3, curriculum ingestion/retrieval = 3.5, publication/export = 3.2/3.3).
 
 1. **Generation order:** 9Router → Ollama → in-process offline fallback. `AI_PRIMARY=ollama` changes the first preference, but an unusable first provider still falls through.
 2. **Embedding path:** curriculum embeddings and retrieval queries always call Ollama `/api/embed`; they never go through 9Router.
 3. **Lesson source of truth:** the teacher's ILAW/DLL/DLP plan. Current code explicitly excludes CG/BOW retrieval from lesson prompts.
 4. **Quiz source of truth:** the teacher plan first and generated lesson deck second. Curriculum chunks are not inserted into the current quiz prompt.
-5. **Feature gates:** `school.flags.allow_ai_lesson` and `allow_ai_quiz` are loaded by branding middleware into `res.locals` and enforced in `7.1` (chat), `7.2` (lesson generation), and `7.6` (quiz/PPTX export), so D7 supplies flag context to each of them.
+5. **Feature gates:** `school.flags.allow_ai_lesson` and `allow_ai_quiz` are loaded by branding middleware into `res.locals` and enforced in `4.2` (chat), `3.2` (lesson generation), and `3.3` (quiz/PPTX export), so D7 supplies flag context to each of them.
 6. **Fallback transparency:** generated fallback content is marked and requires explicit teacher confirmation before publication.
 7. **Temporary plan handling:** uploaded plan files are parsed and removed after generation; they are not persistent library content.
 
 ---
 
-## Focused Level 2 DFD — 8.0 Support services
+## Focused Level 2 DFD — 4.0 Student Learning
+
+`4.1` is the student-scoped learning workspace: dashboard, enrolled classes, class content, submissions, and result summaries. `4.2` is the AI Learning Assistant; the `/ai/chat/*` routes require authentication but impose no role restriction, so every authenticated role is drawn as a chat actor, and the same provider order, fallback marking, and feature gates documented in the AI invariants apply here.
 
 ```mermaid
 flowchart TB
     A["Administrator"]
     T["Teacher"]
     S["Student"]
-    BIZ(("Processes 1.0-7.0"))
+    NR["9Router API"]
+    OL["Ollama API"]
+    SUP(("6.0 Support services"))
 
-    P81(("8.1 Request context and branding"))
-    P82(("8.2 Notification fan-out and read state"))
-    P83(("8.3 Audit views and export"))
-    P84(("8.4 Authorized file delivery"))
+    P41(("4.1 Student Portal"))
+    P42(("4.2 AI Learning Assistant"))
+
+    D2[("D2 Academic structure and enrollment")]
+    D3[("D3 Instructional content")]
+    D4[("D4 Assessment and gradebook")]
+    D5[("D5 AI and curriculum knowledge")]
+    D7[("D7 Settings, notifications, and audit")]
+
+    S <-->|"dashboard, deadlines, and class workspace"| P41
+    S <-->|"materials, announcements, and activities"| P41
+    S <-->|"submission files and submission state"| P41
+    S <-->|"result summaries and grade views"| P41
+
+    A <-->|"study messages and streamed answer"| P42
+    T <-->|"study messages and streamed answer"| P42
+    S <-->|"study messages and streamed answer"| P42
+    A <-->|"chat history, clear, and provider status"| P42
+    T <-->|"chat history, clear, and provider status"| P42
+    S <-->|"chat history, clear, and provider status"| P42
+
+    P41 <-->|"classes and enrollments"| D2
+    P41 <-->|"published content and announcement read state"| D3
+    P41 <-->|"submissions, attempts, and grade summaries"| D4
+    P41 -->|"submission and result notification events"| SUP
+
+    P42 <-->|"chat history"| D5
+    D7 -.->|"AI feature-flag settings"| P42
+    P42 -->|"chat request"| NR
+    NR -->|"streamed model response"| P42
+    P42 -->|"chat request"| OL
+    OL -->|"streamed model response"| P42
+
+    classDef external fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px
+    classDef process fill:#ecfeff,stroke:#0e7490,color:#164e63,stroke-width:2px
+    classDef store fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
+    classDef sibling fill:#f5f3ff,stroke:#6d28d9,color:#2e1065,stroke-width:1.5px
+    class A,T,S,NR,OL external
+    class P41,P42 process
+    class D2,D3,D4,D5,D7 store
+    class SUP sibling
+```
+
+*Figure 5. DFD Level 2 Process 4.0 (Student Learning).*
+
+| Subprocess | Responsibility |
+|---|---|
+| **4.1 Student Portal** | Assemble dashboard deadlines, enrolled classes, class materials, announcements, activities, and result summaries from authorized records; accept activity submission files; and emit the submission/result events consumed by 6.0. |
+| **4.2 AI Learning Assistant** | Stream authenticated study chat, try 9Router first when configured, fall through to Ollama and then the offline fallback, mark fallback answers, expose chat history/clear and provider status, and honor the school AI feature flags. |
+
+---
+
+## Focused Level 2 DFD — 5.0 Assessment & Gradebook
+
+`5.1` owns the quiz lifecycle that Module 8 delivers — publication windows, attempts, answers, auto-grading, and feedback — plus activity-submission grading. `5.2` owns the DepEd-weighted gradebook of Module 10. A quiz created by 3.3 enters 5.1 as a published record; no assessment record is written by two processes.
+
+```mermaid
+flowchart TB
+    T["Teacher"]
+    S["Student"]
+    AUTHOR(("3.0 Teaching & AI Authoring"))
+    SUP(("6.0 Support services"))
+
+    P51(("5.1 Online Quiz System"))
+    P52(("5.2 Integrated Gradebook"))
+
+    D4[("D4 Assessment and gradebook")]
+    D6[("D6 Server-local files")]
+
+    AUTHOR -->|"generated and confirmed quiz with gradebook column"| P51
+
+    T <-->|"quiz publication, activity grading, and feedback"| P51
+    S <-->|"quiz attempt, answers, and attempt state"| P51
+    T <-->|"gradebook views, manual entries, and exports"| P52
+    S <-->|"category and term grade summaries"| P52
+
+    P51 <-->|"quizzes, questions, options, attempts, answers, submissions, grades"| D4
+    P51 <-->|"attachment references"| D6
+    P51 -->|"grade notification after quiz submission"| SUP
+
+    P52 <-->|"gradebook categories, columns, entries, and results"| D4
+    P52 -->|"grade notification after manual gradebook entry"| SUP
+
+    classDef external fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px
+    classDef process fill:#ecfeff,stroke:#0e7490,color:#164e63,stroke-width:2px
+    classDef store fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
+    classDef sibling fill:#f5f3ff,stroke:#6d28d9,color:#2e1065,stroke-width:1.5px
+    class T,S external
+    class P51,P52 process
+    class D4,D6 store
+    class AUTHOR,SUP sibling
+```
+
+*Figure 6. DFD Level 2 Process 5.0 (Assessment & Gradebook).*
+
+| Subprocess | Responsibility |
+|---|---|
+| **5.1 Online Quiz System** | Publish AI-generated or teacher-authored quizzes, open and close attempt windows, record attempts and answers, auto-grade supported items, grade activity submissions, publish feedback, and write the linked scores into D4. |
+| **5.2 Integrated Gradebook** | Combine Written Works (20%), Performance Tasks (50%), and Quarterly Exams (30%), accept teacher overrides, apply transmutation, and produce per-class views, CSV exports, and student-facing summaries. |
+
+---
+
+## Focused Level 2 DFD — 6.0 Support Services
+
+```mermaid
+flowchart TB
+    A["Administrator"]
+    T["Teacher"]
+    S["Student"]
+    BIZ(("Processes 1.0-5.0"))
+
+    P61(("6.1 Request context and branding"))
+    P62(("6.2 Notification fan-out and read state"))
+    P63(("6.3 Audit views and export"))
+    P64(("6.4 Authorized file delivery"))
 
     D1[("D1 Identity, sessions, and OTP")]
     D2[("D2 Academic structure and enrollment")]
@@ -508,45 +595,47 @@ flowchart TB
     D6[("D6 Server-local files")]
     D7[("D7 Settings, notifications, and audit")]
 
-    A <-->|"request context"| P81
-    T <-->|"request context"| P81
-    S <-->|"request context"| P81
-    S <-->|"notification list and read state"| P82
-    A <-->|"audit filter/export"| P83
-    A <-->|"oversight file request"| P84
-    T <-->|"authorized instructional file request"| P84
-    S <-->|"authorized learning/submission file request"| P84
+    A <-->|"request context"| P61
+    T <-->|"request context"| P61
+    S <-->|"request context"| P61
+    S <-->|"notification list and read state"| P62
+    A <-->|"audit filter/export"| P63
+    A <-->|"oversight file request"| P64
+    T <-->|"authorized instructional file request"| P64
+    S <-->|"authorized learning/submission file request"| P64
 
-    P81 <-->|"session, user, CSRF, and flash state"| D1
-    P81 <-->|"branding, feature flags, unread count"| D7
-    P82 <-->|"notification rows and unread count"| D7
-    P83 <-->|"activity/audit records and export audit"| D7
-    P84 <-->|"enrollment ownership lookup"| D2
-    P84 <-->|"content ownership lookup"| D3
-    P84 <-->|"submission ownership lookup"| D4
-    P84 <-->|"validated file bytes"| D6
+    P61 <-->|"session, user, CSRF, and flash state"| D1
+    P61 <-->|"branding, feature flags, unread count"| D7
+    P62 <-->|"notification rows and unread count"| D7
+    P63 <-->|"activity/audit records and export audit"| D7
+    P64 <-->|"enrollment ownership lookup"| D2
+    P64 <-->|"content ownership lookup"| D3
+    P64 <-->|"submission ownership lookup"| D4
+    P64 <-->|"validated file bytes"| D6
 
-    BIZ -->|"page/request metadata"| P81
-    BIZ -->|"notification event"| P82
+    BIZ -->|"page/request metadata"| P61
+    BIZ -->|"notification event"| P62
     BIZ -->|"direct activity-log record"| D7
-    BIZ -->|"file reference/metadata"| P84
+    BIZ -->|"file reference/metadata"| P64
 
     classDef external fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px
     classDef process fill:#ecfeff,stroke:#0e7490,color:#164e63,stroke-width:2px
     classDef store fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
     classDef sibling fill:#f5f3ff,stroke:#6d28d9,color:#2e1065,stroke-width:1.5px
     class A,T,S external
-    class P81,P82,P83,P84 process
+    class P61,P62,P63,P64 process
     class D1,D2,D3,D4,D6,D7 store
     class BIZ sibling
 ```
 
+*Figure 7. DFD Level 2 Process 6.0 (Support Services).*
+
 | Subprocess | Responsibility |
 |---|---|
-| **8.1 Request context and branding** | Ensure a CSRF token, expose school identity/year/term/feature flags, user and path context, unread count, and single-use flash values. |
-| **8.2 Notification fan-out and read state** | Fan events out to active students, deduplicate/refresh matching notifications, and support list, unread count, and read-all/read-one operations. |
-| **8.3 Audit views and export** | Read and filter the activity-log records written directly by the business and administration processes, then support administrator export. |
-| **8.4 Authorized file delivery** | Validate the filename and directory whitelist, then authorize admins, any authenticated user for avatars/logos, owning teachers, assigned teachers, enrolled students, or submission owners before sending a file. |
+| **6.1 Request context and branding** | Ensure a CSRF token, expose school identity/year/term/feature flags, user and path context, unread count, and single-use flash values. |
+| **6.2 Notification fan-out and read state** | Fan events out to active students, deduplicate/refresh matching notifications, and support list, unread count, and read-all/read-one operations. |
+| **6.3 Audit views and export** | Read and filter the activity-log records written directly by the 1.0, 2.0, and 3.0 business processes, then support administrator export. |
+| **6.4 Authorized file delivery** | Validate the filename and directory whitelist, then authorize admins, any authenticated user for avatars/logos, owning teachers, assigned teachers, enrolled students, or submission owners before sending a file. |
 
 ---
 
@@ -557,15 +646,15 @@ flowchart TB
 | Context flow | Level 1 destination(s) |
 |---|---|
 | Administrator credentials/profile/operations | 1.0 and 2.0 |
-| Teacher credentials/classes/content/assessment/AI | 1.0, 3.0, 4.0, 5.0, and 7.0 |
-| Student credentials/enrollment/learning/submission/quiz/chat | 1.0, 3.0, 4.0, 5.0, 6.0, and 7.0 |
+| Teacher credentials/classes/content/assessment/AI | 1.0, 3.0, 4.0, and 5.0 |
+| Student credentials/enrollment/learning/submission/quiz/chat | 1.0, 3.0, 4.0, and 5.0 |
 | Guest registration/verification/password recovery | 1.0 |
-| Administrator dashboards/oversight/settings/AI status/chat/results | 2.0, 7.0, and 8.0 |
-| Teacher materials/feedback/grades/generated content/chat | 3.0, 4.0, 5.0, 7.0, and 8.0 |
-| Student content/results/feedback/notifications | 4.0, 5.0, 6.0, 7.0, and 8.0 |
+| Administrator dashboards/oversight/settings/AI status/chat/results | 2.0, 3.0, 4.0, and 6.0 |
+| Teacher materials/feedback/grades/generated content/chat | 3.0, 4.0, 5.0, and 6.0 |
+| Student content/results/feedback/notifications | 3.0, 4.0, 5.0, and 6.0 |
 | SMTP email and outcome | 1.0 |
-| 9Router requests/responses | 7.0 |
-| Ollama generation/chat/embedding requests and responses | 7.0 |
+| 9Router requests/responses | 3.0 and 4.0 |
+| Ollama generation/chat/embedding requests and responses | 3.0 and 4.0 |
 
 Internal D1–D7 flows appear only after the Context process is decomposed, as required by DFD convention.
 
@@ -573,28 +662,28 @@ Internal D1–D7 flows appear only after the Context process is decomposed, as r
 
 | Level 1 process | Focused Level 2 treatment |
 |---|---|
-| 1.0 Identity and access | Expanded as 1.1–1.3 |
-| 2.0 Administration and oversight | Retained as a Level 1 process; intervention and oversight details are traced in the process dictionary rather than expanded in this focused package |
-| 3.0 Classes and enrollment | Combined with 4.0, 5.0, and 6.0 as 3.1–3.6 |
-| 4.0 Instructional content | Combined with 3.0, 5.0, and 6.0 as 3.1–3.6 |
-| 5.0 Assessment and gradebook | Combined with 3.0, 4.0, and 6.0 as 3.1–3.6 |
-| 6.0 Student learning | Combined with 3.0, 4.0, and 5.0 as 3.1–3.6 |
-| 7.0 AI and curriculum | Expanded as 7.1–7.6 |
-| 8.0 Support services | Expanded as 8.1–8.4 |
+| 1.0 User Management | Expanded as 1.1–1.3 |
+| 2.0 System Administration | Retained as a Level 1 process; intervention and oversight details are traced in the process dictionary rather than expanded in this focused package |
+| 3.0 Teaching & AI Authoring | Expanded as 3.1–3.5 |
+| 4.0 Student Learning | Expanded as 4.1–4.2 |
+| 5.0 Assessment & Gradebook | Expanded as 5.1–5.2 |
+| 6.0 Support Services | Expanded as 6.1–6.4 |
+
+Every destination cited in the Context-to-Level-1 table resolves to an expanded process in this table, and every expanded process appears in Figure 2 and in the process dictionary, so the decomposition balances in both directions.
 
 ### Data-store coverage
 
 | Store | Level 1 processes | Focused Level 2 evidence |
 |---|---|---|
-| D1 | 1.0, 2.0, 3.0, 8.0 | Identity 1.1–1.3; TLG 3.1; support 8.1 |
-| D2 | 2.0, 3.0, 6.0, 8.0 | TLG 3.1, 3.3, 3.6; support 8.4 |
-| D3 | 2.0, 4.0, 6.0, 7.0, 8.0 | TLG 3.2, 3.3, 3.6; AI 7.6; support 8.4 |
-| D4 | 2.0, 4.0, 5.0, 6.0, 7.0, 8.0 | TLG 3.3–3.6; AI 7.6; support 8.4 |
-| D5 | 2.0, 7.0 | Administration curriculum/competency oversight; AI 7.1, 7.2, 7.4, 7.5, 7.6 |
-| D6 | 1.0, 2.0, 4.0, 5.0, 7.0, 8.0 | Identity 1.3; TLG 3.2–3.4; AI 7.2–7.4; support 8.4 |
-| D7 | 1.0, 2.0, 3.0, 7.0, 8.0 | Identity 1.1–1.3; TLG 3.1; AI 7.1, 7.2, 7.4, 7.6; support 8.1–8.3 |
+| D1 | 1.0, 2.0, 3.0, 6.0 | User Management 1.1–1.3; Teaching & AI Authoring 3.1; Support Services 6.1 |
+| D2 | 2.0, 3.0, 4.0, 6.0 | Teaching & AI Authoring 3.1; Student Learning 4.1; Support Services 6.4 |
+| D3 | 2.0, 3.0, 4.0, 6.0 | Teaching & AI Authoring 3.1, 3.2, 3.4; Student Learning 4.1; Support Services 6.4 |
+| D4 | 2.0, 3.0, 4.0, 5.0, 6.0 | Teaching & AI Authoring 3.3; Student Learning 4.1; Assessment & Gradebook 5.1, 5.2; Support Services 6.4 |
+| D5 | 2.0, 3.0, 4.0 | Administration curriculum/competency oversight; Teaching & AI Authoring 3.2, 3.3, 3.4, 3.5; Student Learning 4.2 |
+| D6 | 1.0, 2.0, 3.0, 5.0, 6.0 | User Management 1.3; Teaching & AI Authoring 3.1, 3.2, 3.3, 3.4, 3.5; Assessment & Gradebook 5.1; Support Services 6.4 |
+| D7 | 1.0, 2.0, 3.0, 4.0, 6.0 | User Management 1.1–1.3; Teaching & AI Authoring 3.1, 3.2, 3.3, 3.4, 3.5; Student Learning 4.2 (feature-flag context); Support Services 6.1–6.3 |
 
-The first column lists only processes with a direct D7 edge. Notification traffic from 3.0, 4.0, 5.0, and 7.0 reaches D7 indirectly through 8.0, so it is drawn as a process-to-process event flow at Level 1 and as a `SUP`-directed event in the focused packages.
+The first column lists only processes with a direct D7 edge. Notification traffic from 3.0, 4.0, and 5.0 reaches D7 indirectly through 6.0, so it is drawn as a process-to-process event flow at Level 1 and as a sibling-directed event in the focused packages. D7's direct edges to 3.0 and 4.0 carry audit records and AI feature-flag settings, not notifications.
 
 ---
 
@@ -624,50 +713,51 @@ Primary evidence: `src/app.js:31-173`, `src/middleware/auth.js:1-46`, `src/middl
 3. **Session storage:** sessions are held in the `sessions` table through a custom MySQL store and are logically part of D1.
 4. **File storage:** user uploads are stored outside `public/` under `storage/uploads`; authenticated download routes serve the persisted files.
 5. **Static assets:** CSS, JavaScript, and images under `public/` are browser presentation assets and are not modeled as business data stores.
-6. **Search:** authenticated cross-content search is a Level 1 support function; its results are read-only aggregates across existing stores.
+6. **Search:** authenticated cross-content search is a 6.0 Support Services function; its results are read-only aggregates across existing stores.
 7. **Documentation accuracy:** where older prose conflicts with current source, the source path and line references in this document control.
 
 ---
 
 ## Source traceability index
 
-| Concern | Current source |
-|---|---|
-| Application composition, security, sessions, and route mounts | `src/app.js:26-182` |
-| Database pool and transaction boundary | `src/config/database.js:6-60` |
-| Startup initialization | `server.js:13-35`; `src/config/initDatabase.js:7` |
-| Canonical schema | `src/config/schema.sql:6-531` |
-| MySQL session store | `src/config/sessionStore.js:7-140` |
-| Authentication and role gates | `src/middleware/auth.js:1-46` |
-| CSRF handling | `src/middleware/csrf.js:3-68` |
-| Branding, flash, feature flags, unread count | `src/middleware/branding.js:12-132` |
-| Authentication routes | `src/routes/authRoutes.js:44-82` |
-| Administrator routes | `src/routes/adminRoutes.js:9-68` |
-| Teacher routes | `src/routes/teacherRoutes.js:8-40` |
-| Student routes | `src/routes/studentRoutes.js:8-27` |
-| AI routes | `src/routes/aiRoutes.js:8-47` |
-| Curriculum routes | `src/routes/curriculumRoutes.js:8-18` |
-| File storage and validation | `src/middleware/upload.js:6-139` |
-| Authorized file delivery | `src/routes/filesRoutes.js:10-144` |
-| Identity/registration/password flows | `src/controllers/authController.js:88-947`; `src/services/otpService.js:18-63` |
-| Administration and oversight | `src/controllers/adminController.js:9-715`; `src/controllers/adminOversightController.js:11-665` |
-| Administrative interventions | `src/controllers/adminInterventionController.js:17-1459` |
-| Teacher class/content/assessment/advisory flows | `src/controllers/teacherController.js:91-1580` |
-| Student learning/submission/quiz/chat flows | `src/controllers/studentController.js:7-684` |
-| AI chat, lesson, quiz, save, and export flows | `src/controllers/aiController.js:36-931` |
-| Plan/lesson/quiz grounding contracts | `src/services/groundingService.js:40-298` |
-| AI provider selection and fallback | `src/services/aiService.js:6-562` |
-| Curriculum ingestion and teacher-scoped source preview | `src/controllers/curriculumController.js:39-220`; `src/services/chunkingService.js:4-42`; `public/js/curriculum-upload.js:71`; `src/views/admin/curriculum.ejs:124` |
-| Curriculum embeddings and retrieval | `src/services/embeddingService.js:3-48`; `src/services/retrievalService.js:5-110` |
-| Gradebook computation | `src/services/gradebookService.js:4-259`; DepEd category weights (Written Works 20 / Performance Tasks 50 / Quarterly Exam 30) seeded in `src/config/initDatabase.js:420-424` |
-| Notification fan-out/read state | `src/services/notificationService.js:24-202` |
+| Concern | Process | Current source |
+|---|---|---|
+| Application composition, security, sessions, and route mounts | all | `src/app.js:26-182` |
+| Database pool and transaction boundary | all | `src/config/database.js:6-60` |
+| Startup initialization | not a request process | `server.js:13-35`; `src/config/initDatabase.js:7` |
+| Canonical schema | all stores | `src/config/schema.sql:6-531` |
+| MySQL session store | 1.0, 6.0 | `src/config/sessionStore.js:7-140` |
+| Authentication and role gates | 1.0 and every process | `src/middleware/auth.js:1-46` |
+| CSRF handling | 1.0 and every process | `src/middleware/csrf.js:3-68` |
+| Branding, flash, feature flags, unread count | 6.0 | `src/middleware/branding.js:12-132` |
+| Authentication routes | 1.0 | `src/routes/authRoutes.js:44-82` |
+| Administrator routes | 2.0 | `src/routes/adminRoutes.js:9-68` |
+| Teacher routes | 3.0 | `src/routes/teacherRoutes.js:8-40` |
+| Student routes | 4.0 | `src/routes/studentRoutes.js:8-27` |
+| AI routes | 3.0 and 4.0 | `src/routes/aiRoutes.js:8-47` |
+| Curriculum routes | 3.0 | `src/routes/curriculumRoutes.js:8-18` |
+| File storage and validation | 3.0, 5.0, 6.0 | `src/middleware/upload.js:6-139` |
+| Authorized file delivery | 6.0 | `src/routes/filesRoutes.js:10-144` |
+| Identity/registration/password flows | 1.0 | `src/controllers/authController.js:88-947`; `src/services/otpService.js:18-63` |
+| Administration and oversight | 2.0 | `src/controllers/adminController.js:9-715`; `src/controllers/adminOversightController.js:11-665` |
+| Administrative interventions | 2.0 | `src/controllers/adminInterventionController.js:17-1459` |
+| Teacher class/content/assessment/advisory flows | 3.0 and 5.0 | `src/controllers/teacherController.js:91-1580` |
+| Student learning/submission/quiz/chat flows | 4.0 | `src/controllers/studentController.js:7-684` |
+| AI chat, lesson, quiz, save, and export flows | 3.2, 3.3, 3.4, 4.2 | `src/controllers/aiController.js:36-931` |
+| Plan/lesson/quiz grounding contracts | 3.2, 3.3, 3.4 | `src/services/groundingService.js:40-298` |
+| AI provider selection and fallback | 3.2, 3.3, 3.4, 4.2 | `src/services/aiService.js:6-562` |
+| Curriculum ingestion and teacher-scoped source preview | 3.5 | `src/controllers/curriculumController.js:39-220`; `src/services/chunkingService.js:4-42`; `public/js/curriculum-upload.js:71`; `src/views/admin/curriculum.ejs:124` |
+| Curriculum embeddings and retrieval | 3.5 | `src/services/embeddingService.js:3-48`; `src/services/retrievalService.js:5-110` |
+| Gradebook computation | 5.2 | `src/services/gradebookService.js:4-259`; DepEd category weights (Written Works 20 / Performance Tasks 50 / Quarterly Exam 30) seeded in `src/config/initDatabase.js:420-424` |
+| Notification fan-out/read state | 6.2 | `src/services/notificationService.js:24-202` |
 
 ## Maintenance rule
 
 When routes, controllers, schema, or services change:
 
-1. update the affected Level 1 process/store mapping;
-2. update the relevant focused Level 2 diagram;
-3. re-run Context-to-Level-1 and Level-1-to-Level-2 balancing checks;
-4. confirm that new external integrations appear in the Context DFD; and
-5. update the source traceability index so the DFD remains implementation-auditable.
+1. update the module-to-process mapping in the Scope section if a module moves between processes;
+2. update the affected Level 1 process/store mapping;
+3. update the relevant focused Level 2 diagram;
+4. re-run Context-to-Level-1 and Level-1-to-Level-2 balancing checks;
+5. confirm that new external integrations appear in the Context DFD; and
+6. update the source traceability index so the DFD remains implementation-auditable.
