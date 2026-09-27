@@ -5,8 +5,8 @@
 This document describes the **implemented** data flows of EduShare 2.0. It provides:
 
 1. a Context DFD for the complete LMS;
-2. a Level 1 DFD for the six top-level processes and the seven logical data stores; and
-3. focused Level 2 DFDs for user management, teaching and AI authoring, student learning, assessment and gradebook, and cross-cutting support services.
+2. a Level 0 DFD for the six top-level processes and the seven logical data stores; and
+3. focused Level 1 DFDs for user management, system administration, teaching and AI authoring, student learning, assessment and gradebook, and cross-cutting support services.
 
 The diagrams are derived from the current source tree rather than from older product descriptions. In particular, grounded lesson and quiz generation uses the teacher's lesson plan as its content source; curriculum retrieval is a separate source-preview capability (3.5) and is not injected into those generation prompts.
 
@@ -31,9 +31,9 @@ The following are outside the boundary and therefore are not expanded into proce
 - network transport; and
 - version control and deployment tooling.
 
-The ten modules of the official EduShare module list are grouped into **six** top-level processes at Level 1, and each module maps to exactly one process as shown below.
+The ten modules of the official EduShare module list are grouped into **six** top-level processes at Level 0, and each module maps to exactly one process as shown below.
 
-| # | Official module | Level 1 process |
+| # | Official module | Level 0 process |
 |---|---|---|
 | 1 | User Management | **1.0 User Management** |
 | 2 | System Administration | **2.0 System Administration** |
@@ -47,9 +47,9 @@ The ten modules of the official EduShare module list are grouped into **six** to
 | 10 | Integrated Gradebook | **5.0 Assessment & Gradebook** |
 | — | Cross-cutting platform capabilities: notifications, file delivery, search, branding, audit | **6.0 Support Services** |
 
-The grouping is functional rather than one-process-per-module: modules 3–6 are all teacher-facing authoring features reached from the Teacher Portal, modules 7 and 9 are both student-facing learning experiences, and modules 8 and 10 are both assessment records. This yields six top-level processes, each of which is decomposed into at most five focused Level 2 sub-processes.
+The grouping is functional rather than one-process-per-module: modules 3–6 are all teacher-facing authoring features reached from the Teacher Portal, modules 7 and 9 are both student-facing learning experiences, and modules 8 and 10 are both assessment records. This yields six top-level processes, each of which is decomposed into at most five focused Level 1 sub-processes.
 
-Of the six Level 1 processes, this document decomposes 1.0 (as 1.1–1.3), 3.0 (as 3.1–3.5), 4.0 (as 4.1–4.2), 5.0 (as 5.1–5.2), and 6.0 (as 6.1–6.4) into focused Level 2 diagrams; 2.0 System Administration is retained as a single Level 1 process and is not expanded.
+Of the six Level 0 processes, this document decomposes 1.0 (as 1.1–1.3), 2.0 (as 2.1–2.5), 3.0 (as 3.1–3.5), 4.0 (as 4.1–4.2), 5.0 (as 5.1–5.2), and 6.0 (as 6.1–6.4) into focused Level 1 diagrams; no sub-process is decomposed further, so the document contains no Level 2 diagram.
 
 ### External entities and systems
 
@@ -78,9 +78,13 @@ Ollama plays a dual role as an external system: it is a generation/chat provider
 
 Mermaid diagrams use rounded process nodes, rectangular external nodes, and cylindrical store nodes for consistency with the legend. A two-headed arrow is drawn instead of two separate one-way arrows when both directions belong to a single logical exchange — a request and its response, or a process reading and updating the same record — so the reader sees one round trip rather than disconnected flows. Dotted arrows are reserved for non-data control context, such as the AI feature-flag settings that D7 supplies to a generator.
 
+### Figure and heading convention
+
+Figure captions and section headings use the form `DFD Level N Process N.N (Process Name)`, where **N is the depth of the process being decomposed, not the depth of its children**. The context diagram (Figure 1) and the whole-system diagram of the six top-level processes (Figure 2) are both **DFD Level 0**; the per-process figures that decompose 1.0, 2.0, 3.0, 4.0, 5.0, and 6.0 into their `N.1`–`N.5` sub-processes are **DFD Level 1 Process N.0**, and are numbered in the order the sections appear (Figures 3, 4, 5, 6, 7, and 8). This document contains no Level 2 diagram, because no sub-process is decomposed further.
+
 ---
 
-## Context DFD — Level 0
+## DFD Level 0 Context Diagram (EduShare LMS)
 
 The Context DFD intentionally hides internal processes and data stores. MySQL and `storage/uploads` are internal to EduShare; only external users and external services are shown.
 
@@ -137,7 +141,7 @@ Every entity in Figure 1 is still required after the process regrouping: the Gue
 
 ---
 
-## Level 1 DFD
+## DFD Level 0 EduShare LMS — Six Top-Level Processes (1.0–6.0) and Seven Logical Data Stores (D1–D7)
 
 ```mermaid
 flowchart TB
@@ -243,9 +247,11 @@ flowchart TB
     class D1,D2,D3,D4,D5,D6,D7 store
 ```
 
-*Figure 2. DFD Level 1 EduShare LMS — six top-level processes (1.0–6.0) and seven logical data stores (D1–D7).*
+*Figure 2. DFD Level 0 EduShare LMS — six top-level processes (1.0–6.0) and seven logical data stores (D1–D7).*
 
-### Level 1 process dictionary
+Six top-level processes reflect the grouping of EduShare's ten official modules; see the module-to-process mapping in the Scope section.
+
+### Level 0 process dictionary
 
 | Process | Implemented responsibility | Principal implementation evidence |
 |---|---|---|
@@ -256,7 +262,7 @@ flowchart TB
 | **5.0 Assessment & Gradebook** | Quiz publication and attempt grading, activity-submission grading and feedback, DepEd category computation, transmutation, teacher gradebook entries and exports, and the gradebook-backed student result views consumed by 4.0 | `src/routes/teacherRoutes.js:18-19`; `src/routes/teacherRoutes.js:25-26`; `src/routes/studentRoutes.js:19-21`; `src/routes/apiRoutes.js:13-98`; `src/controllers/teacherController.js:409-766`; `src/services/gradebookService.js:4-259`; `src/config/initDatabase.js:420-424` |
 | **6.0 Support Services** | Request branding/flash context, unread notification state, notification fan-out/read state, authenticated search, audit views and export, and ownership-checked file delivery | `src/middleware/branding.js:12-132`; `src/services/notificationService.js:24-202`; `src/routes/apiRoutes.js:9-12`; `src/routes/filesRoutes.js:10-144`; `src/routes/notificationRoutes.js:7-13`; `src/routes/studentRoutes.js:25-27` |
 
-### Level 1 logical stores
+### Level 0 logical stores
 
 Student `activity_submissions` live in D4 rather than D3 because a submission is assessment evidence — it carries the learner's file, attempt state, and score that feed feedback and the gradebook — whereas D3 holds the teacher-authored instructional content that students consume.
 
@@ -278,9 +284,9 @@ Activity-log writes are made directly by the 1.0, 2.0, and 3.0 controllers (iden
 
 ---
 
-## Focused Level 2 DFD — 1.0 User Management
+## DFD Level 1 Process 1.0 (User Management)
 
-This decomposition preserves the Context/Level 1 identity flows: a guest can register and recover a password, the three authenticated roles can log in and manage identity data, records are stored in D1, and OTP/reset messages cross the SMTP boundary.
+This decomposition preserves the Context/Level 0 identity flows: a guest can register and recover a password, the three authenticated roles can log in and manage identity data, records are stored in D1, and OTP/reset messages cross the SMTP boundary.
 
 ```mermaid
 flowchart LR
@@ -321,7 +327,7 @@ flowchart LR
     class D1,D6,D7 store
 ```
 
-*Figure 3. DFD Level 2 Process 1.0 (User Management).*
+*Figure 3. DFD Level 1 Process 1.0 (User Management).*
 
 | Subprocess | Responsibility |
 |---|---|
@@ -331,11 +337,81 @@ flowchart LR
 
 ---
 
-## Focused Level 2 DFD — 3.0 Teaching & AI Authoring
+## DFD Level 1 Process 2.0 (System Administration)
+
+Process 2.0 is the only top-level process whose sole actor is the Administrator: it aggregates dashboard statistics, manages the user lifecycle and school settings, exposes read-only oversight of classes, gradebooks, quizzes, activities, curriculum, and competencies, supervises sessions, and executes logged, reason-gated interventions and exports. It is decomposed here into five sub-processes, 2.1–2.5; `2.3` is strictly read-only, and every state change made by `2.2`, `2.4`, and `2.5` is recorded in D7 as an audit entry.
+
+```mermaid
+flowchart TB
+    A["Administrator"]
+
+    P21(("2.1 Dashboard and statistics"))
+    P22(("2.2 User and school settings management"))
+    P23(("2.3 Oversight views"))
+    P24(("2.4 Session and intervention management"))
+    P25(("2.5 Audit export"))
+
+    D1[("D1 Identity, sessions, and OTP")]
+    D2[("D2 Academic structure and enrollment")]
+    D3[("D3 Instructional content")]
+    D4[("D4 Assessment and gradebook")]
+    D5[("D5 AI and curriculum knowledge")]
+    D6[("D6 Server-local files")]
+    D7[("D7 Settings, notifications, and audit")]
+
+    A -->|"dashboard request and statistics response"| P21
+    A <-->|"user lifecycle, school settings, and announcements"| P22
+    A <-->|"read-only oversight queries"| P23
+    A <-->|"session revocation, transfers, and reason-gated interventions"| P24
+    A <-->|"audit filters and export"| P25
+
+    P21 <-->|"user, role, and active-session counts"| D1
+    P21 <-->|"class, enrollment, and pending-request counts"| D2
+
+    P22 <-->|"user, teacher, and student records"| D1
+    P22 <-->|"school settings, term, AI feature flags, logo metadata, and audit records"| D7
+    P22 -->|"school logo file"| D6
+    P22 -->|"school-wide announcement posts"| D3
+
+    P23 -->|"read-only user and profile records"| D1
+    P23 -->|"read-only classes, enrollments, and requests"| D2
+    P23 -->|"read-only content and activity oversight"| D3
+    P23 -->|"read-only grade and attempt oversight"| D4
+    P23 -->|"read-only curriculum documents, chunks, and competencies"| D5
+
+    P24 <-->|"active session records and revocation"| D1
+    P24 <-->|"enrollment, transfer, and change-request state"| D2
+    P24 <-->|"grade correction, attempt reset, and quiz window updates"| D4
+    P24 <-->|"content moderation: unpost, hide, and show"| D3
+    P24 -->|"reason and outcome audit records"| D7
+
+    P25 <-->|"filtered activity-log records and export audit"| D7
+
+    classDef external fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px
+    classDef process fill:#ecfeff,stroke:#0e7490,color:#164e63,stroke-width:2px
+    classDef store fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
+    class A external
+    class P21,P22,P23,P24,P25 process
+    class D1,D2,D3,D4,D5,D6,D7 store
+```
+
+*Figure 4. DFD Level 1 Process 2.0 (System Administration).*
+
+| Subprocess | Responsibility |
+|---|---|
+| **2.1 Dashboard and statistics** | Aggregate user counts, class counts, active sessions, and pending interventions into administrator dashboard tiles. |
+| **2.2 User and school settings management** | CRUD on system_settings (school identity, logo, current term, AI feature flags); user lifecycle (view, edit, deactivate, reactivate); and school-wide announcements. |
+| **2.3 Oversight views** | Read-only inspection of classes, gradebooks, quizzes, activities, users, curriculum documents, and competencies. No writes to D1–D5 from this sub-process. |
+| **2.4 Session and intervention management** | View active sessions and revoke them; approve or drop students; execute transfers and change requests; all actions are reason-gated and write audit records. |
+| **2.5 Audit export** | Read activity_logs, filter by user, date range, or action category, and export the filtered set. |
+
+---
+
+## DFD Level 1 Process 3.0 (Teaching & AI Authoring)
 
 This process absorbs the teacher-facing classroom work (classes, enrollment, materials, activities, announcements) together with the three AI authoring features reached from the Teacher Portal. The diagram deliberately separates **plan-based generation** from **curriculum ingestion/retrieval**: `3.2`, `3.3`, and `3.4` do not read D5 for generation grounding, while `3.5` provides curriculum indexing and the teacher-scoped source-preview endpoint independently. `3.5` is the single sub-process beyond the 3.1–3.4 authoring template because curriculum retrieval is not a generation input and would otherwise be drawn inside a generator that never reads it.
 
-The `6.0 Support services` and `5.0 Assessment & Gradebook` nodes shown here are sibling processes inside the same system boundary — drawn in a different shape to indicate a cross-cutting reference, not an external entity — and are expanded in their own Level 2 packages.
+The `6.0 Support services` and `5.0 Assessment & Gradebook` nodes shown here are sibling processes inside the same system boundary — drawn in a different shape to indicate a cross-cutting reference, not an external entity — and are expanded in their own Level 1 packages.
 
 The shipped curriculum page is admin-scoped and its client attempts the teacher-only preview endpoint; successful teacher source preview is therefore a route-level capability of 3.5, not currently reachable from the shipped teacher UI, while the admin UI renders the blocked response as a notice.
 
@@ -431,7 +507,7 @@ flowchart TB
     class SUP,ASMT sibling
 ```
 
-*Figure 4. DFD Level 2 Process 3.0 (Teaching & AI Authoring).*
+*Figure 5. DFD Level 1 Process 3.0 (Teaching & AI Authoring).*
 
 | Subprocess | Responsibility |
 |---|---|
@@ -459,7 +535,7 @@ These invariants govern 3.2, 3.3, 3.4, 3.5, and 4.2. The text is unchanged from 
 
 ---
 
-## Focused Level 2 DFD — 4.0 Student Learning
+## DFD Level 1 Process 4.0 (Student Learning)
 
 `4.1` is the student-scoped learning workspace: dashboard, enrolled classes, class content, submissions, and result summaries. `4.2` is the AI Learning Assistant; the `/ai/chat/*` routes require authentication but impose no role restriction, so every authenticated role is drawn as a chat actor, and the same provider order, fallback marking, and feature gates documented in the AI invariants apply here.
 
@@ -515,7 +591,7 @@ flowchart TB
     class SUP sibling
 ```
 
-*Figure 5. DFD Level 2 Process 4.0 (Student Learning).*
+*Figure 6. DFD Level 1 Process 4.0 (Student Learning).*
 
 | Subprocess | Responsibility |
 |---|---|
@@ -524,7 +600,7 @@ flowchart TB
 
 ---
 
-## Focused Level 2 DFD — 5.0 Assessment & Gradebook
+## DFD Level 1 Process 5.0 (Assessment & Gradebook)
 
 `5.1` owns the quiz lifecycle that Module 8 delivers — publication windows, attempts, answers, auto-grading, and feedback — plus activity-submission grading. `5.2` owns the DepEd-weighted gradebook of Module 10. A quiz created by 3.3 enters 5.1 as a published record; no assessment record is written by two processes.
 
@@ -565,7 +641,7 @@ flowchart TB
     class AUTHOR,SUP sibling
 ```
 
-*Figure 6. DFD Level 2 Process 5.0 (Assessment & Gradebook).*
+*Figure 7. DFD Level 1 Process 5.0 (Assessment & Gradebook).*
 
 | Subprocess | Responsibility |
 |---|---|
@@ -574,7 +650,7 @@ flowchart TB
 
 ---
 
-## Focused Level 2 DFD — 6.0 Support Services
+## DFD Level 1 Process 6.0 (Support Services)
 
 ```mermaid
 flowchart TB
@@ -628,7 +704,7 @@ flowchart TB
     class BIZ sibling
 ```
 
-*Figure 7. DFD Level 2 Process 6.0 (Support Services).*
+*Figure 8. DFD Level 1 Process 6.0 (Support Services).*
 
 | Subprocess | Responsibility |
 |---|---|
@@ -641,9 +717,9 @@ flowchart TB
 
 ## Balancing and coverage checks
 
-### Context to Level 1
+### Context to Level 0
 
-| Context flow | Level 1 destination(s) |
+| Context flow | Level 0 destination(s) |
 |---|---|
 | Administrator credentials/profile/operations | 1.0 and 2.0 |
 | Teacher credentials/classes/content/assessment/AI | 1.0, 3.0, 4.0, and 5.0 |
@@ -658,32 +734,32 @@ flowchart TB
 
 Internal D1–D7 flows appear only after the Context process is decomposed, as required by DFD convention.
 
-### Level 1 to focused Level 2
+### Level 0 to focused Level 1
 
-| Level 1 process | Focused Level 2 treatment |
+| Level 0 process | Focused Level 1 treatment |
 |---|---|
 | 1.0 User Management | Expanded as 1.1–1.3 |
-| 2.0 System Administration | Retained as a Level 1 process; intervention and oversight details are traced in the process dictionary rather than expanded in this focused package |
+| 2.0 System Administration | Expanded as 2.1–2.5 |
 | 3.0 Teaching & AI Authoring | Expanded as 3.1–3.5 |
 | 4.0 Student Learning | Expanded as 4.1–4.2 |
 | 5.0 Assessment & Gradebook | Expanded as 5.1–5.2 |
 | 6.0 Support Services | Expanded as 6.1–6.4 |
 
-Every destination cited in the Context-to-Level-1 table resolves to an expanded process in this table, and every expanded process appears in Figure 2 and in the process dictionary, so the decomposition balances in both directions.
+Every destination cited in the Context-to-Level-0 table resolves to an expanded process in this table, and every expanded process appears in Figure 2 and in the process dictionary, so the decomposition balances in both directions.
 
 ### Data-store coverage
 
-| Store | Level 1 processes | Focused Level 2 evidence |
+| Store | Level 0 processes | Focused Level 1 evidence |
 |---|---|---|
-| D1 | 1.0, 2.0, 3.0, 6.0 | User Management 1.1–1.3; Teaching & AI Authoring 3.1; Support Services 6.1 |
-| D2 | 2.0, 3.0, 4.0, 6.0 | Teaching & AI Authoring 3.1; Student Learning 4.1; Support Services 6.4 |
-| D3 | 2.0, 3.0, 4.0, 6.0 | Teaching & AI Authoring 3.1, 3.2, 3.4; Student Learning 4.1; Support Services 6.4 |
-| D4 | 2.0, 3.0, 4.0, 5.0, 6.0 | Teaching & AI Authoring 3.3; Student Learning 4.1; Assessment & Gradebook 5.1, 5.2; Support Services 6.4 |
-| D5 | 2.0, 3.0, 4.0 | Administration curriculum/competency oversight; Teaching & AI Authoring 3.2, 3.3, 3.4, 3.5; Student Learning 4.2 |
-| D6 | 1.0, 2.0, 3.0, 5.0, 6.0 | User Management 1.3; Teaching & AI Authoring 3.1, 3.2, 3.3, 3.4, 3.5; Assessment & Gradebook 5.1; Support Services 6.4 |
-| D7 | 1.0, 2.0, 3.0, 4.0, 6.0 | User Management 1.1–1.3; Teaching & AI Authoring 3.1, 3.2, 3.3, 3.4, 3.5; Student Learning 4.2 (feature-flag context); Support Services 6.1–6.3 |
+| D1 | 1.0, 2.0, 3.0, 6.0 | User Management 1.1–1.3; Administration 2.1–2.4; Teaching & AI Authoring 3.1; Support Services 6.1 |
+| D2 | 2.0, 3.0, 4.0, 6.0 | Administration 2.1, 2.3, 2.4; Teaching & AI Authoring 3.1; Student Learning 4.1; Support Services 6.4 |
+| D3 | 2.0, 3.0, 4.0, 6.0 | Administration 2.2–2.4; Teaching & AI Authoring 3.1, 3.2, 3.4; Student Learning 4.1; Support Services 6.4 |
+| D4 | 2.0, 3.0, 4.0, 5.0, 6.0 | Administration 2.3, 2.4; Teaching & AI Authoring 3.3; Student Learning 4.1; Assessment & Gradebook 5.1, 5.2; Support Services 6.4 |
+| D5 | 2.0, 3.0, 4.0 | Administration 2.3; Teaching & AI Authoring 3.2, 3.3, 3.4, 3.5; Student Learning 4.2 |
+| D6 | 1.0, 2.0, 3.0, 5.0, 6.0 | User Management 1.3; Administration 2.2; Teaching & AI Authoring 3.1, 3.2, 3.3, 3.4, 3.5; Assessment & Gradebook 5.1; Support Services 6.4 |
+| D7 | 1.0, 2.0, 3.0, 4.0, 6.0 | User Management 1.1–1.3; Administration 2.2, 2.4, 2.5; Teaching & AI Authoring 3.1, 3.2, 3.3, 3.4, 3.5; Student Learning 4.2 (feature-flag context); Support Services 6.1–6.3 |
 
-The first column lists only processes with a direct D7 edge. Notification traffic from 3.0, 4.0, and 5.0 reaches D7 indirectly through 6.0, so it is drawn as a process-to-process event flow at Level 1 and as a sibling-directed event in the focused packages. D7's direct edges to 3.0 and 4.0 carry audit records and AI feature-flag settings, not notifications.
+The first column lists only processes with a direct D7 edge. Notification traffic from 3.0, 4.0, and 5.0 reaches D7 indirectly through 6.0, so it is drawn as a process-to-process event flow at Level 0 and as a sibling-directed event in the focused packages. D7's direct edges to 3.0 and 4.0 carry audit records and AI feature-flag settings, not notifications.
 
 ---
 
@@ -722,13 +798,13 @@ Primary evidence: `src/app.js:31-173`, `src/middleware/auth.js:1-46`, `src/middl
 
 | Concern | Process | Current source |
 |---|---|---|
-| Application composition, security, sessions, and route mounts | all | `src/app.js:26-182` |
-| Database pool and transaction boundary | all | `src/config/database.js:6-60` |
+| Application composition, security, sessions, and route mounts | 1.0–6.0 | `src/app.js:26-182` |
+| Database pool and transaction boundary | 1.0–6.0 | `src/config/database.js:6-60` |
 | Startup initialization | not a request process | `server.js:13-35`; `src/config/initDatabase.js:7` |
-| Canonical schema | all stores | `src/config/schema.sql:6-531` |
+| Canonical schema | D1–D7 | `src/config/schema.sql:6-531` |
 | MySQL session store | 1.0, 6.0 | `src/config/sessionStore.js:7-140` |
-| Authentication and role gates | 1.0 and every process | `src/middleware/auth.js:1-46` |
-| CSRF handling | 1.0 and every process | `src/middleware/csrf.js:3-68` |
+| Authentication and role gates | 1.0–6.0 | `src/middleware/auth.js:1-46` |
+| CSRF handling | 1.0–6.0 | `src/middleware/csrf.js:3-68` |
 | Branding, flash, feature flags, unread count | 6.0 | `src/middleware/branding.js:12-132` |
 | Authentication routes | 1.0 | `src/routes/authRoutes.js:44-82` |
 | Administrator routes | 2.0 | `src/routes/adminRoutes.js:9-68` |
@@ -739,8 +815,8 @@ Primary evidence: `src/app.js:31-173`, `src/middleware/auth.js:1-46`, `src/middl
 | File storage and validation | 3.0, 5.0, 6.0 | `src/middleware/upload.js:6-139` |
 | Authorized file delivery | 6.0 | `src/routes/filesRoutes.js:10-144` |
 | Identity/registration/password flows | 1.0 | `src/controllers/authController.js:88-947`; `src/services/otpService.js:18-63` |
-| Administration and oversight | 2.0 | `src/controllers/adminController.js:9-715`; `src/controllers/adminOversightController.js:11-665` |
-| Administrative interventions | 2.0 | `src/controllers/adminInterventionController.js:17-1459` |
+| Administration and oversight | 2.1–2.3 | `src/controllers/adminController.js:9-715`; `src/controllers/adminOversightController.js:11-665` |
+| Administrative interventions | 2.4, 2.5 | `src/controllers/adminInterventionController.js:17-1459` |
 | Teacher class/content/assessment/advisory flows | 3.0 and 5.0 | `src/controllers/teacherController.js:91-1580` |
 | Student learning/submission/quiz/chat flows | 4.0 | `src/controllers/studentController.js:7-684` |
 | AI chat, lesson, quiz, save, and export flows | 3.2, 3.3, 3.4, 4.2 | `src/controllers/aiController.js:36-931` |
@@ -756,8 +832,8 @@ Primary evidence: `src/app.js:31-173`, `src/middleware/auth.js:1-46`, `src/middl
 When routes, controllers, schema, or services change:
 
 1. update the module-to-process mapping in the Scope section if a module moves between processes;
-2. update the affected Level 1 process/store mapping;
-3. update the relevant focused Level 2 diagram;
-4. re-run Context-to-Level-1 and Level-1-to-Level-2 balancing checks;
+2. update the affected Level 0 process/store mapping;
+3. update the relevant focused Level 1 diagram;
+4. re-run Context-to-Level-0 and Level-0-to-Level-1 balancing checks;
 5. confirm that new external integrations appear in the Context DFD; and
 6. update the source traceability index so the DFD remains implementation-auditable.
