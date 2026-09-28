@@ -7,9 +7,12 @@ tmp-npm-cache/
 .env.local
 .env.*.local
 
-# User uploads (keep folder structure, ignore contents)
-public/uploads/**/*
-!public/uploads/**/.gitkeep
+# Legacy public/uploads/ is retired: user uploads live in storage/uploads/ and
+# are served authenticated via /files/:subDir/:filename. Never re-add it.
+public/uploads/
+
+# Tooling scratch output (archify workflow renders, visual-check artifacts)
+docs/.tools/
 
 # Storage and logs
 storage/

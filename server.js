@@ -28,7 +28,14 @@ async function startServer() {
             console.log(`🚀 [EduShare] Server running at: http://localhost:${env.PORT}`);
             console.log(`📁 Environment: ${env.NODE_ENV}`);
             console.log(`🗄️  Database: MySQL (${env.DB_NAME}) at ${env.DB_HOST}:${env.DB_PORT}`);
-            console.log(`🤖 AI Provider: Local Ollama (${env.OLLAMA_MODEL}) at ${env.OLLAMA_BASE_URL}`);
+            // Report the AI provider chain actually configured, not a hardcoded
+            // assumption. 9Router needs base URL + key + model to be usable;
+            // AI_PRIMARY decides which provider is tried first.
+            const nineRouterReady = !!(env.NINE_ROUTER_BASE_URL && env.NINE_ROUTER_API_KEY && env.NINE_ROUTER_MODEL);
+            const ollamaReady = !!(env.OLLAMA_BASE_URL && env.OLLAMA_MODEL);
+            console.log(`🤖 AI Provider: primary=${env.AI_PRIMARY}, 9Router=${nineRouterReady ? `configured (${env.NINE_ROUTER_MODEL})` : 'not configured'}, Ollama=${ollamaReady ? `available (${env.OLLAMA_MODEL}) at ${env.OLLAMA_BASE_URL}` : 'not configured'}`);
+            console.log(`   Fallback order: ${env.AI_PRIMARY === 'ollama' ? 'Ollama' : nineRouterReady ? '9Router' : 'Ollama'} → ${env.AI_PRIMARY === 'ollama' ? (nineRouterReady ? '9Router' : 'offline fallback') : 'Ollama'} → offline static fallback`);
+            console.log(`   RAG embeddings: Ollama /api/embed (${env.OLLAMA_EMBED_MODEL})`);
             console.log('');
             console.log('Demo accounts seeded via initDatabase (see README setup).');
             console.log('');

@@ -298,20 +298,9 @@ function buildQuizPrompt({ topic, subject, grade_level, competency, mc_count, tf
                 };
             }
 
-function normalizeTerm(term) {
-    if (term === null || term === undefined) return null;
-    const clean = String(term).trim().toUpperCase();
-    if (VALID_TERMS.includes(clean)) return clean;
-    if (['Q1', 'Q2'].includes(clean)) return 'T1';
-    if (clean === 'Q3') return 'T2';
-    if (clean === 'Q4') return 'T3';
-    return null;
-}
-
 module.exports = {
     buildLessonPrompt,
     buildQuizPrompt,
-    normalizeTerm,
     quarterToTerm,
     VALID_TERMS
 };

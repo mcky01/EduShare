@@ -36,7 +36,6 @@
     "mammoth": "^1.12.2",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.12.0",
-    "nodemailer": "^10.0.10",
     "pdf-parse": "^2.4.5",
     "pptxgenjs": "^4.0.1"
   },

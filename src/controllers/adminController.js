@@ -708,7 +708,6 @@ const oversight = require('./adminOversightController');
 async function classes(req, res) { return oversight.classes(req, res); }
 async function classDetail(req, res) { return oversight.classDetail(req, res); }
 async function gradebook(req, res) { return oversight.gradebook(req, res); }
-async function exportGradebook(req, res) { return oversight.exportGradebook(req, res); }
 async function exportGradebookPost(req, res) { return oversight.exportGradebookPost(req, res); }
 async function quizDetail(req, res) { return oversight.quizDetail(req, res); }
 async function activityDetail(req, res) { return oversight.activityDetail(req, res); }
@@ -730,7 +729,6 @@ module.exports = {
     classes,
     classDetail,
     gradebook,
-    exportGradebook,
     exportGradebookPost,
     quizDetail,
     activityDetail

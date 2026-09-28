@@ -296,41 +296,6 @@ function gridToTagged(tagged, edits) {
     return rebuilt;
 }
 
-// Session-filtered view for the textarea: returns a NEW tagged object whose
-// sections/planText contain only blocks relevant to `focus` (plus shared
-// header/meta blocks). The full-plan tagged object is untouched, so generation
-// still receives the whole plan as continuity context.
-function filterTaggedForSession(tagged, focus) {
-    const f = String(focus || '').toUpperCase();
-    if (!/^S[1-5]$/.test(f)) return tagged;
-    const kept = (tagged.sections || []).filter((s) => {
-        const sess = s.sessions || [];
-        if (sess.length === 0) return true; // shared: header, competency, standards
-        return sess.includes(f);
-    });
-    // Renumber refs so the textarea shows clean [P1]..[Pn].
-    const sections = kept.map((s, i) => ({ ...s, ref: `P${i + 1}` }));
-    const coverage = {
-        intentions: sections.some((s) => s.role === 'intentions'),
-        experiences: sections.some((s) => s.role === 'experiences'),
-        assessment: sections.some((s) => s.role === 'assessment'),
-        ways: sections.some((s) => s.role === 'ways')
-    };
-    const planText = sections.map((s) => {
-        const sess = s.sessions.length ? ` · ${s.sessions.join('/')}` : '';
-        return `[${s.ref} ${s.title}${sess}]\n${s.text}`;
-    }).join('\n\n');
-    return {
-        planText: planText.slice(0, MAX_CHARS),
-        sections,
-        sessions: tagged.sessions || [],
-        coverage,
-        warnings: [...(tagged.warnings || []), `filtered_to_${f.toLowerCase()}`],
-        filteredTo: f,
-        fullSectionCount: (tagged.sections || []).length
-    };
-}
-
 function parsePastedText(raw) {
     const text = cleanText(raw);
     if (!text) return { planText: '', sections: [], sessions: [], coverage: {}, warnings: ['empty_plan'] };
@@ -467,6 +432,5 @@ module.exports = {
     buildTagged,
     buildTaggedAll,
     buildEditableGrid,
-    gridToTagged,
-    filterTaggedForSession
+    gridToTagged
 };

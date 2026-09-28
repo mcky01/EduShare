@@ -1284,23 +1284,6 @@ async function changeQueueData() {
     }
 }
 
-function describeChange(r) {
-    const p = r.payload || {};
-    if (r.request_type === 'edit') {
-        const bits = [];
-        if (p.first_name !== undefined) bits.push(`first name "${r.first_name}" → "${p.first_name}"`);
-        if (p.last_name !== undefined) bits.push(`last name "${r.last_name}" → "${p.last_name}"`);
-        if (p.gender !== undefined) bits.push(`gender ${r.cur_gender} → ${p.gender}`);
-        if (p.email !== undefined) bits.push(`email ${r.cur_email} → ${p.email}`);
-        if (p.lrn !== undefined) bits.push(`LRN ${r.cur_lrn} → ${p.lrn}`);
-        return bits.length > 0 ? bits.join('; ') : 'no field changes';
-    }
-    if (r.request_type === 'drop') return 'enrollments → dropped (grades kept, account stays active)';
-    if (r.request_type === 'restore') return 'enrollments → active';
-    if (r.request_type === 'deactivate') return 'account → deactivated (all records kept)';
-    return r.request_type;
-}
-
 // Execute an APPROVED change request. Re-validates everything the
 // teacher-side validated (collisions, formats) because the world may
 // have changed while the request sat in the queue: an email taken
@@ -1483,7 +1466,6 @@ module.exports = {
     transferQueueData,
     decideTransfer,
     changeQueueData,
-    describeChange,
     decideChange,
     exportLogs
 };

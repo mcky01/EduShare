@@ -7,14 +7,6 @@ function topicTokens(text) {
     return String(text || '').toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/[\s-]+/).filter((w) => w.length > 3 && !STOPWORDS.has(w));
 }
 
-function topicAlignment(topic, competencyText) {
-    const t = new Set(topicTokens(topic));
-    const c = new Set(topicTokens(competencyText));
-    if (!t.size || !c.size) return { ratio: 0, overlap: [] };
-    const overlap = [...t].filter((w) => c.has(w) || [...c].some((cw) => cw.startsWith(w.slice(0, 5)) || w.startsWith(cw.slice(0, 5))));
-    return { ratio: overlap.length / t.size, overlap };
-}
-
 function asLines(v) {
     if (Array.isArray(v)) return v.map((x) => String(x || ''));
     if (typeof v === 'string' && v) return [v];
@@ -335,7 +327,6 @@ module.exports = {
     slideLines,
     slideSpeech,
     slideScript,
-    topicAlignment,
     topicTokens,
     splitAliases,
     resolveIdentificationAnswer,

@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
 const env = require('./env');
+const enrollmentService = require('../services/enrollmentService');
 
 async function initDatabase() {
     console.log('🔄 [EduShare] Initializing database...');
@@ -131,46 +132,13 @@ async function initDatabase() {
             }
         }
 
-        // 2e. Enrollment backfill (inline, same connection): heal students
-        // created/approved before the auto-enroll fix.
-        try {
-            const [orphans] = await conn.query(
-                `SELECT s.id, s.grade_level, s.section
-                 FROM students s
-                 JOIN users u ON s.user_id = u.id
-                 WHERE u.status = 'active' AND u.is_active = 1
-                   AND NOT EXISTS (
-                       SELECT 1 FROM enrollments e
-                       WHERE e.student_id = s.id AND e.status = 'active'
-                   )`
-            );
-            let fixed = 0; let added = 0;
-            for (const o of orphans) {
-                const grade = String(o.grade_level || '').trim();
-                const section = String(o.section || '').trim();
-                if (!grade || !section) continue;
-                const [mates] = await conn.query(
-                    `SELECT id FROM classes
-                     WHERE is_active = 1
-                       AND LOWER(TRIM(grade_level)) = LOWER(?)
-                       AND LOWER(TRIM(section)) = LOWER(?)`,
-                    [grade, section]
-                );
-                for (const m of mates) {
-                    const [ins] = await conn.query(
-                        "INSERT IGNORE INTO enrollments (student_id, class_id, status) VALUES (?, ?, 'active')",
-                        [o.id, m.id]
-                    );
-                    if (ins.affectedRows > 0) added += 1;
-                }
-                if (mates.length > 0) fixed += 1;
-            }
-            if (orphans.length > 0) {
-                console.log(`✅ [EduShare] Enrollment backfill: ${fixed}/${orphans.length} unenrolled active student(s) matched (${added} row(s) added).`);
-            }
-        } catch (err) {
-            console.warn('⚠️ Enrollment backfill warning:', err.message);
-        }
+        // 2e. Enrollment backfill: heal students created/approved before the
+        // auto-enroll fix. Lives in enrollmentService so the boot path and the
+        // approval paths share one implementation. It is idempotent
+        // (INSERT IGNORE), never throws, and logs its own summary. Safe on the
+        // pooled connection because everything above this point is
+        // auto-committed (this file opens no transaction).
+        await enrollmentService.backfillMissingEnrollments();
 
         // 2f. Section transfer requests table (explicit ensure for existing DBs).
         try {

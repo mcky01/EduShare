@@ -886,7 +886,7 @@ async function exportLessonPptx(req, res) {
     }
     try {
         const teacherUserId = req.session.user.id;
-        const deck = await require('./pptxService').loadDeckForExport({
+        const deck = await require('../services/pptxService').loadDeckForExport({
             lesson_json: req.body.lesson_json,
             lessonId: req.body.lessonId,
             itemId: req.body.itemId,
@@ -894,7 +894,7 @@ async function exportLessonPptx(req, res) {
         });
         const schoolName = (res.locals.school && (res.locals.school.name || res.locals.school.school_name)) || undefined;
         const motto = (res.locals.school && res.locals.school.motto) || undefined;
-        const { buffer, filename } = await require('./pptxService').buildPptxBuffer(deck, {
+        const { buffer, filename } = await require('../services/pptxService').buildPptxBuffer(deck, {
             ...(schoolName ? { schoolName } : {}),
             ...(motto ? { motto } : {})
         });

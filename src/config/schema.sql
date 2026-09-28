@@ -331,21 +331,6 @@ CREATE TABLE IF NOT EXISTS `gradebook_entries` (
   FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `attendance` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `class_id` INT NOT NULL,
-  `student_id` INT NOT NULL,
-  `attendance_date` DATE NOT NULL,
-  `status` ENUM('present', 'absent', 'late', 'excused') NOT NULL DEFAULT 'present',
-  `remarks` VARCHAR(255) DEFAULT NULL,
-  `recorded_by` INT NOT NULL,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY `unique_attendance_day` (`class_id`, `student_id`, `attendance_date`),
-  FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`recorded_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS `activity_logs` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NOT NULL,

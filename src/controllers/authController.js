@@ -963,6 +963,5 @@ module.exports = {
     showForgot,
     requestResetCode,
     showReset,
-    verifyResetCode,
-    doResetPassword
+    verifyResetCode
 };

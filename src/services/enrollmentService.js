@@ -63,19 +63,6 @@ async function autoEnrollStudent(studentProfileId) {
     }
 }
 
-// Same as above but starting from a users.id (approval handlers only
-// have the user id). Resolves the student profile first.
-async function autoEnrollUser(userId) {
-    try {
-        const rows = await query('SELECT id FROM students WHERE user_id = ? LIMIT 1', [userId]);
-        if (rows.length === 0) return 0;
-        return autoEnrollStudent(rows[0].id);
-    } catch (err) {
-        console.error('[enrollmentService] auto-enroll-by-user failed:', err.message || err);
-        return 0;
-    }
-}
-
 // One-time backfill (idempotent): enroll every ACTIVE student who has
 // no enrollment row into all active classes matching their
 // grade/section. Runs at boot; INSERT IGNORE makes re-runs no-ops.
@@ -114,6 +101,5 @@ async function backfillMissingEnrollments() {
 
 module.exports = {
     autoEnrollStudent,
-    autoEnrollUser,
     backfillMissingEnrollments
 };

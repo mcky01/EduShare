@@ -96,6 +96,11 @@ app.set('layout extractStyles', true);
 // ==========================================
 // Static Files
 // ==========================================
+// Legacy public/uploads/ is retired. User uploads live in storage/uploads/ and
+// are served authenticated via GET /files/:subDir/:filename with per-role
+// ownership checks. Deny the old path outright so a recreated folder can never
+// be served without authentication.
+app.use('/uploads', (req, res) => res.sendStatus(404));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Development Request Logger

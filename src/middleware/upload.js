@@ -5,7 +5,6 @@ const crypto = require('crypto');
 
 const uploadsBase = path.join(__dirname, '..', '..', 'storage', 'uploads');
 
-const ALLOWED_DOC_EXTS = ['pdf', 'docx', 'pptx', 'xlsx', 'txt', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
 const ALLOWED_IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
 const DOC_MIME_MAP = {
@@ -134,6 +133,5 @@ module.exports = {
     uploadCurriculum,
     uploadLogo,
     uploadsBase,
-    ALLOWED_DOC_EXTS,
     ALLOWED_IMAGE_EXTS
 };
