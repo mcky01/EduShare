@@ -80,7 +80,7 @@ Mermaid diagrams use rounded process nodes, rectangular external nodes, and cyli
 
 ### Figure and heading convention
 
-Figure captions and section headings use the form `DFD Level N Process N.N (Process Name)`, where **N is the depth of the process being decomposed, not the depth of its children**. The context diagram (Figure 1) and the whole-system diagram of the six top-level processes (Figure 2) are both **DFD Level 0**; the per-process figures that decompose 1.0, 2.0, 3.0, 4.0, 5.0, and 6.0 into their `N.1`–`N.5` sub-processes are **DFD Level 1 Process N.0**, and are numbered in the order the sections appear (Figures 3, 4, 5, 6, 7, and 8). This document contains no Level 2 diagram, because no sub-process is decomposed further.
+Figure captions and section headings use the form `DFD Level N Process N.N (Process Name)`, where **N is the depth of the process being decomposed, not the depth of its children**. The context diagram (Figure 1) and the whole-system diagram of the six top-level processes (Figures 2a and 2b) are all **DFD Level 0**; the per-process figures that decompose 1.0, 2.0, 3.0, 4.0, 5.0, and 6.0 into their `N.1`–`N.5` sub-processes are **DFD Level 1 Process N.0**, and are numbered in the order the sections appear (Figures 3, 4, 5a, 5b, 6, 7, and 8). Two figures are lettered sub-figures rather than single diagrams, because the original single-canvas rendering was too dense to read at print scale: the Level 0 whole-system view is split into **Figure 2a** (external entities against the six top-level processes) and **Figure 2b** (the same six processes against the seven logical data stores), and the 3.0 package is split into **Figure 5a** (3.1 Teacher Portal) and **Figure 5b** (3.2–3.5 AI authoring and curriculum). Each lettered part shares the number of the figure it replaces, so Figures 1, 3, 4, 6, 7, and 8 keep their original numbers and nothing downstream needed renumbering. This document contains no Level 2 diagram, because no sub-process is decomposed further.
 
 ---
 
@@ -143,7 +143,10 @@ Every entity in Figure 1 is still required after the process regrouping: the Gue
 
 ## DFD Level 0 EduShare LMS — Six Top-Level Processes (1.0–6.0) and Seven Logical Data Stores (D1–D7)
 
+The Level 0 whole-system diagram is presented in two parts because it is the widest canvas in this document: drawn as a single graph it carries seven external entities, six processes, seven stores, and roughly fifty labelled edges, which compresses the edge labels until they are unreadable at print scale. **Figure 2a** is the *interaction* view — the external entities against the six top-level processes, with no data stores. **Figure 2b** is the *persistence* view — the same six processes against the seven logical stores, with no external entities. Read the two halves together they carry exactly the information the single diagram carried: 2a answers *which actor reaches which process* (including the SMTP and model-provider boundaries), and 2b answers *which process reads and writes which store*. The process-to-process notification-event arrows (3.0, 4.0, and 5.0 into 6.0) are drawn in both parts, so neither view is left with an unexplained process; the D7 → 3.0 and D7 → 4.0 dotted feature-flag arrows belong to 2b because they cross the process/store boundary. No node ID, label, arrow label, arrow style, or class definition was added, removed, or changed by the split — only which canvas a node is drawn on.
+
 ```mermaid
+%%{init: {'themeVariables': {'fontSize': '16px'}}}%%
 flowchart TB
     A["Administrator"]
     T["Teacher"]
@@ -159,14 +162,6 @@ flowchart TB
     P4(("4.0 Student Learning"))
     P5(("5.0 Assessment & Gradebook"))
     P6(("6.0 Support Services"))
-
-    D1[("D1 Identity, sessions, and OTP")]
-    D2[("D2 Academic structure and enrollment")]
-    D3[("D3 Instructional content")]
-    D4[("D4 Assessment and gradebook")]
-    D5[("D5 AI and curriculum knowledge")]
-    D6[("D6 Server-local files")]
-    D7[("D7 Settings, notifications, and audit")]
 
     A <-->|"identity and profile"| P1
     T <-->|"identity and profile"| P1
@@ -189,11 +184,52 @@ flowchart TB
     A <-->|"authorized oversight files"| P6
     T <-->|"authorized instructional files"| P6
 
+    P1 -->|"OTP and reset email"| SMTP
+    SMTP -->|"delivery outcome"| P1
+
+    P3 -->|"generation and embedding requests"| NR
+    NR -->|"model response"| P3
+    P3 -->|"generation and embedding requests"| OL
+    OL -->|"model response or vectors"| P3
+    P4 -->|"chat requests"| NR
+    NR -->|"streamed model response"| P4
+    P4 -->|"chat requests"| OL
+    OL -->|"streamed model response"| P4
+
+    P3 -->|"enrollment, content, and quiz notification events"| P6
+    P4 -->|"submission and result notification events"| P6
+    P5 -->|"grade notification events"| P6
+
+    classDef external fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px
+    classDef process fill:#ecfeff,stroke:#0e7490,color:#164e63,stroke-width:2px
+    classDef store fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
+    class A,T,S,G,NR,OL,SMTP external
+    class P1,P2,P3,P4,P5,P6 process
+```
+
+*Figure 2a. DFD Level 0 — Actors and Processes.*
+
+```mermaid
+%%{init: {'themeVariables': {'fontSize': '16px'}}}%%
+flowchart TB
+    P1(("1.0 User Management"))
+    P2(("2.0 System Administration"))
+    P3(("3.0 Teaching & AI Authoring"))
+    P4(("4.0 Student Learning"))
+    P5(("5.0 Assessment & Gradebook"))
+    P6(("6.0 Support Services"))
+
+    D1[("D1 Identity, sessions, and OTP")]
+    D2[("D2 Academic structure and enrollment")]
+    D3[("D3 Instructional content")]
+    D4[("D4 Assessment and gradebook")]
+    D5[("D5 AI and curriculum knowledge")]
+    D6[("D6 Server-local files")]
+    D7[("D7 Settings, notifications, and audit")]
+
     P1 <-->|"accounts, profiles, sessions, OTPs"| D1
     P1 <-->|"account and security audit records"| D7
     P1 <-->|"profile avatar files"| D6
-    P1 -->|"OTP and reset email"| SMTP
-    SMTP -->|"delivery outcome"| P1
 
     P2 <-->|"user and profile records"| D1
     P2 <-->|"classes, enrollments, requests"| D2
@@ -211,26 +247,15 @@ flowchart TB
     P3 <-->|"posted, uploaded, and temporary plan/curriculum files"| D6
     P3 <-->|"enrollment, content, and AI audit records"| D7
     D7 -.->|"AI feature-flag settings"| P3
-    P3 -->|"generation and embedding requests"| NR
-    NR -->|"model response"| P3
-    P3 -->|"generation and embedding requests"| OL
-    OL -->|"model response or vectors"| P3
-    P3 -->|"enrollment, content, and quiz notification events"| P6
 
     P4 <-->|"enrollment and class context"| D2
     P4 <-->|"published learning content"| D3
     P4 <-->|"submissions, results, and grade summaries"| D4
     P4 <-->|"chat history"| D5
     D7 -.->|"AI feature-flag settings"| P4
-    P4 -->|"chat requests"| NR
-    NR -->|"streamed model response"| P4
-    P4 -->|"chat requests"| OL
-    OL -->|"streamed model response"| P4
-    P4 -->|"submission and result notification events"| P6
 
     P5 <-->|"quizzes, attempts, submissions, grades"| D4
     P5 <-->|"attachment references"| D6
-    P5 -->|"grade notification events"| P6
 
     P6 <-->|"session, user, and flash context"| D1
     P6 <-->|"search and enrollment ownership lookups"| D2
@@ -239,15 +264,18 @@ flowchart TB
     P6 <-->|"authorized file bytes"| D6
     P6 <-->|"notifications and unread counts"| D7
 
+    P3 -->|"enrollment, content, and quiz notification events"| P6
+    P4 -->|"submission and result notification events"| P6
+    P5 -->|"grade notification events"| P6
+
     classDef external fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px
     classDef process fill:#ecfeff,stroke:#0e7490,color:#164e63,stroke-width:2px
     classDef store fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
-    class A,T,S,G,NR,OL,SMTP external
     class P1,P2,P3,P4,P5,P6 process
     class D1,D2,D3,D4,D5,D6,D7 store
 ```
 
-*Figure 2. DFD Level 0 EduShare LMS — six top-level processes (1.0–6.0) and seven logical data stores (D1–D7).*
+*Figure 2b. DFD Level 0 — Processes and Stores.*
 
 Six top-level processes reflect the grouping of EduShare's ten official modules; see the module-to-process mapping in the Scope section.
 
@@ -415,27 +443,20 @@ The `6.0 Support services` and `5.0 Assessment & Gradebook` nodes shown here are
 
 The shipped curriculum page is admin-scoped and its client attempts the teacher-only preview endpoint; successful teacher source preview is therefore a route-level capability of 3.5, not currently reachable from the shipped teacher UI, while the admin UI renders the blocked response as a notice.
 
+This module is the second of the two dense canvases in this document, and it is likewise presented in two parts. **Figure 5a** covers **3.1 Teacher Portal** — the classroom-facing class, roster, library, activity, and announcement work, together with the `5.0 Assessment & Gradebook` sibling reference it is drawn alongside. **Figure 5b** covers **3.2–3.5** — the AI Lesson Generator, the AI Quiz Generator, the AI Activity & Assignment Generator, and curriculum ingestion and retrieval — with the two model providers, the D7 feature-flag context, and the stores those four sub-processes use. Together the two parts cover the full module: each of `3.1`–`3.5` is drawn in exactly one of them, and every store, provider, and sibling reference that 3.0 touches is drawn in the part that actually uses it. The split is presentational only; separating the human-facing portal from the four generators removes the crossing edges between them, which is what forced the original single canvas to shrink its labels past legibility at print scale. Node IDs, node labels, arrow labels, arrow styles, and the four `classDef` blocks are unchanged; only which canvas a node is drawn on. The single 3.0 flow that crosses the split — `3.1` passing authored activity context and a target class to `3.4` — is described in the implementation note for 3.4 below rather than drawn, because 3.1 and 3.4 are never shown in the same figure.
+
 ```mermaid
 flowchart TB
-    A["Administrator"]
     T["Teacher"]
     S["Student"]
-    NR["9Router API"]
-    OL["Ollama API"]
     SUP(("6.0 Support services"))
     ASMT(("5.0 Assessment & Gradebook"))
 
     P31(("3.1 Teacher Portal"))
-    P32(("3.2 AI Lesson Generator"))
-    P33(("3.3 AI Quiz Generator"))
-    P34(("3.4 AI Activity & Assignment Generator"))
-    P35(("3.5 Curriculum ingestion and retrieval"))
 
     D1[("D1 Identity, sessions, and OTP")]
     D2[("D2 Academic structure and enrollment")]
     D3[("D3 Instructional content")]
-    D4[("D4 Assessment and gradebook")]
-    D5[("D5 AI and curriculum knowledge")]
     D6[("D6 Server-local files")]
     D7[("D7 Settings, notifications, and audit")]
 
@@ -443,21 +464,51 @@ flowchart TB
     S <-->|"join code and enrollment state"| P31
     T <-->|"library, postings, activities, announcements"| P31
 
-    T <-->|"plan text/file, preferences, and generation request"| P32
-    T <-->|"quiz plan/deck, type mix, and generation request"| P33
-    T <-->|"activity/assignment brief and confirmation"| P34
-    A <-->|"curriculum upload, chunk review, and ingestion audit"| P35
-    T <-->|"teacher-scoped source query and citation preview"| P35
-
-    P31 -->|"authored activity context and target class"| P34
-    P32 -->|"optional generated lesson deck"| P33
-
     P31 <-->|"user role and profile"| D1
     P31 <-->|"classes, enrollments, and requests"| D2
     P31 <-->|"library, postings, activities, and announcements"| D3
     P31 <-->|"material and activity files"| D6
     P31 -->|"enrollment and advisory audit records"| D7
     P31 -->|"enrollment and content notification events"| SUP
+
+    classDef external fill:#fff7ed,stroke:#c2410c,color:#431407,stroke-width:1.5px
+    classDef process fill:#ecfeff,stroke:#0e7490,color:#164e63,stroke-width:2px
+    classDef store fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
+    classDef sibling fill:#f5f3ff,stroke:#6d28d9,color:#2e1065,stroke-width:1.5px
+    class T,S external
+    class P31 process
+    class D1,D2,D3,D6,D7 store
+    class SUP,ASMT sibling
+```
+
+*Figure 5a. DFD Level 1 Process 3.0 (Teacher Portal).*
+
+```mermaid
+flowchart TB
+    A["Administrator"]
+    T["Teacher"]
+    NR["9Router API"]
+    OL["Ollama API"]
+    SUP(("6.0 Support services"))
+
+    P32(("3.2 AI Lesson Generator"))
+    P33(("3.3 AI Quiz Generator"))
+    P34(("3.4 AI Activity & Assignment Generator"))
+    P35(("3.5 Curriculum ingestion and retrieval"))
+
+    D3[("D3 Instructional content")]
+    D4[("D4 Assessment and gradebook")]
+    D5[("D5 AI and curriculum knowledge")]
+    D6[("D6 Server-local files")]
+    D7[("D7 Settings, notifications, and audit")]
+
+    T <-->|"plan text/file, preferences, and generation request"| P32
+    T <-->|"quiz plan/deck, type mix, and generation request"| P33
+    T <-->|"activity/assignment brief and confirmation"| P34
+    A <-->|"curriculum upload, chunk review, and ingestion audit"| P35
+    T <-->|"teacher-scoped source query and citation preview"| P35
+
+    P32 -->|"optional generated lesson deck"| P33
 
     P32 <-->|"AI lesson draft and metadata"| D5
     P32 <-->|"temporary plan file read/delete"| D6
@@ -501,13 +552,13 @@ flowchart TB
     classDef process fill:#ecfeff,stroke:#0e7490,color:#164e63,stroke-width:2px
     classDef store fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
     classDef sibling fill:#f5f3ff,stroke:#6d28d9,color:#2e1065,stroke-width:1.5px
-    class A,T,S,NR,OL external
-    class P31,P32,P33,P34,P35 process
-    class D1,D2,D3,D4,D5,D6,D7 store
-    class SUP,ASMT sibling
+    class A,T,NR,OL external
+    class P32,P33,P34,P35 process
+    class D3,D4,D5,D6,D7 store
+    class SUP sibling
 ```
 
-*Figure 5. DFD Level 1 Process 3.0 (Teaching & AI Authoring).*
+*Figure 5b. DFD Level 1 Process 3.0 (AI Authoring & Curriculum).*
 
 | Subprocess | Responsibility |
 |---|---|
@@ -745,7 +796,7 @@ Internal D1–D7 flows appear only after the Context process is decomposed, as r
 | 5.0 Assessment & Gradebook | Expanded as 5.1–5.2 |
 | 6.0 Support Services | Expanded as 6.1–6.4 |
 
-Every destination cited in the Context-to-Level-0 table resolves to an expanded process in this table, and every expanded process appears in Figure 2 and in the process dictionary, so the decomposition balances in both directions.
+Every destination cited in the Context-to-Level-0 table resolves to an expanded process in this table, and every expanded process appears in the Level 0 diagrams (Figures 2a and 2b) and in the process dictionary, so the decomposition balances in both directions.
 
 ### Data-store coverage
 
