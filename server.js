@@ -13,9 +13,9 @@ const initDatabase = require('./src/config/initDatabase');
 async function startServer() {
     console.log('');
     console.log('╔═══════════════════════════════════════════════════════════════╗');
-    console.log('║                   EduShare LMS BOOTSTRAP                 ║');
+    console.log('║                   EduShare LMS BOOTSTRAP                      ║');
     console.log('║        Zeferino Arroyo High School (Iriga City, 1981)         ║');
-    console.log('║                 "Basta Zeferinian, Magaling Yan!"            ║');
+    console.log('║                 "Basta Zeferinian, Magaling Yan!"             ║');
     console.log('╚═══════════════════════════════════════════════════════════════╝');
     console.log('');
 

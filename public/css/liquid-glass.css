@@ -1880,14 +1880,15 @@ select.glass-input:focus-visible {
 .chat-suggest.open #suggestRow { display: flex; }
 .chat-suggest:not(.open) #suggestRow { display: none !important; }
 /* Pill composer: textarea + round send share one box. */
-.chat-composer { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.75rem 0.75rem 1rem; border-top: 1px solid rgba(16, 185, 129, 0.15); background: rgba(255, 255, 255, 0.55); }
-.chat-composer-pill { position: relative; background: rgba(255, 255, 255, 0.85); border: 1.5px solid rgba(16, 185, 129, 0.25); border-radius: 24px; transition: all 0.25s ease; }
+.chat-composer { display: flex; flex-direction: column; align-items: stretch; width: 100%; gap: 0.15rem; padding: 0.75rem 0.75rem 1rem; border-top: 1px solid rgba(16, 185, 129, 0.15); background: rgba(255, 255, 255, 0.55); }
+.chat-composer-pill { position: relative; width: 100%; box-sizing: border-box; background: rgba(255, 255, 255, 0.85); border: 1.5px solid rgba(16, 185, 129, 0.25); border-radius: 24px; transition: all 0.25s ease; }
 .chat-composer-pill:focus-within { background: #ffffff; border-color: var(--zahs-emerald-primary); box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15); }
-#chatForm .chat-input { background: transparent; border: 0; box-shadow: none; border-radius: 24px; max-width: 100%; padding: 1.15rem 3.6rem 1.15rem 1.3rem; resize: none; min-height: 72px; max-height: 240px; line-height: 1.55; font-size: 1rem; }
+#chatForm .chat-input { display: block; width: 100%; box-sizing: border-box; background: transparent; border: 0; box-shadow: none; border-radius: 24px; max-width: 100%; padding: 1.15rem 3.6rem 1.15rem 1.3rem; resize: none; min-height: 72px; max-height: 240px; line-height: 1.55; font-size: 1rem; }
 #chatForm .chat-input:focus { background: transparent; border: 0; box-shadow: none; }
-#chatForm .chat-send-btn { position: absolute; right: 0.45rem; bottom: 0.45rem; width: 44px; height: 44px; min-width: 44px; max-width: 44px; flex: 0 0 44px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem; z-index: 2; }
+#chatForm .chat-send-btn { position: absolute; right: 0.6rem; top: 50%; bottom: auto; transform: translateY(-50%); width: 44px; height: 44px; min-width: 44px; max-width: 44px; flex: 0 0 44px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem; z-index: 2; }
 .chat-send-btn .bi { margin: 0 !important; }
-.chat-composer-meta { display: flex; justify-content: flex-start; padding: 0 0.4rem; }
+#chatForm .chat-send-btn:hover, #chatForm .chat-send-btn:active, #chatForm .chat-send-btn:focus { transform: translateY(-50%); }
+.chat-composer-meta { display: flex; justify-content: flex-end; padding: 0 0.4rem; }
 
 @media (max-width: 768px) {
     /* Collapse chrome so the chat owns the first screen. */

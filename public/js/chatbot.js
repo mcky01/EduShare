@@ -126,6 +126,11 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/\\beta/g, '\u03B2').replace(/\\gamma/g, '\u03B3').replace(/\\Delta/g, '\u0394')
             .replace(/\\delta/g, '\u03B4').replace(/\\mu/g, '\u03BC').replace(/\\sigma/g, '\u03C3')
             .replace(/\\sum/g, '\u03A3').replace(/\\prod/g, '\u03A0')
+            .replace(/\\(?:text|textbf|textit|mathrm|mathbf|operatorname)\{([^{}]*)\}/g, '$1')
+            .replace(/\\xrightarrow\{([^{}]*)\}/g, ' \u2014$1\u2192 ')
+            .replace(/\\(?:rightarrow|to)\b/g, '\u2192').replace(/\\leftarrow\b/g, '\u2190')
+            .replace(/\\(?:rightleftharpoons|leftrightarrow)\b/g, '\u21CC')
+            .replace(/_\{?(\d+)\}?/g, (m, d) => d.replace(/\d/g, (c) => String.fromCharCode(0x2080 + Number(c))))
             .replace(/\\left\s*\(/g, '(').replace(/\\right\s*\)/g, ')')
             .replace(/\\left\s*\[/g, '[').replace(/\\right\s*\]/g, ']')
             .replace(/\\left\s*\{/g, '{').replace(/\\right\s*\}/g, '}')
@@ -155,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
             mathSpans.push({ display: true, tex: inner });
             return `\u0000MATH${mathSpans.length - 1}\u0000`;
         });
-        source = source.replace(/(^|[\s(])\$([^$\n]+)\$/g, (m, pre, inner) => {
+        source = source.replace(/(^|[\s(])\$([^$\s](?:[^$\n]*[^$\s])?)\$(?!\d)/g, (m, pre, inner) => {
             mathSpans.push({ display: false, tex: inner });
             return `${pre}\u0000MATH${mathSpans.length - 1}\u0000`;
         });
@@ -416,6 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let fullText = '';
         let provider = '';
         let stopped = false;
+        let paintQueued = false; // must live outside try{} so finally{} can read it
         try {
             const response = await fetch('/api/ai/chat/stream', {
                 method: 'POST',
@@ -433,7 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const decoder = new TextDecoder();
             let buffer = '';
             let firstChunk = true;
-            let paintQueued = false;
             const paint = () => {
                 paintQueued = false;
                 bubble.innerHTML = formatMarkdown(fullText);
