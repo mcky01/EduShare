@@ -261,15 +261,47 @@ document.addEventListener('DOMContentLoaded', () => {
         function attested() { return attestEl?.checked === true; }
     }
 
+    // Long cells stay fully in the DOM (plan content must never be silently
+    // dropped); the cell scrolls instead, and data-grid-orig keeps the COMPLETE
+    // original so collectGridEdits() only flags cells the teacher really changed.
+    //
+    // The char-count hint must never become part of the cell's text content.
+    // collectGridEdits() compares td.innerText against data-grid-orig, and
+    // innerText includes descendant text, so a <div> hint inside the cell made
+    // every long cell look teacher-edited and leaked the hint into the saved
+    // draft and the AI prompt. A ::after pseudo-element is generated content,
+    // which innerText excludes, so the hint stays purely visual.
+    const GRID_HINT_STYLE_ID = 'lessonGridHintStyle';
+    function ensureGridHintStyle() {
+        if (document.getElementById(GRID_HINT_STYLE_ID)) return;
+        const style = document.createElement('style');
+        style.id = GRID_HINT_STYLE_ID;
+        style.textContent = 'td[data-grid-key][data-hint]::after{content:attr(data-hint);'
+            + 'display:block;margin-top:.35rem;font-style:italic;font-weight:400;font-size:.85em;opacity:.65;}';
+        document.head.appendChild(style);
+    }
+
+    const cellHtml = (attrs, text, extraStyle) => {
+        const body = String(text || '');
+        const hint = body.length > 500 ? ` data-hint="${escapeHtml(body.length.toLocaleString() + ' chars — scroll to see all')}"` : '';
+        return `<td ${attrs}${hint} class="small" contenteditable="true" data-grid-orig="${escapeHtml(body)}" `
+            + `style="white-space: pre-wrap;${extraStyle || ''}">${escapeHtml(body)}</td>`;
+    };
+
     function renderGrid(grid) {
         gridModel = grid || null;
         if (!gridWrapEl || !gridHeadEl || !gridBodyEl) return;
-        if (!gridModel || !gridModel.rows || !gridModel.rows.length) {
+        const sharedRows = gridModel ? (gridModel.shared || []) : [];
+        const sessionRows = gridModel ? (gridModel.rows || []) : [];
+        // A plan can legitimately consist only of non-session pillars (an ILAW
+        // with no Session markers), so shared rows alone must still render.
+        if (!gridModel || (!sharedRows.length && !sessionRows.length)) {
             gridWrapEl.style.display = 'none';
             gridHeadEl.innerHTML = '';
             gridBodyEl.innerHTML = '';
             return;
         }
+        ensureGridHintStyle();
         const cols = gridModel.columns || [];
         gridHeadEl.innerHTML = '<th scope="col" style="min-width:180px;">Section</th>'
             + cols.map((c) => `<th scope="col">${escapeHtml(c.replace('S', 'Session '))}</th>`).join('');
@@ -277,24 +309,37 @@ document.addEventListener('DOMContentLoaded', () => {
             const map = { intentions: 'badge-emerald', experiences: 'badge-jade', assessment: 'badge-amber', ways: 'badge-gray', meta: 'badge-gray', other: 'badge-gray' };
             return `<span class="badge ${map[role] || 'badge-gray'}">${escapeHtml(role || 'other')}</span>`;
         };
+        // Marker distinguishing ILAW's non-session pillars from the
+        // session-specific Learning Experience rows.
+        const allSessionsBadge = '<span class="badge badge-info" title="This section applies to the whole plan, not one session">All sessions</span>';
+        const span = Math.max(1, cols.length);
         let html = '';
-        (gridModel.shared || []).slice(0, 8).forEach((sh) => {
-            html += `<tr><td class="fw-bold small">${escapeHtml((sh.title || 'Header').slice(0, 60))} ${roleBadge('meta')}</td>`
-                + `<td colspan="${cols.length}" class="small" contenteditable="true" data-grid-key="${escapeHtml(sh.key)}" data-grid-orig="${escapeHtml((sh.preview || '').slice(0, 500))}" style="white-space: pre-wrap;">${escapeHtml(sh.preview || '')}</td></tr>`;
+        // All-sessions rows: one cell spanning every session column. No cap here:
+        // silently dropping pillars would hide real plan content from the teacher.
+        sharedRows.forEach((sh) => {
+            html += `<tr><td class="fw-bold small">${escapeHtml((sh.title || 'Header').slice(0, 60))}<br>${roleBadge(sh.role || 'meta')}<br>${allSessionsBadge}</td>`
+                + cellHtml(`data-grid-key="${escapeHtml(sh.key)}" colspan="${span}"`, sh.text || sh.preview || '', ' min-width: 200px; max-height: 320px; overflow-y: auto;')
+                + '</tr>';
         });
-        gridModel.rows.forEach((row) => {
+        // Per-session rows: one cell per session column.
+        sessionRows.forEach((row) => {
             html += `<tr><td class="fw-bold small">${escapeHtml((row.title || 'Section').slice(0, 60))}<br>${roleBadge(row.role)}<br><span class="text-muted" style="font-weight:400;">${escapeHtml(Object.values(row.refs || {}).join(', '))}</span></td>`;
             cols.forEach((col) => {
                 const cell = (row.cells && row.cells[col]) || '';
-                const shown = cell.length > 500 ? `${cell.slice(0, 500)}…` : cell;
-                html += `<td class="small" contenteditable="true" data-grid-key="${escapeHtml(row.key)}" data-grid-col="${escapeHtml(col)}" data-grid-orig="${escapeHtml(cell.slice(0, 500))}" style="white-space: pre-wrap; min-width: 200px;">${escapeHtml(shown)}</td>`;
+                html += cellHtml(`data-grid-key="${escapeHtml(row.key)}" data-grid-col="${escapeHtml(col)}"`, cell, ' min-width: 200px; max-height: 260px; overflow-y: auto;');
             });
             html += '</tr>';
         });
         gridBodyEl.innerHTML = html;
         gridWrapEl.style.display = '';
         gridBodyEl.querySelectorAll('[data-grid-key]').forEach((td) => {
-            td.addEventListener('input', () => { setGenerateState(); saveLessonDraft(); });
+            // The length hint is chrome, not plan content: drop it as soon as the
+            // teacher starts typing so it can never be read back as an edit.
+            td.addEventListener('input', () => {
+                td.removeAttribute('data-hint');
+                setGenerateState();
+                saveLessonDraft();
+            });
         });
     }
 

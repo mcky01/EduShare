@@ -270,8 +270,21 @@ function buildQuizPrompt({ topic, subject, grade_level, competency, mc_count, tf
         };
     }
 
+    // Deck projection contract: slide_text is the current field, bullets/content
+    // are legacy shapes. Same precedence as pptxService.projectionOf, so the
+    // model actually receives the slide body instead of a title-only line.
+    const slideBody = (sl) => {
+        const asLines = (v) => {
+            if (Array.isArray(v)) return v.map((x) => String(x ?? '').trim()).filter(Boolean);
+            if (typeof v === 'string' && v.trim()) return [v.trim()];
+            return [];
+        };
+        const text = asLines(sl && sl.slide_text);
+        const base = text.length ? text : asLines(sl && sl.bullets);
+        return (base.length ? base : asLines(sl && sl.content)).join(' | ');
+    };
     const deckBlock = deck && Array.isArray(deck.slides) && deck.slides.length
-        ? `\n<lesson_deck>\n${deck.slides.map((sl, i) => `Slide ${i + 1} (${sl.id || sl.type || ''}): ${sl.title || ''} — ${(Array.isArray(sl.bullets) ? sl.bullets : []).join(' | ').slice(0, 400)}`).join('\n')}\n</lesson_deck>\n`
+        ? `\n<lesson_deck>\n${deck.slides.map((sl, i) => `Slide ${i + 1} (${sl.id || sl.type || ''}): ${sl.title || ''} — ${slideBody(sl).slice(0, 400)}`).join('\n')}\n</lesson_deck>\n`
         : '';
     return {
         grounded: true,

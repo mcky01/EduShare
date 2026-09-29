@@ -163,6 +163,30 @@ async function createClass(req, res) {
                     (?, 'Quarterly Exam', 'quarterly_exam', 30.00, 3)`,
                 [classId, classId, classId]
             );
+
+            // Seed one editable manual column per category so the gradebook is
+            // usable before any quiz/activity exists to auto-link one. Runs
+            // inside the same transaction so a failure never leaves a class
+            // with categories but no columns.
+            const [seedCats] = await conn.query(
+                'SELECT id, category_code FROM gradebook_categories WHERE class_id = ?',
+                [classId]
+            );
+            const catIdByCode = {};
+            for (const c of seedCats) catIdByCode[c.category_code] = c.id;
+            for (const [code, columnName] of [
+                ['written_works', 'Written Works 1'],
+                ['performance_tasks', 'Performance Task 1'],
+                ['quarterly_exam', 'Quarterly Exam']
+            ]) {
+                const categoryId = catIdByCode[code];
+                if (!categoryId) continue;
+                await conn.query(
+                    `INSERT INTO gradebook_columns (class_id, category_id, column_name, max_score, source_type, sort_order)
+                     VALUES (?, ?, ?, 100, 'manual', 1)`,
+                    [classId, categoryId, columnName]
+                );
+            }
         });
 
         setFlash(req, 'success', `Class "${cn}" created with code: ${classCode}`);

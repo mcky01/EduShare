@@ -15,6 +15,21 @@ const CHAT_CONTEXT_TURNS = 6;
 const cleanChatSubject = (value) => VALID_CHAT_SUBJECTS.includes(String(value || '').trim()) ? String(value).trim() : 'General';
 const cleanChatGrade = (value) => VALID_CHAT_GRADES.includes(String(value || '').trim()) ? String(value).trim() : 'Grade 7';
 
+// Multipart bodies (multer) hand every field over as a string, so the wizard's
+// multi-select preferences arrive as JSON text ("[\"Cooperative Learning\"]").
+// Normalize both shapes to an array so JSON and multipart requests behave the
+// same; anything unparseable is dropped rather than treated as a preference.
+function cleanPrefArray(value) {
+    if (Array.isArray(value)) return value.filter(Boolean).slice(0, 8);
+    if (typeof value === 'string' && value.trim()) {
+        try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) return parsed.filter(Boolean).slice(0, 8);
+        } catch { /* not JSON: fall through to empty */ }
+    }
+    return [];
+}
+
 // Keep only the requested number of each question type (in order) and drop any
 // type the teacher asked for 0 of. Guarantees the generated quiz never exceeds or
 // mixes in unrequested types; a shortfall is caught by validateQuiz's mix check.
@@ -77,16 +92,11 @@ Use Markdown: short headings, **bold** key terms, bullet lists, and numbered ste
                   ORDER BY created_at DESC LIMIT ?`,
                 [studentUserId, subject === 'General' ? 'General' : subject, CHAT_CONTEXT_TURNS]
             );
-            // History rows relevant to both: subject-specific + General, newest first
-            const mixed = subject === 'General'
-                ? recent
-                : await query(
-                    `SELECT user_message, ai_response FROM chat_history
-                      WHERE user_id = ? AND subject IN (?, 'General')
-                      ORDER BY created_at DESC LIMIT ?`,
-                    [studentUserId, subject, CHAT_CONTEXT_TURNS]
-                );
-            historyTurns = (subject === 'General' ? recent : mixed).reverse();
+            // One query covers both cases: for General the bind resolves to
+            // 'General' (matching only General rows), otherwise it selects the
+            // subject's own rows plus General. Newest first, so reverse to
+            // chronological order for the prompt.
+            historyTurns = recent.reverse();
         } catch { historyTurns = []; }
 
         const messages = [{ role: 'system', content: systemPrompt }];
@@ -241,15 +251,17 @@ async function parsePlan(req, res) {
         // Editable grid: row-label x session-column cells mirroring the plan's
         // own table layout, so teachers review/edit per cell instead of raw text.
         const grid = planParseService.buildEditableGrid(parsed);
-        // Cap cell payload (~400 chars shown, full text kept server-side by ref).
+        // Full cell text is sent: the grid is an EDIT surface, so a truncated
+        // cell would silently rewrite the plan whenever a teacher edits it.
+        // (buildTaggedAll already caps each section at 6000 chars.)
         const gridView = {
             columns: grid.columns,
-            shared: grid.shared.map((sh) => ({ key: sh.key, title: sh.title, ref: sh.ref, preview: String(sh.text || '').slice(0, 400) })),
+            shared: grid.shared.map((sh) => ({ key: sh.key, title: sh.title, ref: sh.ref, role: sh.role, sessionScoped: false, text: String(sh.text || '') })),
             rows: grid.rows.map((r) => ({
                 key: r.key,
                 title: r.title,
                 role: r.role,
-                cells: Object.fromEntries(Object.entries(r.cells || {}).map(([col, txt]) => [col, String(txt || '').slice(0, 2000)])),
+                cells: Object.fromEntries(Object.entries(r.cells || {}).map(([col, txt]) => [col, String(txt || '')])),
                 refs: r.refs
             }))
         };
@@ -336,11 +348,11 @@ async function generateLesson(req, res) {
         const competency = String(req.body.competency || '').slice(0, 500) || planCompLine.slice(0, 500);
         const { grade_level, subject, instructions } = req.body;
         const prefs = {
-            approach: Array.isArray(req.body.approach) ? req.body.approach.filter(Boolean).slice(0, 8) : [],
-            integration: Array.isArray(req.body.integration) ? req.body.integration.filter(Boolean).slice(0, 8) : [],
-            resources: Array.isArray(req.body.resources) ? req.body.resources.filter(Boolean).slice(0, 8) : [],
+            approach: cleanPrefArray(req.body.approach),
+            integration: cleanPrefArray(req.body.integration),
+            resources: cleanPrefArray(req.body.resources),
             language: String(req.body.language || '').slice(0, 60),
-            assessment: Array.isArray(req.body.assessment) ? req.body.assessment.filter(Boolean).slice(0, 8) : [],
+            assessment: cleanPrefArray(req.body.assessment),
             class_profile: String(req.body.class_profile || parsed.sessions && '' || '').slice(0, 500),
             inclusion: String(req.body.inclusion || '').slice(0, 500),
             duration: String(req.body.duration || '').slice(0, 60),
@@ -487,6 +499,11 @@ async function generateLesson(req, res) {
 }
 
 async function saveLessonToLibrary(req, res) {
+    // Phase 0.2: admin kill-switch (system_settings.allow_ai_lesson). Enforced on
+    // the write path too, so an already-open wizard cannot save after disablement.
+    if (res.locals.school && res.locals.school.flags && res.locals.school.flags.allowAiLesson === false) {
+        return res.status(403).json({ error: 'The AI Lesson Generator is currently disabled by the school administrator.' });
+    }
     try {
         const { title, lesson_json, class_ids, confirmed, lessonId, grounded } = req.body;
         const teacherUserId = req.session.user.id;
@@ -678,7 +695,7 @@ async function generateQuiz(req, res) {
 
 async function saveQuiz(req, res) {
     try {
-        const { title, description, subject, grade_level, time_limit, passing_score, questions, class_ids, confirmed, grounded, is_fallback } = req.body;
+        const { title, description, subject, grade_level, time_limit, passing_score, questions, class_ids, confirmed, is_fallback } = req.body;
         const teacherUserId = req.session.user.id;
 
         // Block saving a fallback quiz unless the teacher explicitly confirms
@@ -699,11 +716,12 @@ async function saveQuiz(req, res) {
         // Server-side gate: structure + plan traceability. Quizzes without plan
         // refs need confirmation. Legacy [S#] refs still count.
         const quizGate = validationService.validateQuiz(questions, questions.length);
-        let quizGrounded = grounded === true || grounded === 'true' || grounded === 1;
-        if (grounded === undefined) {
-            const cited = questions.filter((q) => /\[P\d+\]/.test(String(q.explanation || '')) || /\[S\d+\]/.test(String(q.explanation || ''))).length;
-            quizGrounded = cited > 0 && cited >= Math.ceil(questions.length / 2);
-        }
+        // Traceability is derived from the submitted questions themselves, never
+        // from the client `grounded` flag (which any client could set to bypass
+        // this gate). generateQuiz persists no ai_content draft, so the question
+        // bodies are the only server-side source of truth available here.
+        const cited = questions.filter((q) => /\[P\d+\]/.test(String(q.explanation || '')) || /\[S\d+\]/.test(String(q.explanation || ''))).length;
+        const quizGrounded = cited > 0 && cited >= Math.ceil(questions.length / 2);
         if ((!quizGate.valid || !quizGrounded) && confirmed !== true && confirmed !== 'true' && confirmed !== 1) {
             return res.status(422).json({
                 error: !quizGrounded ? 'Quiz is not traceable to the plan. Confirm teacher review before publishing.' : 'Quiz needs teacher review before publishing.',
@@ -716,7 +734,10 @@ async function saveQuiz(req, res) {
         let quizTargetIds = [];
         if (class_ids) {
             const rawQuizIds = Array.isArray(class_ids) ? class_ids : [class_ids];
-            quizTargetIds = rawQuizIds.map((v) => parseInt(v, 10)).filter((v) => Number.isInteger(v));
+            // Dedupe before the ownership check: the IN() lookup returns distinct
+            // rows, so a repeated id would fail the length comparison below and
+            // then violate unique_section_quiz on insert.
+            quizTargetIds = [...new Set(rawQuizIds.map((v) => parseInt(v, 10)).filter((v) => Number.isInteger(v) && v > 0))];
             if (quizTargetIds.length > 0) {
                 const ownedQuiz = await query(
                     `SELECT id FROM classes WHERE teacher_id = ? AND id IN (${quizTargetIds.map(() => '?').join(',')})`,
@@ -833,11 +854,14 @@ async function saveQuiz(req, res) {
             // Assign to class sections
             if (quizTargetIds.length > 0) {
                 for (const cId of quizTargetIds) {
-                    await conn.query(
-                        `INSERT INTO section_quizzes (quiz_id, class_id, is_published)
+                    // INSERT IGNORE: unique_section_quiz already covers (quiz_id,
+                    // class_id), so a repeated link is a no-op rather than a 500.
+                    const [linkRes] = await conn.query(
+                        `INSERT IGNORE INTO section_quizzes (quiz_id, class_id, is_published)
                          VALUES (?, ?, 1)`,
                         [quizId, cId]
                     );
+                    if (linkRes.affectedRows === 0) continue; // already linked: no new column
 
                     // Auto link to Gradebook Column
                     const [catRows] = await conn.query(
