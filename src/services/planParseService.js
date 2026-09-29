@@ -271,8 +271,30 @@ function findSessionHeader(rows) {
 function linearizeTables(tables) {
     const out = [];
     const sessionHints = new Set();
+    // Document-level column->session maps, keyed by column count.
+    //
+    // parsePdfBuffer pushes each page's table as a separate entry, and a table
+    // that spans a page break does NOT repeat its "Session 1..4" header on the
+    // continuation page. findSessionHeader() is per-table, so a continuation
+    // table comes back with no header, hasSessionCols is false, and every one of
+    // its cells is emitted as session: null -- which leaves the downstream
+    // merge unable to tell which session a cell belongs to and collapses the
+    // whole continuation row onto the last session of the group.
+    //
+    // Carrying the map forward restores the real column index of each cell.
+    // That index is load-bearing, not cosmetic: a row may be only partially
+    // filled ("Opportunities for integration" is blank in Session 1), so cells
+    // arrive at ci=2..4. Distributing positionally would shift each one a
+    // session to the left; reading colSession[ci] keeps them on S2..S4.
+    //
+    // Keyed by column count so an unrelated multi-column table in the same
+    // document is never forced onto the ILAW session grid.
+    const docColSessions = new Map();
     for (const rows of tables) {
-        const colSession = findSessionHeader(rows) || [];
+        const width = rows.reduce((w, cells) => Math.max(w, cells.length), 0);
+        const own = findSessionHeader(rows);
+        if (own && own.some(Boolean)) docColSessions.set(width, own);
+        const colSession = (own && own.some(Boolean)) ? own : (docColSessions.get(width) || []);
         const hasSessionCols = colSession.some(Boolean);
         rows.forEach((cells, ri) => {
             const label = cleanSectionTitle(cells[0]);
