@@ -1,6 +1,7 @@
 // EduShare AI Study Buddy & Tutor client.
 // Features: multi-turn streaming chat, stop/retry/copy per answer,
-// markdown rendering, subject-aware history, export, live status.
+// markdown rendering, subject-aware history, export, live status,
+// and teacher-material study basis (pick / suggest / cite).
 
 document.addEventListener('DOMContentLoaded', () => {
     const chatForm = document.getElementById('chatForm');
@@ -19,7 +20,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusText = document.getElementById('chatStatusText');
     const liveRegion = document.getElementById('chatLiveRegion');
     const suggestionChips = document.querySelectorAll('.suggestion-chip');
-    const suggestFilesToggle = document.getElementById('suggestFilesToggle');
+
+    // Materials UI
+    const materialsBtn = document.getElementById('materialsBtn');
+    const materialsCountEl = document.getElementById('materialsCount');
+    const materialsModalEl = document.getElementById('materialsModal');
+    const materialsListEl = document.getElementById('materialsList');
+    const materialsSearchEl = document.getElementById('materialsSearch');
+    const materialsSelectedText = document.getElementById('materialsSelectedText');
+    const materialsMaxEl = document.getElementById('materialsMax');
+    const materialsClearBtn = document.getElementById('materialsClearBtn');
+    const materialBar = document.getElementById('materialBar');
+    const materialChipsEl = document.getElementById('materialChips');
+    const materialBarClear = document.getElementById('materialBarClear');
+    const materialSuggestBox = document.getElementById('materialSuggest');
+    const materialSuggestRow = document.getElementById('materialSuggestRow');
+    const materialSuggestLabel = document.getElementById('materialSuggestLabel');
 
     if (!chatForm || !chatInput || !chatMessages) return;
 
@@ -34,53 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
         : (subjectSelect ? subjectSelect.value : 'General');
     if (subjectSelect && subjectSelect.value !== currentSubject) subjectSelect.value = currentSubject;
     let lastUserMessage = '';
-    let suggestFiles = (() => { try { return localStorage.getItem('chatSuggestFiles') !== '0'; } catch { return true; } })();
-    function syncSuggestToggle() {
-        if (!suggestFilesToggle) return;
-        suggestFilesToggle.classList.toggle('is-active', suggestFiles);
-        suggestFilesToggle.setAttribute('aria-pressed', suggestFiles ? 'true' : 'false');
-        suggestFilesToggle.title = suggestFiles
-            ? 'Suggesting class materials for your questions (click to turn off)'
-            : 'Class material suggestions are off (click to turn on)';
-    }
-    syncSuggestToggle();
-    if (suggestFilesToggle) {
-        suggestFilesToggle.addEventListener('click', () => {
-            suggestFiles = !suggestFiles;
-            try { localStorage.setItem('chatSuggestFiles', suggestFiles ? '1' : '0'); } catch { /* private mode */ }
-            syncSuggestToggle();
-            announce(suggestFiles ? 'Material suggestions on.' : 'Material suggestions off.');
-        });
-    }
-
-    // Renders "Suggested materials" cards under an answer bubble (DOM-built, no innerHTML).
-    function renderMaterials(bubble, items) {
-        if (!bubble || !Array.isArray(items) || !items.length) return;
-        const box = document.createElement('div');
-        box.className = 'chat-materials';
-        const head = document.createElement('div');
-        head.className = 'chat-materials-head';
-        head.innerHTML = '<i class="bi bi-folder2-open me-1" aria-hidden="true"></i>';
-        head.appendChild(document.createTextNode('Suggested materials from your classes'));
-        box.appendChild(head);
-        items.slice(0, 3).forEach((m) => {
-            const a = document.createElement('a');
-            a.className = 'chat-material-item';
-            a.href = (typeof m.url === 'string' && m.url.startsWith('/')) ? m.url : '#';
-            if (m.external) { a.target = '_blank'; a.rel = 'noopener'; }
-            const title = document.createElement('span');
-            title.className = 'chat-material-title';
-            title.textContent = m.title || 'Material';
-            const meta = document.createElement('span');
-            meta.className = 'chat-material-meta';
-            meta.textContent = [m.subject, m.class_name].filter(Boolean).join(' \u2022 ');
-            a.appendChild(title);
-            a.appendChild(meta);
-            box.appendChild(a);
-        });
-        bubble.insertAdjacentElement('afterend', box);
-        announce(items.length + ' suggested material' + (items.length === 1 ? '' : 's') + ' from your classes.');
-    }
     const csrfToken = () => document.querySelector('meta[name=csrf-token]')?.content || window.CSRF_TOKEN || '';
 
     // ---------- helpers ----------
@@ -101,47 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function announce(text) {
         if (liveRegion) liveRegion.textContent = text;
     }
-    // ---------- class-material suggestions ----------
-let materialsOn = (() => { try { return localStorage.getItem('chatMaterials') !== '0'; } catch { return true; } })();
-const materialsBtn = document.getElementById('materialsToggleBtn');
-
-function syncMaterialsBtn() {
-    if (!materialsBtn) return;
-    materialsBtn.setAttribute('aria-pressed', materialsOn ? 'true' : 'false');
-    materialsBtn.classList.toggle('btn-liquid-primary', materialsOn);
-    materialsBtn.classList.toggle('btn-glass', !materialsOn);
-    materialsBtn.title = materialsOn
-        ? 'Suggesting class materials for your questions (click to turn off)'
-        : 'Material suggestions are off (click to turn on)';
-}
-if (materialsBtn) {
-    syncMaterialsBtn();
-    materialsBtn.addEventListener('click', () => {
-        materialsOn = !materialsOn;
-        try { localStorage.setItem('chatMaterials', materialsOn ? '1' : '0'); } catch { /* private mode */ }
-        syncMaterialsBtn();
-        announce(materialsOn ? 'Material suggestions on.' : 'Material suggestions off.');
-    });
-}
-
-async function showMaterialSuggestions(message, subject, anchorEl) {
-    if (!materialsOn || !anchorEl) return;
-    try {
-        const res = await fetch(`/api/ai/chat/materials?q=${encodeURIComponent(message)}&subject=${encodeURIComponent(subject)}`,
-            { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
-        if (!res.ok) return;
-        const data = await res.json();
-        const items = Array.isArray(data.items) ? data.items : [];
-        if (!items.length) return;
-        const box = document.createElement('div');
-        box.className = 'chat-materials small mt-1';
-        box.innerHTML = '<div class="fw-bold text-muted mb-1"><i class="bi bi-folder2-open me-1"></i>From your class materials</div>'
-            + items.map((m) => `<a href="${escapeHtml(m.url)}" class="btn btn-sm btn-glass me-1 mb-1">`
-                + `${escapeHtml(m.title)} <span class="badge-amber">${escapeHtml(m.kind)}</span></a>`).join('');
-        anchorEl.insertAdjacentElement('beforebegin', box);
-        scrollBottom();
-    } catch { /* suggestions are best-effort */ }
-}
 
     function autoGrow() {
         if (chatInput && chatInput.tagName === 'TEXTAREA') {
@@ -191,6 +119,219 @@ async function showMaterialSuggestions(message, subject, anchorEl) {
     function hideEmpty() {
         if (chatEmpty) chatEmpty.style.display = 'none';
     }
+
+    // ---------- teacher materials (study basis) ----------
+    const MAT_KEY = 'chatMaterialIds';
+    let materials = [];
+    let materialsLoadedAt = 0;
+    let maxMaterials = 3;
+    let materialQuery = '';
+    const selectedIds = new Set((() => {
+        try {
+            const raw = JSON.parse(localStorage.getItem(MAT_KEY) || '[]');
+            return Array.isArray(raw) ? raw.map(Number).filter((n) => Number.isInteger(n) && n > 0) : [];
+        } catch { return []; }
+    })());
+
+    function persistMaterialIds() {
+        try { localStorage.setItem(MAT_KEY, JSON.stringify(Array.from(selectedIds))); } catch { /* private mode */ }
+    }
+
+    function materialById(id) {
+        return materials.find((m) => m.id === id) || null;
+    }
+
+    function extLabel(m) {
+        if (m.ext === 'slides') return 'AI slides';
+        return m.ext ? m.ext.toUpperCase() : 'FILE';
+    }
+
+    function renderMaterialChips() {
+        if (materialsCountEl) {
+            materialsCountEl.textContent = String(selectedIds.size);
+            materialsCountEl.classList.toggle('d-none', selectedIds.size === 0);
+        }
+        if (materialsSelectedText) {
+            materialsSelectedText.textContent = `${selectedIds.size} of ${maxMaterials} selected`;
+        }
+        if (!materialBar || !materialChipsEl) return;
+        if (selectedIds.size === 0) {
+            materialBar.classList.add('d-none');
+            materialChipsEl.innerHTML = '';
+            return;
+        }
+        materialBar.classList.remove('d-none');
+        materialChipsEl.innerHTML = Array.from(selectedIds).map((id) => {
+            const m = materialById(id);
+            const title = m ? m.title : `Material #${id}`;
+            const meta = m ? [extLabel(m), m.class_name].filter(Boolean).join(' · ') : 'Class material';
+            const icon = m && m.ext === 'slides' ? 'bi-easel' : 'bi-file-earmark-text';
+            return `<span class="material-chip">
+                <span class="material-chip-icon"><i class="bi ${icon}" aria-hidden="true"></i></span>
+                <span class="material-chip-text">
+                    <span class="material-chip-title" title="${escapeHtml(title)}">${escapeHtml(title)}</span>
+                    <span class="material-chip-meta">${escapeHtml(meta)}</span>
+                </span>
+                <button type="button" data-remove-material="${id}" aria-label="Remove ${escapeHtml(title)}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </span>`;
+        }).join('');
+    }
+
+    function renderMaterialSuggestions() {
+        if (!materialSuggestBox || !materialSuggestRow) return;
+        const picks = materials
+            .filter((m) => m.suggested && m.usable && !selectedIds.has(m.id))
+            .slice(0, 3);
+        if (!picks.length) {
+            materialSuggestBox.classList.add('d-none');
+            materialSuggestRow.innerHTML = '';
+            return;
+        }
+        if (materialSuggestLabel) {
+            materialSuggestLabel.textContent = currentSubject === 'General'
+                ? 'Suggested from your teachers:'
+                : `Suggested from your teachers for ${currentSubject}:`;
+        }
+        materialSuggestRow.innerHTML = picks.map((m) =>
+            `<button type="button" class="material-suggest-chip" data-suggest-material="${m.id}" title="Use as study basis"><i class="bi bi-plus-circle" aria-hidden="true"></i>${escapeHtml(m.title)}</button>`
+        ).join('');
+        materialSuggestBox.classList.remove('d-none');
+    }
+
+    function renderMaterialList() {
+        if (!materialsListEl) return;
+        const q = materialQuery.trim().toLowerCase();
+        const items = materials.filter((m) => !q
+            || `${m.title} ${m.description} ${m.subject} ${m.class_name}`.toLowerCase().includes(q));
+        if (!materials.length) {
+            materialsListEl.innerHTML = '<div class="text-center text-muted p-4 small"><i class="bi bi-folder2-open fs-2 d-block mb-2 text-success" aria-hidden="true"></i>Your teachers have not posted any materials to your classes yet.</div>';
+            return;
+        }
+        if (!items.length) {
+            materialsListEl.innerHTML = '<div class="text-center text-muted p-4 small">No materials match your search.</div>';
+            return;
+        }
+        materialsListEl.innerHTML = items.map((m) => {
+            const checked = selectedIds.has(m.id);
+            const disabled = !m.usable;
+            const link = m.file_url
+                ? `<a href="${escapeHtml(m.file_url)}" target="_blank" rel="noopener" class="btn btn-sm btn-glass flex-shrink-0" title="Open file" aria-label="Open ${escapeHtml(m.title)}"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a>`
+                : '';
+            const note = disabled
+                ? '<div class="small text-muted mt-1"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Download only — the tutor can read PDF, DOCX, TXT, and AI slides.</div>'
+                : '';
+            return `<div class="material-item ${checked ? 'is-selected' : ''} ${disabled ? 'is-disabled' : ''}">
+                <input type="checkbox" class="form-check-input" id="mat-${m.id}" data-mat-id="${m.id}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+                <label for="mat-${m.id}">
+                    <div class="fw-bold text-dark">${escapeHtml(m.title)}</div>
+                    <div class="d-flex flex-wrap gap-1 my-1">
+                        <span class="badge-emerald" style="font-size:0.7rem;">${escapeHtml(m.subject)}</span>
+                        <span class="badge-gray" style="font-size:0.7rem;">${escapeHtml(m.class_name)}</span>
+                        <span class="badge-gray" style="font-size:0.7rem;">${escapeHtml(extLabel(m))}</span>
+                        ${m.suggested ? '<span class="badge-amber" style="font-size:0.7rem;"><i class="bi bi-stars" aria-hidden="true"></i> Suggested</span>' : ''}
+                    </div>
+                    ${m.description ? `<div class="small text-muted material-desc">${escapeHtml(m.description)}</div>` : ''}
+                    ${note}
+                </label>
+                ${link}
+            </div>`;
+        }).join('');
+    }
+
+    function renderAllMaterials() {
+        renderMaterialChips();
+        renderMaterialSuggestions();
+        renderMaterialList();
+    }
+
+    function selectMaterial(id, on) {
+        if (on) {
+            if (selectedIds.size >= maxMaterials && !selectedIds.has(id)) {
+                announce(`You can use up to ${maxMaterials} materials at a time. Remove one first.`);
+                if (materialsSelectedText) materialsSelectedText.textContent = `Limit reached: ${maxMaterials} of ${maxMaterials} selected`;
+                return false;
+            }
+            selectedIds.add(id);
+            const m = materialById(id);
+            announce(`${m ? m.title : 'Material'} added as study basis.`);
+        } else {
+            selectedIds.delete(id);
+            announce('Material removed.');
+        }
+        persistMaterialIds();
+        renderAllMaterials();
+        return true;
+    }
+
+    async function loadMaterials() {
+        try {
+            const res = await fetch(`/api/ai/chat/materials?subject=${encodeURIComponent(currentSubject)}`, {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok || !data || !data.success) throw new Error((data && data.error) || `HTTP ${res.status}`);
+            materials = Array.isArray(data.materials) ? data.materials : [];
+            maxMaterials = Number(data.max) || 3;
+            materialsLoadedAt = Date.now();
+            if (materialsMaxEl) materialsMaxEl.textContent = String(maxMaterials);
+            // Drop saved picks the student can no longer use (unposted / not readable).
+            const valid = new Set(materials.filter((m) => m.usable).map((m) => m.id));
+            Array.from(selectedIds).forEach((id) => { if (!valid.has(id)) selectedIds.delete(id); });
+            persistMaterialIds();
+            renderAllMaterials();
+        } catch (err) {
+            console.warn('Materials load skipped:', err.message);
+            if (materialsListEl && !materials.length) {
+                materialsListEl.innerHTML = '<div class="text-center text-danger p-4 small">Could not load class materials. <button type="button" class="btn btn-sm btn-glass ms-2" id="materialsRetry">Retry</button></div>';
+                document.getElementById('materialsRetry')?.addEventListener('click', loadMaterials);
+            }
+        }
+    }
+
+    function openMaterialsModal() {
+        if (Date.now() - materialsLoadedAt > 60000) loadMaterials();
+        renderMaterialList();
+        if (materialsModalEl && window.bootstrap?.Modal) {
+            window.bootstrap.Modal.getOrCreateInstance(materialsModalEl).show();
+        }
+    }
+
+    if (materialsBtn) materialsBtn.addEventListener('click', openMaterialsModal);
+    if (materialsSearchEl) {
+        materialsSearchEl.addEventListener('input', () => {
+            materialQuery = materialsSearchEl.value || '';
+            renderMaterialList();
+        });
+    }
+    if (materialsListEl) {
+        materialsListEl.addEventListener('change', (e) => {
+            const box = e.target.closest ? e.target.closest('[data-mat-id]') : null;
+            if (!box) return;
+            const ok = selectMaterial(parseInt(box.dataset.matId, 10), box.checked);
+            if (!ok) box.checked = false;
+        });
+    }
+    const clearMaterials = () => {
+        selectedIds.clear();
+        persistMaterialIds();
+        renderAllMaterials();
+        announce('Study materials cleared.');
+    };
+    if (materialsClearBtn) materialsClearBtn.addEventListener('click', clearMaterials);
+    if (materialBarClear) materialBarClear.addEventListener('click', clearMaterials);
+    if (materialChipsEl) {
+        materialChipsEl.addEventListener('click', (e) => {
+            const btn = e.target.closest ? e.target.closest('[data-remove-material]') : null;
+            if (btn) selectMaterial(parseInt(btn.dataset.removeMaterial, 10), false);
+        });
+    }
+    if (materialSuggestRow) {
+        materialSuggestRow.addEventListener('click', (e) => {
+            const btn = e.target.closest ? e.target.closest('[data-suggest-material]') : null;
+            if (btn) selectMaterial(parseInt(btn.dataset.suggestMaterial, 10), true);
+        });
+    }
+    renderMaterialChips();
 
     // ---------- markdown (safe: escape first, then allowlist our own tags) ----------
     // Models emit LaTeX (\frac, \sqrt, \(...\), \[...\]) but the portal ships
@@ -516,7 +657,7 @@ async function showMaterialSuggestions(message, subject, anchorEl) {
                 method: 'POST',
                 signal: streamAborter.signal,
                 headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'x-csrf-token': csrfToken() },
-                body: JSON.stringify({ message, subject, suggest_files: suggestFiles })
+                body: JSON.stringify({ message, subject, material_ids: Array.from(selectedIds) })
             });
             if (!response.ok || !response.body) {
                 bubble.innerHTML = `<div class="chat-error" role="alert"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Sorry, I could not reach the tutor (error ${response.status}). <button type="button" class="btn btn-sm btn-glass ms-2 chat-inline-retry">Retry</button></div>`;
@@ -559,17 +700,19 @@ async function showMaterialSuggestions(message, subject, anchorEl) {
                     queuePaint();
                 }
                 if (data.provider) provider = data.provider;
-                if (data.materials) renderMaterials(bubble, data.materials);
                 if (data.error) {
                     fullText += `\n\n*(Notice: ${data.error})*`;
                     bubble.innerHTML = formatMarkdown(fullText);
                 }
                 if (data.done) {
                     if (!fullText.trim()) bubble.innerHTML = '<span class="text-muted">I did not produce an answer. Please try again.</span>';
-                    if (provider && time) time.textContent = `${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ${provider}`;
-                    else if (time) time.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                    const stamp = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                    const used = Array.isArray(data.materials) ? data.materials : [];
+                    const usedText = used.length
+                        ? `Based on: ${used.map((m) => m.title + (m.readable === false ? ' (details only)' : '')).join(', ')}`
+                        : '';
+                    if (time) time.textContent = [stamp, provider, usedText].filter(Boolean).join(' · ');
                     actions.classList.remove('d-none');
-                    showMaterialSuggestions(message, subject, actions);
                     announce('Tutor replied.');
                     refreshStatus();
                 }
@@ -646,6 +789,7 @@ async function showMaterialSuggestions(message, subject, anchorEl) {
             if (nameEl) nameEl.textContent = currentSubject;
             announce(`Subject set to ${currentSubject}.`);
             loadChatHistory();
+            loadMaterials(); // refresh "Suggested" for the new subject
         });
     }
     if (subjectSelect) {
@@ -842,4 +986,5 @@ async function showMaterialSuggestions(message, subject, anchorEl) {
     setStatus('gray', 'Connecting…');
     refreshStatus();
     loadChatHistory();
+    loadMaterials();
 });

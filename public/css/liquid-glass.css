@@ -2187,3 +2187,156 @@ select.glass-input:focus-visible {
 .chat-material-title { font-size: 0.88rem; font-weight: 700; color: var(--zahs-emerald-primary); overflow-wrap: anywhere; }
 .chat-material-meta { font-size: 0.74rem; color: var(--text-secondary); }
 @media (prefers-reduced-motion: reduce) { .chat-material-item:hover { transform: none; } }
+
+/* ==========================================
+   AI Tutor: teacher-material study basis
+   ========================================== */
+.chat-material-bar {
+    margin: 0 0.75rem;
+    padding: 0.65rem 0.85rem 0.75rem;
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.13), rgba(245, 158, 11, 0.08)), rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-bottom: 0;
+    box-shadow: 0 -4px 14px rgba(10, 61, 36, 0.05);
+}
+.material-bar-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+.material-bar-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: var(--zahs-emerald-deep);
+}
+.material-bar-label i { color: var(--zahs-jade); font-size: 1rem; }
+.material-bar-hint { font-size: 0.74rem; color: var(--text-secondary); }
+.material-bar-clear {
+    margin-left: auto;
+    border: 0;
+    background: transparent;
+    color: #b91c1c;
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    cursor: pointer;
+}
+.material-bar-clear:hover { background: rgba(220, 38, 38, 0.1); }
+.material-bar-clear:focus-visible,
+.material-chip button:focus-visible,
+.material-suggest-chip:focus-visible {
+    outline: 3px solid var(--zahs-amber);
+    outline-offset: 2px;
+}
+.material-chips {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.material-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    max-width: 100%;
+    padding: 0.3rem 0.35rem 0.3rem 0.35rem;
+    background: #ffffff;
+    border: 1.5px solid rgba(16, 185, 129, 0.35);
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(10, 61, 36, 0.07);
+}
+.material-chip-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--zahs-emerald-primary), var(--zahs-emerald-deep));
+    color: #ffffff;
+    font-size: 1rem;
+}
+.material-chip-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.material-chip-title {
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 220px;
+}
+.material-chip-meta { font-size: 0.7rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.material-chip button {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(100, 116, 139, 0.12);
+    color: #475569;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+.material-chip button:hover { background: rgba(220, 38, 38, 0.15); color: #b91c1c; }
+
+/* Composer sits flush under the bar when a basis is selected */
+.chat-material-bar:not(.d-none) + .chat-composer { border-top: 0; padding-top: 0; }
+.chat-material-bar:not(.d-none) + .chat-composer .chat-composer-pill { border-top-left-radius: 0; border-top-right-radius: 0; }
+
+/* Suggestions on the empty state */
+.material-suggest-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(245, 158, 11, 0.13);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: var(--zahs-amber-gold);
+    border-radius: 999px;
+    padding: 0.35rem 0.85rem;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+.material-suggest-chip:hover { background: rgba(245, 158, 11, 0.24); transform: translateY(-1px); }
+
+/* Materials picker modal rows */
+.material-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(16, 185, 129, 0.18);
+    margin-bottom: 0.6rem;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+.material-item.is-selected { border-color: var(--zahs-emerald-primary); background: rgba(16, 185, 129, 0.09); }
+.material-item.is-disabled { opacity: 0.75; }
+.material-item label { cursor: pointer; flex: 1 1 auto; min-width: 0; }
+.material-item.is-disabled label { cursor: default; }
+.material-item .form-check-input { width: 1.15rem; height: 1.15rem; margin-top: 0.2rem; flex-shrink: 0; }
+.material-item .material-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+@media (max-width: 768px) {
+    .chat-material-bar { margin: 0 0.5rem; padding: 0.55rem 0.65rem 0.65rem; }
+    .material-bar-hint { display: none; }
+    .material-chips { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .material-chips::-webkit-scrollbar { display: none; }
+    .material-chip { flex: 0 0 auto; }
+    .material-chip-title, .material-chip-meta { max-width: 150px; }
+}

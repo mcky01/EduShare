@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const aiController = require('../controllers/aiController');
+const chatMaterialController = require('../controllers/chatMaterialController');
 const { isAuthenticated, requireRole } = require('../middleware/auth');
 const { validateCsrf, csrfAfterMulter } = require('../middleware/csrf');
 const { uploadPlan } = require('../middleware/upload');
@@ -11,6 +12,8 @@ router.post('/chat/stream', validateCsrf, aiController.chatStream);
 router.get('/chat/history', aiController.getChatHistory);
 router.get('/chat/status', aiController.getChatStatus);
 router.delete('/chat/history', validateCsrf, aiController.clearChatHistory);
+// Teacher-posted materials the student can use as a chat basis.
+router.get('/chat/materials', requireRole('student'), chatMaterialController.list);
 
 // Standalone plan parse (auto-parse on file select; teacher reviews before generating).
 router.post('/lesson/parse', requireRole('teacher'), (req, res) => {

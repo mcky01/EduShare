@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { query, withTransaction } = require('../config/database');
 const notifications = require('../services/notificationService');
+const chatMaterialService = require('../services/chatMaterialService');
 
 const VALID_CHAT_SUBJECTS = ['English', 'Mathematics', 'Science', 'Araling Panlipunan', 'Filipino', 'General'];
 const VALID_CHAT_GRADES = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
@@ -70,19 +71,31 @@ async function chatStream(req, res) {
         const subject = cleanChatSubject(req.body.subject);
         const grade = cleanChatGrade(req.body.grade || req.session.user.grade_level);
         const studentUserId = req.session.user.id;
-        const wantFiles = !(req.body.suggest_files === false || req.body.suggest_files === 'false' || req.body.suggest_files === 0);
 
         if (!message || message.length < 2) {
             res.write(`data: ${JSON.stringify({ error: 'Please type a question (at least 2 characters) so I can help you study.' })}\n\n`);
             return res.end();
         }
 
-        const systemPrompt = `You are the friendly, encouraging, and highly knowledgeable AI Study Buddy & Tutor at Zeferino Arroyo High School (Iriga City, motto: "Basta Zeferinian, Magaling Yan!").
+        const baseSystemPrompt = `You are the friendly, encouraging, and highly knowledgeable AI Study Buddy & Tutor at Zeferino Arroyo High School (Iriga City, motto: "Basta Zeferinian, Magaling Yan!").
 You are tutoring a ${grade} student in ${subject}.
 Answer clearly with age-appropriate explanations, bullet points, and real-world examples.
 Guide the student using the Socratic method when appropriate: ask one short follow-up question at the end when it helps learning.
 Keep your tone respectful, inspiring, and aligned with DepEd MATATAG curriculum values.
 Use Markdown: short headings, **bold** key terms, bullet lists, and numbered steps. Keep answers focused (under ~350 words unless the student asks for more).`;
+
+        // Optional study basis: teacher-posted materials the student picked.
+        // Access is re-verified server-side against the student's active enrollments.
+        let materialCtx = { block: '', used: [] };
+        try {
+            materialCtx = await chatMaterialService.getContext(
+                req.session.user.student_profile_id,
+                req.body.material_ids
+            );
+        } catch (matErr) {
+            console.warn('Chat materials skipped:', matErr.message || matErr);
+        }
+        const systemPrompt = baseSystemPrompt + materialCtx.block;
 
         // Multi-turn memory: last N exchanges for this subject (or General)
         // so follow-ups like "give me an example" keep their context.
@@ -94,10 +107,7 @@ Use Markdown: short headings, **bold** key terms, bullet lists, and numbered ste
                   ORDER BY created_at DESC LIMIT ?`,
                 [studentUserId, subject === 'General' ? 'General' : subject, CHAT_CONTEXT_TURNS]
             );
-            // One query covers both cases: for General the bind resolves to
-            // 'General' (matching only General rows), otherwise it selects the
-            // subject's own rows plus General. Newest first, so reverse to
-            // chronological order for the prompt.
+            // Newest first, so reverse to chronological order for the prompt.
             historyTurns = recent.reverse();
         } catch { historyTurns = []; }
 
@@ -115,17 +125,6 @@ Use Markdown: short headings, **bold** key terms, bullet lists, and numbered ste
             fullAiResponse += chunk;
             res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
         }
-                // Suggest teacher-posted files that match the question (students only, best-effort).
-        if (wantFiles && req.session.user.role === 'student' && req.session.user.student_profile_id) {
-            try {
-                const materials = await materialSuggest.suggestForStudent(
-                    req.session.user.student_profile_id, message, subject
-                );
-                if (materials.length) res.write(`data: ${JSON.stringify({ materials })}\n\n`);
-            } catch (sugErr) {
-                console.warn('Material suggestion skipped:', sugErr.message);
-            }
-        }
 
         const providerUsed = provider === 'nine_router'
             ? `9Router ${process.env.NINE_ROUTER_MODEL || 'free model'}`
@@ -142,7 +141,9 @@ Use Markdown: short headings, **bold** key terms, bullet lists, and numbered ste
             console.warn('Chat history save skipped:', saveErr.message);
         }
 
-        res.write(`data: ${JSON.stringify({ done: true, provider: providerUsed })}\n\n`);
+        // Offline fallback never sees the materials, so don't claim it used them.
+        const materialsUsed = provider === 'fallback' ? [] : materialCtx.used;
+        res.write(`data: ${JSON.stringify({ done: true, provider: providerUsed, materials: materialsUsed })}\n\n`);
         res.end();
     } catch (err) {
         console.error('Chat stream error:', err);
