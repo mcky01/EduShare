@@ -1,3 +1,4 @@
+const materialSuggest = require('../services/materialSuggestService');
 const aiService = require('../services/aiService');
 const groundingService = require('../services/groundingService');
 const validationService = require('../services/validationService');
@@ -69,6 +70,7 @@ async function chatStream(req, res) {
         const subject = cleanChatSubject(req.body.subject);
         const grade = cleanChatGrade(req.body.grade || req.session.user.grade_level);
         const studentUserId = req.session.user.id;
+        const wantFiles = !(req.body.suggest_files === false || req.body.suggest_files === 'false' || req.body.suggest_files === 0);
 
         if (!message || message.length < 2) {
             res.write(`data: ${JSON.stringify({ error: 'Please type a question (at least 2 characters) so I can help you study.' })}\n\n`);
@@ -112,6 +114,17 @@ Use Markdown: short headings, **bold** key terms, bullet lists, and numbered ste
         for await (const chunk of aiService.chatStream(messages, { onSource: (s) => { provider = s; } })) {
             fullAiResponse += chunk;
             res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+        }
+                // Suggest teacher-posted files that match the question (students only, best-effort).
+        if (wantFiles && req.session.user.role === 'student' && req.session.user.student_profile_id) {
+            try {
+                const materials = await materialSuggest.suggestForStudent(
+                    req.session.user.student_profile_id, message, subject
+                );
+                if (materials.length) res.write(`data: ${JSON.stringify({ materials })}\n\n`);
+            } catch (sugErr) {
+                console.warn('Material suggestion skipped:', sugErr.message);
+            }
         }
 
         const providerUsed = provider === 'nine_router'

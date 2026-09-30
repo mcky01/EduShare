@@ -2145,3 +2145,45 @@ select.glass-input:focus-visible {
     letter-spacing: 0.3px;
     color: #4b5563;
 }
+
+/* Chat: Materials toggle + suggested class materials */
+.suggest-files-toggle.is-active {
+    background: linear-gradient(135deg, var(--zahs-emerald-primary), var(--zahs-emerald-deep));
+    border-color: rgba(52, 211, 153, 0.35);
+    color: #ffffff;
+}
+.suggest-files-toggle.is-active:hover { color: #ffffff; }
+.suggest-files-toggle:focus-visible { outline: 3px solid var(--zahs-amber); outline-offset: 2px; }
+
+.chat-materials {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.25rem;
+    padding: 0.65rem 0.75rem;
+    background: rgba(236, 253, 245, 0.75);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 14px;
+}
+.chat-materials-head {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--zahs-emerald-deep);
+}
+.chat-material-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.5rem 0.7rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 10px;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.chat-material-item:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(10, 61, 36, 0.12); }
+.chat-material-item:focus-visible { outline: 3px solid var(--zahs-amber); outline-offset: 2px; }
+.chat-material-title { font-size: 0.88rem; font-weight: 700; color: var(--zahs-emerald-primary); overflow-wrap: anywhere; }
+.chat-material-meta { font-size: 0.74rem; color: var(--text-secondary); }
+@media (prefers-reduced-motion: reduce) { .chat-material-item:hover { transform: none; } }

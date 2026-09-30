@@ -21,6 +21,9 @@
                 <option value="<%= s %>" <%= s === 'General' ? 'selected' : '' %>><%= s %></option>
             <% }) %>
         </select>
+                <button type="button" id="suggestFilesToggle" class="btn btn-glass btn-sm suggest-files-toggle is-active" aria-pressed="true" title="Suggest class materials that match my questions">
+            <i class="bi bi-folder2-open" aria-hidden="true"></i><span class="d-none d-md-inline ms-1">Materials</span>
+        </button>
         <button type="button" id="exportChatBtn" class="btn btn-glass btn-sm" title="Download this conversation as a study note (.md)">
             <i class="bi bi-download" aria-hidden="true"></i><span class="visually-hidden">Export chat</span>
         </button>

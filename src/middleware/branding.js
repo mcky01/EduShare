@@ -7,7 +7,7 @@ let lastFetch = 0;
 let cachedSessionTimeoutMin = null;
 // Cache-buster for unversioned static assets (CSS in particular). Bump this
 // whenever public/css or other non-?v assets change so browsers re-fetch them.
-const CSS_VERSION = '20260918';
+const CSS_VERSION = '20260929';
 
 async function getBrandingSettings() {
     const now = Date.now();

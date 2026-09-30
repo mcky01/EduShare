@@ -24,7 +24,7 @@
             <img src="/images/zahs-logo.png" alt="ZAHS Logo" style="width: 44px; height: 44px; object-fit: contain;">
             <div>
                 <h5 class="fw-bold mb-0 text-dark"><%= quiz.title %></h5>
-                <span class="small text-muted"><%= classInfo.class_name %> &bull; Question <span id="currentQuestionDisplay" aria-live="polite" aria-atomic="true">1</span> of <%= questions.length %></span>
+                <span class="small text-muted"><%= classInfo.class_name %> • Question <span id="currentQuestionDisplay" aria-live="polite" aria-atomic="true">1</span> of <%= questions.length %></span>
             </div>
         </div>
 
@@ -49,7 +49,7 @@
                         <div class="question-card" data-question-id="<%= q.id %>" data-question-type="<%= q.question_type %>" style="<%= idx === 0 ? '' : 'display: none;' %>">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <span class="badge-emerald">Question <%= idx + 1 %> of <%= questions.length %></span>
-                                <span class="badge-amber text-capitalize"><%= q.question_type.replace('_', ' ') %> &bull; <%= q.points %> Pt</span>
+                                <span class="badge-amber text-capitalize"><%= q.question_type.replace('_', ' ') %> • <%= q.points %> Pt</span>
                             </div>
 
                             <h4 class="fw-bold text-dark mb-4" style="line-height: 1.5;"><%= q.question_text %></h4>

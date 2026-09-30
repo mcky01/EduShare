@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusText = document.getElementById('chatStatusText');
     const liveRegion = document.getElementById('chatLiveRegion');
     const suggestionChips = document.querySelectorAll('.suggestion-chip');
+    const suggestFilesToggle = document.getElementById('suggestFilesToggle');
 
     if (!chatForm || !chatInput || !chatMessages) return;
 
@@ -33,6 +34,53 @@ document.addEventListener('DOMContentLoaded', () => {
         : (subjectSelect ? subjectSelect.value : 'General');
     if (subjectSelect && subjectSelect.value !== currentSubject) subjectSelect.value = currentSubject;
     let lastUserMessage = '';
+    let suggestFiles = (() => { try { return localStorage.getItem('chatSuggestFiles') !== '0'; } catch { return true; } })();
+    function syncSuggestToggle() {
+        if (!suggestFilesToggle) return;
+        suggestFilesToggle.classList.toggle('is-active', suggestFiles);
+        suggestFilesToggle.setAttribute('aria-pressed', suggestFiles ? 'true' : 'false');
+        suggestFilesToggle.title = suggestFiles
+            ? 'Suggesting class materials for your questions (click to turn off)'
+            : 'Class material suggestions are off (click to turn on)';
+    }
+    syncSuggestToggle();
+    if (suggestFilesToggle) {
+        suggestFilesToggle.addEventListener('click', () => {
+            suggestFiles = !suggestFiles;
+            try { localStorage.setItem('chatSuggestFiles', suggestFiles ? '1' : '0'); } catch { /* private mode */ }
+            syncSuggestToggle();
+            announce(suggestFiles ? 'Material suggestions on.' : 'Material suggestions off.');
+        });
+    }
+
+    // Renders "Suggested materials" cards under an answer bubble (DOM-built, no innerHTML).
+    function renderMaterials(bubble, items) {
+        if (!bubble || !Array.isArray(items) || !items.length) return;
+        const box = document.createElement('div');
+        box.className = 'chat-materials';
+        const head = document.createElement('div');
+        head.className = 'chat-materials-head';
+        head.innerHTML = '<i class="bi bi-folder2-open me-1" aria-hidden="true"></i>';
+        head.appendChild(document.createTextNode('Suggested materials from your classes'));
+        box.appendChild(head);
+        items.slice(0, 3).forEach((m) => {
+            const a = document.createElement('a');
+            a.className = 'chat-material-item';
+            a.href = (typeof m.url === 'string' && m.url.startsWith('/')) ? m.url : '#';
+            if (m.external) { a.target = '_blank'; a.rel = 'noopener'; }
+            const title = document.createElement('span');
+            title.className = 'chat-material-title';
+            title.textContent = m.title || 'Material';
+            const meta = document.createElement('span');
+            meta.className = 'chat-material-meta';
+            meta.textContent = [m.subject, m.class_name].filter(Boolean).join(' \u2022 ');
+            a.appendChild(title);
+            a.appendChild(meta);
+            box.appendChild(a);
+        });
+        bubble.insertAdjacentElement('afterend', box);
+        announce(items.length + ' suggested material' + (items.length === 1 ? '' : 's') + ' from your classes.');
+    }
     const csrfToken = () => document.querySelector('meta[name=csrf-token]')?.content || window.CSRF_TOKEN || '';
 
     // ---------- helpers ----------
@@ -53,6 +101,47 @@ document.addEventListener('DOMContentLoaded', () => {
     function announce(text) {
         if (liveRegion) liveRegion.textContent = text;
     }
+    // ---------- class-material suggestions ----------
+let materialsOn = (() => { try { return localStorage.getItem('chatMaterials') !== '0'; } catch { return true; } })();
+const materialsBtn = document.getElementById('materialsToggleBtn');
+
+function syncMaterialsBtn() {
+    if (!materialsBtn) return;
+    materialsBtn.setAttribute('aria-pressed', materialsOn ? 'true' : 'false');
+    materialsBtn.classList.toggle('btn-liquid-primary', materialsOn);
+    materialsBtn.classList.toggle('btn-glass', !materialsOn);
+    materialsBtn.title = materialsOn
+        ? 'Suggesting class materials for your questions (click to turn off)'
+        : 'Material suggestions are off (click to turn on)';
+}
+if (materialsBtn) {
+    syncMaterialsBtn();
+    materialsBtn.addEventListener('click', () => {
+        materialsOn = !materialsOn;
+        try { localStorage.setItem('chatMaterials', materialsOn ? '1' : '0'); } catch { /* private mode */ }
+        syncMaterialsBtn();
+        announce(materialsOn ? 'Material suggestions on.' : 'Material suggestions off.');
+    });
+}
+
+async function showMaterialSuggestions(message, subject, anchorEl) {
+    if (!materialsOn || !anchorEl) return;
+    try {
+        const res = await fetch(`/api/ai/chat/materials?q=${encodeURIComponent(message)}&subject=${encodeURIComponent(subject)}`,
+            { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (!items.length) return;
+        const box = document.createElement('div');
+        box.className = 'chat-materials small mt-1';
+        box.innerHTML = '<div class="fw-bold text-muted mb-1"><i class="bi bi-folder2-open me-1"></i>From your class materials</div>'
+            + items.map((m) => `<a href="${escapeHtml(m.url)}" class="btn btn-sm btn-glass me-1 mb-1">`
+                + `${escapeHtml(m.title)} <span class="badge-amber">${escapeHtml(m.kind)}</span></a>`).join('');
+        anchorEl.insertAdjacentElement('beforebegin', box);
+        scrollBottom();
+    } catch { /* suggestions are best-effort */ }
+}
 
     function autoGrow() {
         if (chatInput && chatInput.tagName === 'TEXTAREA') {
@@ -427,7 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 signal: streamAborter.signal,
                 headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'x-csrf-token': csrfToken() },
-                body: JSON.stringify({ message, subject })
+                body: JSON.stringify({ message, subject, suggest_files: suggestFiles })
             });
             if (!response.ok || !response.body) {
                 bubble.innerHTML = `<div class="chat-error" role="alert"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Sorry, I could not reach the tutor (error ${response.status}). <button type="button" class="btn btn-sm btn-glass ms-2 chat-inline-retry">Retry</button></div>`;
@@ -470,6 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     queuePaint();
                 }
                 if (data.provider) provider = data.provider;
+                if (data.materials) renderMaterials(bubble, data.materials);
                 if (data.error) {
                     fullText += `\n\n*(Notice: ${data.error})*`;
                     bubble.innerHTML = formatMarkdown(fullText);
@@ -479,6 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (provider && time) time.textContent = `${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ${provider}`;
                     else if (time) time.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
                     actions.classList.remove('d-none');
+                    showMaterialSuggestions(message, subject, actions);
                     announce('Tutor replied.');
                     refreshStatus();
                 }
